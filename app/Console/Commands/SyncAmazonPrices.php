@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Jobs\PurgeCloudflareCacheJob;
 use App\Models\Article;
 use App\Models\Product;
 use App\Services\Amazon\Contracts\AmazonProductDataFetcher;
@@ -116,7 +117,8 @@ class SyncAmazonPrices extends Command
     }
 
     /**
-     * Touch every associated published article to refresh Google freshness signals.
+     * Touch every associated published article to refresh Google freshness signals
+     * and dispatch a Cloudflare cache purge for all affected URLs.
      */
     protected function refreshAssociatedArticles(Product $product, bool $dryRun): void
     {
@@ -126,10 +128,22 @@ class SyncAmazonPrices extends Command
             return;
         }
 
-        $product->articles()
+        $articles = $product->articles()
             ->where('is_published', true)
-            ->update(['updated_at' => now()]);
+            ->get();
 
-        $this->line('      > Price moved >5%; refreshed '.$product->articles->count().' article(s).');
+        $urls = [
+            url('/'),
+            url('/sitemap.xml'),
+        ];
+
+        foreach ($articles as $article) {
+            $article->touch();
+            $urls[] = route('articles.show', $article->slug, true);
+        }
+
+        PurgeCloudflareCacheJob::dispatch(array_unique($urls));
+
+        $this->line('      > Price moved >5%; refreshed '.$articles->count().' article(s) + purged cache.');
     }
 }

@@ -62,8 +62,9 @@ class CatalogSyncApiController extends Controller
         $processed = 0;
         $updatedPrices = 0;
         $refreshedArticles = 0;
+        $urlsToPurge = [];
 
-        DB::transaction(function () use ($payload, &$processed, &$updatedPrices, &$refreshedArticles) {
+        DB::transaction(function () use ($payload, &$processed, &$updatedPrices, &$refreshedArticles, &$urlsToPurge) {
             foreach ($payload['results'] as $result) {
                 $processed++;
 
@@ -85,10 +86,14 @@ class CatalogSyncApiController extends Controller
 
                 if ($priceChanged) {
                     $updatedPrices++;
-                    $refreshedArticles += $this->refreshProductFreshness($product);
+                    $refreshedArticles += $this->refreshProductFreshness($product, $urlsToPurge);
                 }
             }
         });
+
+        if ($urlsToPurge !== []) {
+            PurgeCloudflareCacheJob::dispatch(array_unique($urlsToPurge));
+        }
 
         return response()->json([
             'processed' => $processed,
@@ -160,10 +165,12 @@ class CatalogSyncApiController extends Controller
     }
 
     /**
-     * On a material price change, bump the product's updated_at and refresh the
-     * cache/indexing for every published article. Returns the number of articles refreshed.
+     * On a material price change, bump the product's updated_at and collect
+     * all affected URLs for post-commit cache purge.
+     *
+     * @param  array<string>  $urlsToPurge  Mutated by reference — URLs are appended here.
      */
-    protected function refreshProductFreshness(Product $product): int
+    protected function refreshProductFreshness(Product $product, array &$urlsToPurge): int
     {
         $product->touch();
 
@@ -172,16 +179,12 @@ class CatalogSyncApiController extends Controller
             ->get();
 
         if ($articles->isNotEmpty()) {
-            $urls = [
-                url('/'),
-                url('/sitemap.xml'),
-            ];
+            $urlsToPurge[] = url('/');
+            $urlsToPurge[] = url('/sitemap.xml');
 
             foreach ($articles as $article) {
-                $urls[] = route('articles.show', $article->slug, true);
+                $urlsToPurge[] = route('articles.show', $article->slug, true);
             }
-
-            PurgeCloudflareCacheJob::dispatch(array_unique($urls));
 
             Article::whereIn('id', $articles->pluck('id'))
                 ->update(['updated_at' => now()]);
