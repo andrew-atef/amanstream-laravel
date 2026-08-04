@@ -1,0 +1,189 @@
+<x-layouts.app
+    :meta-title="$article->meta_title ?: $article->title"
+    :meta-description="$article->meta_description"
+    :og-title="$article->title"
+    :og-description="$article->meta_description"
+    :og-image="$product?->image_url"
+    og-type="article"
+>
+    @push('schema')
+        @php
+            $pageUrl = url()->current();
+            $cleanContent = \App\Services\ShortcodeParser::stripShortcodes($article->content);
+            $schemaDescription = $article->meta_description ?: Str::limit(strip_tags($cleanContent), 300);
+            $shortDescription = $article->meta_description ?: Str::limit(strip_tags($cleanContent), 160);
+
+            $productSchema = $product ? [
+                '@context' => 'https://schema.org',
+                '@type' => 'Product',
+                'name' => $product->title,
+                'image' => $product->image_url,
+                'description' => $schemaDescription,
+                'brand' => ['@type' => 'Brand', 'name' => $product->brand ?: $product->title],
+                'sku' => $product->asin,
+                'mpn' => $product->asin,
+                'offers' => [
+                    '@type' => 'Offer',
+                    'url' => $product->affiliate_url,
+                    'priceCurrency' => 'EGP',
+                    'price' => number_format((float) $product->price, 2, '.', ''),
+                    'availability' => $product->in_stock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+                    'itemCondition' => 'https://schema.org/NewCondition',
+                ],
+                'aggregateRating' => [
+                    '@type' => 'AggregateRating',
+                    'ratingValue' => number_format((float) $product->rating, 1, '.', ''),
+                    'reviewCount' => $product->review_count,
+                    'bestRating' => 5,
+                    'worstRating' => 0,
+                ],
+            ] : null;
+
+            $articleSchema = [
+                '@context' => 'https://schema.org',
+                '@type' => 'Article',
+                'mainEntityOfPage' => ['@type' => 'WebPage', '@id' => $pageUrl],
+                'headline' => $article->title,
+                'description' => $shortDescription,
+                'datePublished' => $article->created_at?->toIso8601String(),
+                'dateModified' => $article->updated_at?->toIso8601String(),
+                'inLanguage' => 'ar-EG',
+                'author' => ['@type' => 'Organization', 'name' => config('app.name')],
+                'publisher' => ['@type' => 'Organization', 'name' => config('app.name')],
+            ];
+
+            $categoryName = $product?->category?->name ?? 'مقالات';
+
+            $breadcrumbSchema = [
+                '@context' => 'https://schema.org',
+                '@type' => 'BreadcrumbList',
+                'itemListElement' => [
+                    ['@type' => 'ListItem', 'position' => 1, 'name' => 'الرئيسية', 'item' => url('/')],
+                    ['@type' => 'ListItem', 'position' => 2, 'name' => $categoryName, 'item' => url('/')],
+                    ['@type' => 'ListItem', 'position' => 3, 'name' => $article->title, 'item' => $pageUrl],
+                ],
+            ];
+        @endphp
+
+        @if ($product && $productSchema)
+            <script type="application/ld+json">{!! json_encode($productSchema, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT) !!}</script>
+        @endif
+
+        <script type="application/ld+json">{!! json_encode($articleSchema, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT) !!}</script>
+        <script type="application/ld+json">{!! json_encode($breadcrumbSchema, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT) !!}</script>
+    @endpush
+
+    <article class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-10">
+        <nav class="mb-6 text-sm text-slate-500" aria-label="Breadcrumb">
+            <ol class="flex flex-wrap items-center gap-1">
+                <li><a href="/" class="hover:text-blue-600">الرئيسية</a></li>
+                @if ($product?->category)
+                    <li><span aria-hidden="true">/</span> <a href="/" class="hover:text-blue-600">{{ $product->category->name }}</a></li>
+                @endif
+                <li aria-current="page"><span aria-hidden="true">/</span> <span class="text-slate-800">{{ $article->title }}</span></li>
+            </ol>
+        </nav>
+
+        <header class="mb-8 border-b border-slate-100 pb-6">
+            <h1 class="text-3xl font-black leading-snug text-slate-900 sm:text-4xl">{{ $article->title }}</h1>
+
+            @if ($product)
+                <div class="mt-6 flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+                    <div class="flex items-center gap-4">
+                        @if ($product->image_url)
+                            <img
+                                src="{{ $product->image_url }}"
+                                alt="{{ $product->title }}"
+                                loading="lazy"
+                                class="h-20 w-20 shrink-0 rounded-xl border border-slate-100 bg-white object-contain p-1"
+                            >
+                        @endif
+                        <div>
+                            <div class="font-bold text-slate-900">{{ $product->title }}</div>
+                            <div class="mt-1 text-sm text-slate-500">
+                                {{ $product->brand }} · ASIN: {{ $product->asin }}
+                            </div>
+                            @php
+                                $showPrice = (float) $product->price;
+                                $showOriginal = (float) ($product->original_price ?? 0);
+                                $hasDiscount = $showOriginal > $showPrice;
+                            @endphp
+                            <div class="mt-2 flex flex-wrap items-center gap-2 text-2xl font-black text-blue-700">
+                                @if ($hasDiscount)
+                                    <span class="text-base font-semibold text-slate-400 line-through">{{ number_format($showOriginal, 2) }} ج.م</span>
+                                @endif
+                                <span>{{ number_format($showPrice, 2) }} ج.م</span>
+                                @if ($hasDiscount)
+                                    <span class="rounded-md bg-red-50 px-2 py-0.5 text-xs font-bold text-red-600">
+                                        خصم {{ round((($showOriginal - $showPrice) / $showOriginal) * 100) }}%
+                                    </span>
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+                    <a
+                        href="{{ $product->affiliate_url }}"
+                        target="_blank"
+                        rel="nofollow sponsored noopener"
+                        class="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-3 font-bold text-white shadow-lg shadow-blue-500/30 transition-colors hover:bg-blue-700"
+                    >
+                        اشترِ الآن من أمازون مصر
+                    </a>
+                </div>
+            @endif
+        </header>
+
+        @if ($product)
+            <div class="buy-bar-sentinel" aria-hidden="true"></div>
+        @endif
+
+        <div class="article-content mx-auto max-w-none space-y-6 text-lg leading-8 text-gray-800">
+            {!! $parsedContent !!}
+        </div>
+    </article>
+
+    @if ($product)
+        <div
+            id="sticky-buy-bar"
+            class="fixed inset-x-0 bottom-0 z-40 hidden border-t border-slate-200 bg-white/95 px-4 pb-4 pt-3 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] backdrop-blur lg:hidden"
+        >
+            <div class="mx-auto flex max-w-5xl items-center justify-between gap-3">
+                <div class="min-w-0">
+                    <div class="text-xs text-slate-500">{{ $product->title }}</div>
+                    <div class="truncate">
+                        @if ($hasDiscount)
+                            <span class="text-xs font-semibold text-slate-400 line-through">{{ number_format($showOriginal, 2) }} ج.م</span>
+                            <span class="mx-1"></span>
+                        @endif
+                        <span class="text-xl font-black text-blue-700">{{ number_format($showPrice, 2) }} ج.م</span>
+                    </div>
+                </div>
+                <a
+                    href="{{ $product->affiliate_url }}"
+                    target="_blank"
+                    rel="nofollow sponsored noopener"
+                    class="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-blue-500/30 transition-colors hover:bg-blue-700"
+                >
+                    اشترِ الآن
+                </a>
+            </div>
+        </div>
+
+        <script>
+            (function () {
+                var bar = document.getElementById('sticky-buy-bar');
+                var sentinel = document.querySelector('.buy-bar-sentinel');
+                if (! bar || ! sentinel || typeof IntersectionObserver === 'undefined') return;
+
+                var observer = new IntersectionObserver(function (entries) {
+                    entries.forEach(function (entry) {
+                        bar.classList.toggle('flex', ! entry.isIntersecting);
+                        bar.classList.toggle('hidden', entry.isIntersecting);
+                    });
+                });
+
+                observer.observe(sentinel);
+            })();
+        </script>
+    @endif
+</x-layouts.app>

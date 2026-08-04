@@ -1,0 +1,135 @@
+<?php
+
+namespace App\Console\Commands;
+
+use App\Models\Article;
+use App\Models\Product;
+use App\Services\Amazon\Contracts\AmazonProductDataFetcher;
+use Illuminate\Console\Command;
+
+class SyncAmazonPrices extends Command
+{
+    /**
+     * The name and signature of the console command.
+     *
+     * @var string
+     */
+    protected $signature = 'amazon:sync-prices
+                            {--dry-run : Simulate the sync without persisting changes}';
+
+    /**
+     * The console command description.
+     *
+     * @var string
+     */
+    protected $description = 'Synchronise product pricing, stock and ratings with Amazon and refresh Google freshness signals.';
+
+    /**
+     * Price movements under this ratio are considered noise and ignored.
+     */
+    protected const PRICE_CHANGE_THRESHOLD = 0.05;
+
+    public function __construct(private readonly AmazonProductDataFetcher $fetcher)
+    {
+        parent::__construct();
+    }
+
+    /**
+     * Execute the console command.
+     */
+    public function handle(): int
+    {
+        $products = Product::with('articles')->where('in_stock', true)->get();
+
+        if ($products->isEmpty()) {
+            $this->warn('No active products to sync.');
+
+            return self::SUCCESS;
+        }
+
+        $this->info("Syncing {$products->count()} active product(s)...");
+
+        $synced = 0;
+        $refreshed = 0;
+        $dryRun = (bool) $this->option('dry-run');
+
+        foreach ($products as $product) {
+            try {
+                $live = $this->fetcher->fetch($product);
+
+                $this->info("  [{$product->asin}] {$product->title}");
+
+                $shouldRefresh = ! $dryRun && $this->touchesArticles($product, (float) $live['price']);
+
+                $this->applyMarketData($product, $live, $dryRun);
+                $synced++;
+
+                if ($shouldRefresh) {
+                    $this->refreshAssociatedArticles($product, $dryRun);
+                    $refreshed += $product->articles->count();
+                }
+            } catch (\Throwable $e) {
+                $this->error("  Failed to sync {$product->asin}: {$e->getMessage()}");
+            }
+        }
+
+        $this->newLine();
+        $this->info("Done. Products synced: {$synced}.".($dryRun ? ' [dry-run, no changes persisted]' : ''));
+        $this->info("Article updated_at refreshed for Google freshness: {$refreshed}.");
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * Persist (or report) the fetched marketplace data onto the model.
+     */
+    protected function applyMarketData(Product $product, array $live, bool $dryRun): void
+    {
+        $price = (float) ($live['price'] ?? $product->price);
+        $inStock = (bool) ($live['in_stock'] ?? $product->in_stock);
+
+        $product->price = $price;
+        $product->in_stock = $inStock;
+        $product->rating = (float) ($live['rating'] ?? $product->rating);
+        $product->review_count = (int) ($live['review_count'] ?? $product->review_count);
+        $product->last_synced_at = now();
+
+        if (! $dryRun) {
+            $product->save();
+        }
+    }
+
+    /**
+     * Determine whether the price moved enough to warrant a freshness refresh.
+     */
+    protected function touchesArticles(Product $product, float $livePrice): bool
+    {
+        $current = (float) $product->price;
+
+        if ($current <= 0) {
+            return false;
+        }
+
+        $ratio = abs($livePrice - $current) / $current;
+
+        return $ratio > self::PRICE_CHANGE_THRESHOLD;
+    }
+
+    /**
+     * Touch every associated published article to refresh Google freshness signals.
+     */
+    protected function refreshAssociatedArticles(Product $product, bool $dryRun): void
+    {
+        if ($dryRun) {
+            $this->line('      > Price moved >5%; would refresh '.$product->articles->count().' article(s).');
+
+            return;
+        }
+
+        $product->articles()
+            ->where('is_published', true)
+            ->update(['updated_at' => now()]);
+
+        $this->line('      > Price moved >5%; refreshed '.$product->articles->count().' article(s).');
+    }
+}
