@@ -183,7 +183,6 @@ class InstantIndexingService
         }
 
         $success = openssl_sign($signingInput, $signature, $key, OPENSSL_ALGO_SHA256);
-        openssl_pkey_free($key);
 
         return $success ? $this->base64UrlEncode($signature) : null;
     }
