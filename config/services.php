@@ -50,6 +50,7 @@ return [
         'base_uri' => env('CLOUDFLARE_API_BASE', 'https://api.cloudflare.com/client/v4'),
         'zone_id' => env('CLOUDFLARE_ZONE_ID'),
         'token' => env('CLOUDFLARE_API_TOKEN'),
+        'api_token' => env('CLOUDFLARE_API_TOKEN'),
         'email' => env('CLOUDFLARE_EMAIL'),
     ],
 

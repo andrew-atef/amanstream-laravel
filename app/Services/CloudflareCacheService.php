@@ -15,13 +15,29 @@ class CloudflareCacheService
      */
     public function purgeUrl(string $url): bool
     {
-        $token = config('services.cloudflare.token');
+        return $this->purgeUrls([$url]);
+    }
+
+    /**
+     * Purge multiple URLs from the Cloudflare edge cache in a single request.
+     *
+     * Returns true when every URL was purged successfully, false otherwise.
+     */
+    public function purgeUrls(array $urls): bool
+    {
+        $token = config('services.cloudflare.api_token') ?? config('services.cloudflare.token');
         $zone = config('services.cloudflare.zone_id');
 
         if (blank($token) || blank($zone)) {
-            Log::info('CloudflareCache: token or zone not configured, skipping purge.', ['url' => $url]);
+            Log::info('CloudflareCache: token or zone not configured, skipping purge.', [
+                'urls' => $urls,
+            ]);
 
             return false;
+        }
+
+        if ($urls === []) {
+            return true;
         }
 
         try {
@@ -31,15 +47,15 @@ class CloudflareCacheService
             ])
                 ->timeout(15)
                 ->post(
-                    rtrim(config('services.cloudflare.base_uri'), '/').'/zones/'.$zone.'/purge_cache',
-                    ['files' => [$url]]
+                    'https://api.cloudflare.com/client/v4/zones/'.$zone.'/purge_cache',
+                    ['files' => $urls]
                 );
 
             $ok = $response->successful();
 
             if (! $ok) {
                 Log::warning('CloudflareCache: purge request failed.', [
-                    'url' => $url,
+                    'urls' => $urls,
                     'status' => $response->status(),
                     'body' => (string) $response->body(),
                 ]);
@@ -48,7 +64,7 @@ class CloudflareCacheService
             return $ok;
         } catch (ConnectionException|\Throwable $e) {
             Log::error('CloudflareCache: purge threw exception.', [
-                'url' => $url,
+                'urls' => $urls,
                 'error' => $e->getMessage(),
             ]);
 

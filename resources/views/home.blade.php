@@ -48,9 +48,9 @@
         <!-- Sidebar Filters (Dynamic Categories) -->
         <aside class="space-y-6 lg:col-span-1">
             <div class="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm">
-                <h3 class="mb-4 flex items-center justify-between border-b border-slate-100 pb-3 text-xs font-bold text-slate-900">
+                <h2 class="mb-4 flex items-center justify-between border-b border-slate-100 pb-3 text-xs font-bold text-slate-900">
                     <span>الفئات المتاحة</span>
-                    <span class="text-[11px] font-semibold text-slate-400">تصفية تلقائية</span>
+                    <span class="text-[11px] font-semibold text-slate-500">تصفية تلقائية</span>
                 </h3>
 
                 <ul class="space-y-1.5 text-xs font-medium">
@@ -108,7 +108,7 @@
             <!-- Results Counter Header -->
             <div class="flex items-center justify-between rounded-xl border border-slate-200/80 bg-white px-4 py-3 text-xs font-semibold text-slate-600 shadow-sm">
                 <span>تم العثور على <strong>{{ $articles->total() }}</strong> مراجعة محدثة</span>
-                <span class="text-slate-400">ترتيب حسب: الأحدث</span>
+                <span class="text-slate-500">ترتيب حسب: الأحدث</span>
             </div>
 
             <!-- Wuzzuf-Style Article Cards -->
@@ -120,7 +120,7 @@
                         <div class="flex items-start gap-4">
                             @if ($article->product?->image_url)
                                 <div class="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl border border-slate-100 bg-white p-1.5 shadow-sm">
-                                    <img src="{{ $article->product->image_url }}" alt="{{ $article->product->title }}" loading="lazy" class="max-h-full max-w-full object-contain">
+                                    <img src="{{ $article->product->image_url }}" alt="{{ $article->product->title }}" width="64" height="64" loading="lazy" class="max-h-full max-w-full object-contain">
                                 </div>
                             @endif
 
@@ -167,9 +167,9 @@
                             @endphp
                             @if ($article->product)
                                 <div class="flex flex-wrap items-center gap-2">
-                                    <span class="text-slate-400">السعر اليوم: </span>
+                                    <span class="text-slate-500">السعر اليوم: </span>
                                     @if ($original > $current)
-                                        <span class="line-through text-sm font-semibold text-slate-400">{{ number_format($original, 2) }} ج.م</span>
+                                        <span class="line-through text-sm font-semibold text-slate-500">{{ number_format($original, 2) }} ج.م</span>
                                     @endif
                                     <span class="text-lg font-black text-slate-900">{{ number_format($current, 2) }}</span>
                                     <span class="font-bold text-slate-500"> ج.م</span>
@@ -192,7 +192,7 @@
             @empty
                 <div class="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center text-sm text-slate-500">
                     <p class="mb-1 text-base font-bold text-slate-700">لم نجد أي مراجعات مطابقة لبحثك!</p>
-                    <p class="mb-4 text-xs text-slate-400">جرب البحث بكلمات أخرى أو اختر فئة مختلفة من القائمة الجانبية.</p>
+                    <p class="mb-4 text-xs text-slate-500">جرب البحث بكلمات أخرى أو اختر فئة مختلفة من القائمة الجانبية.</p>
                     <a href="{{ route('home') }}" class="inline-block rounded-xl bg-blue-600 px-5 py-2.5 text-xs font-bold text-white hover:bg-blue-700">عرض جميع المراجعات المتاحة</a>
                 </div>
             @endforelse

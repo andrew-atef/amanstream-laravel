@@ -2,8 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Jobs\PurgeArticleFromCache;
-use App\Jobs\SendInstantIndexingNotification;
+use App\Jobs\PurgeCloudflareCacheJob;
 use App\Models\Article;
 use App\Models\Bank;
 use App\Models\Category;
@@ -229,17 +228,15 @@ class Phase2AutomationTest extends TestCase
 
         $article = $this->seedArticle();
 
-        Queue::assertPushed(SendInstantIndexingNotification::class, function (SendInstantIndexingNotification $job) use ($article) {
-            return str_contains($job->url, '/articles/'.$article->slug);
-        });
-
-        Queue::assertPushed(PurgeArticleFromCache::class, function (PurgeArticleFromCache $job) use ($article) {
-            return str_contains($job->url, '/articles/'.$article->slug);
+        Queue::assertPushed(PurgeCloudflareCacheJob::class, function (PurgeCloudflareCacheJob $job) use ($article) {
+            return collect($job->urls)->contains(fn (string $url) => str_contains($url, '/articles/'.$article->slug));
         });
     }
 
     public function test_cloudflare_cache_service_skips_without_configuration(): void
     {
+        config(['services.cloudflare.api_token' => null, 'services.cloudflare.zone_id' => null]);
+
         $this->assertFalse((new CloudflareCacheService)->purgeUrl('https://example.com/article'));
     }
 

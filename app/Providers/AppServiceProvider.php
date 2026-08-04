@@ -3,7 +3,9 @@
 namespace App\Providers;
 
 use App\Models\Article;
+use App\Models\Product;
 use App\Observers\ArticleObserver;
+use App\Observers\ProductObserver;
 use App\Services\Amazon\Contracts\AmazonProductDataFetcher;
 use App\Services\Amazon\PlaceholderAmazonProductDataFetcher;
 use Illuminate\Support\Facades\Blade;
@@ -28,6 +30,7 @@ class AppServiceProvider extends ServiceProvider
         Blade::anonymousComponentPath(resource_path('views'));
 
         Article::observe(ArticleObserver::class);
+        Product::observe(ProductObserver::class);
 
         // إجبار Laravel و Livewire على استخدام https في جميع الروابط والركام
         if (config('app.env') !== 'local' || request()->header('X-Forwarded-Proto') === 'https') {

@@ -2,8 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Jobs\PurgeArticleFromCache;
-use App\Jobs\SendInstantIndexingNotification;
+use App\Jobs\PurgeCloudflareCacheJob;
 use App\Models\Article;
 use App\Models\Category;
 use App\Models\Product;
@@ -129,8 +128,9 @@ class CatalogSyncApiTest extends TestCase
 
         $this->assertGreaterThanOrEqual($article->updated_at->subSecond(), $article->fresh()->updated_at);
 
-        Queue::assertPushed(SendInstantIndexingNotification::class, fn ($job) => str_contains($job->url, $article->slug));
-        Queue::assertPushed(PurgeArticleFromCache::class, fn ($job) => str_contains($job->url, $article->slug));
+        Queue::assertPushed(PurgeCloudflareCacheJob::class, function (PurgeCloudflareCacheJob $job) use ($article) {
+            return collect($job->urls)->contains(fn (string $url) => str_contains($url, $article->slug));
+        });
     }
 
     public function test_sync_results_syncs_rating_review_count_and_ignores_was_price_not_higher(): void

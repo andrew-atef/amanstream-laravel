@@ -94,6 +94,8 @@
                             <img
                                 src="{{ $product->image_url }}"
                                 alt="{{ $product->title }}"
+                                width="80"
+                                height="80"
                                 loading="lazy"
                                 class="h-20 w-20 shrink-0 rounded-xl border border-slate-100 bg-white object-contain p-1"
                             >
@@ -110,7 +112,7 @@
                             @endphp
                             <div class="mt-2 flex flex-wrap items-center gap-2 text-2xl font-black text-blue-700">
                                 @if ($hasDiscount)
-                                    <span class="text-base font-semibold text-slate-400 line-through">{{ number_format($showOriginal, 2) }} ج.م</span>
+                                    <span class="text-base font-semibold text-slate-500 line-through">{{ number_format($showOriginal, 2) }} ج.م</span>
                                 @endif
                                 <span>{{ number_format($showPrice, 2) }} ج.م</span>
                                 @if ($hasDiscount)
@@ -152,7 +154,7 @@
                     <div class="text-xs text-slate-500">{{ $product->title }}</div>
                     <div class="truncate">
                         @if ($hasDiscount)
-                            <span class="text-xs font-semibold text-slate-400 line-through">{{ number_format($showOriginal, 2) }} ج.م</span>
+                            <span class="text-xs font-semibold text-slate-500 line-through">{{ number_format($showOriginal, 2) }} ج.م</span>
                             <span class="mx-1"></span>
                         @endif
                         <span class="text-xl font-black text-blue-700">{{ number_format($showPrice, 2) }} ج.م</span>

@@ -3,9 +3,9 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\PurgeCloudflareCacheJob;
 use App\Models\Article;
 use App\Models\Product;
-use App\Observers\ArticleObserver;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -171,13 +171,18 @@ class CatalogSyncApiController extends Controller
             ->where('is_published', true)
             ->get();
 
-        $observer = app(ArticleObserver::class);
-
-        foreach ($articles as $article) {
-            $observer->notifyIndexingAndPurge($article);
-        }
-
         if ($articles->isNotEmpty()) {
+            $urls = [
+                url('/'),
+                url('/sitemap.xml'),
+            ];
+
+            foreach ($articles as $article) {
+                $urls[] = route('articles.show', $article->slug, true);
+            }
+
+            PurgeCloudflareCacheJob::dispatch(array_unique($urls));
+
             Article::whereIn('id', $articles->pluck('id'))
                 ->update(['updated_at' => now()]);
         }

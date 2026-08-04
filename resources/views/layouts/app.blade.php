@@ -93,7 +93,7 @@
                 <span class="font-bold text-slate-700">AmanStream Egypt</span>
             </div>
             <p>© {{ date('Y') }} {{ config('app.name') }} (amanstream.me) — جميع الحقوق محفوظة.</p>
-            <p class="mx-auto mt-2 max-w-md text-[11px] text-slate-400">
+            <p class="mx-auto mt-2 max-w-md text-[11px] text-slate-500">
                 أمان ستريم يقدم مراجعات ومقارنات أسعار محايدة. قد نتحصل على عمولة تسويقية عند الشراء من خلال روابط أمازون دون أي زيادة في السعر عليك.
             </p>
         </div>

@@ -2,16 +2,14 @@
 
 namespace App\Observers;
 
-use App\Jobs\PurgeArticleFromCache;
-use App\Jobs\SendInstantIndexingNotification;
+use App\Jobs\PurgeCloudflareCacheJob;
 use App\Models\Article;
-use Illuminate\Support\Facades\Queue;
 
 class ArticleObserver
 {
     /**
-     * Automatically request instant indexing and purge the Cloudflare cache
-     * whenever a published article is saved.
+     * Purge Cloudflare and notify search engines whenever a published
+     * article is created or saved.
      */
     public function saved(Article $article): void
     {
@@ -19,24 +17,46 @@ class ArticleObserver
             return;
         }
 
-        $this->notifyIndexingAndPurge($article);
+        PurgeCloudflareCacheJob::dispatch($this->collectUrls($article));
     }
 
     /**
-     * Queue the instant-indexing notification and Cloudflare cache purge for a
-     * published article. Reused by ArticleObserver::saved() and by the catalog sync
-     * engine when a product price change (>3%) requires refreshing its articles.
+     * Flush stale cache when a published article's content or slug changes.
      */
-    public function notifyIndexingAndPurge(Article $article): void
+    public function updated(Article $article): void
     {
-        $articleUrl = route('articles.show', $article->slug);
+        if (! $article->is_published) {
+            return;
+        }
 
-        Queue::connection(config('queue.default'))->push(
-            new SendInstantIndexingNotification($articleUrl)
-        );
+        PurgeCloudflareCacheJob::dispatch($this->collectUrls($article));
+    }
 
-        Queue::connection(config('queue.default'))->push(
-            new PurgeArticleFromCache($articleUrl)
-        );
+    /**
+     * Purge the old article URL when an article is deleted (published or not),
+     * so the 404 / homepage is served from a fresh cache.
+     */
+    public function deleted(Article $article): void
+    {
+        PurgeCloudflareCacheJob::dispatch($this->collectUrls($article));
+    }
+
+    /**
+     * Collect all URLs that need cache invalidation for the given article.
+     *
+     * @return array<string>
+     */
+    protected function collectUrls(Article $article): array
+    {
+        $urls = [];
+
+        if ($article->slug) {
+            $urls[] = route('articles.show', $article->slug, true);
+        }
+
+        $urls[] = url('/');
+        $urls[] = url('/sitemap.xml');
+
+        return array_unique($urls);
     }
 }
