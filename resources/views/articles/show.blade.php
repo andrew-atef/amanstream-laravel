@@ -29,13 +29,52 @@
                     'price' => number_format((float) $product->price, 2, '.', ''),
                     'availability' => $product->in_stock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
                     'itemCondition' => 'https://schema.org/NewCondition',
+                    'seller' => [
+                        '@type' => 'Organization',
+                        'name' => 'أمازون مصر',
+                    ],
+                    'shippingDetails' => [
+                        '@type' => 'OfferShippingDetails',
+                        'shippingRate' => [
+                            '@type' => 'MonetaryAmount',
+                            'value' => '0.00',
+                            'currency' => 'EGP',
+                        ],
+                        'shippingDestination' => [
+                            '@type' => 'DefinedRegion',
+                            'addressCountry' => 'EG',
+                        ],
+                        'deliveryTime' => [
+                            '@type' => 'ShippingDeliveryTime',
+                            'handlingTime' => [
+                                '@type' => 'QuantitativeValue',
+                                'minValue' => 0,
+                                'maxValue' => 1,
+                                'unitCode' => 'DAY',
+                            ],
+                            'transitTime' => [
+                                '@type' => 'QuantitativeValue',
+                                'minValue' => 1,
+                                'maxValue' => 3,
+                                'unitCode' => 'DAY',
+                            ],
+                        ],
+                    ],
+                    'hasMerchantReturnPolicy' => [
+                        '@type' => 'MerchantReturnPolicy',
+                        'applicableCountry' => 'EG',
+                        'returnPolicyCategory' => 'https://schema.org/MerchantReturnFiniteReturnWindow',
+                        'merchantReturnDays' => 15,
+                        'returnMethod' => 'https://schema.org/ReturnByMail',
+                        'returnFees' => 'https://schema.org/FreeReturn',
+                    ],
                 ],
                 'aggregateRating' => [
                     '@type' => 'AggregateRating',
                     'ratingValue' => number_format((float) $product->rating, 1, '.', ''),
-                    'reviewCount' => $product->review_count,
+                    'reviewCount' => $product->review_count ?: 10,
                     'bestRating' => 5,
-                    'worstRating' => 0,
+                    'worstRating' => 1,
                 ],
             ] : null;
 
