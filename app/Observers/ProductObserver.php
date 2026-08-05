@@ -4,6 +4,7 @@ namespace App\Observers;
 
 use App\Jobs\PurgeCloudflareCacheJob;
 use App\Models\Product;
+use App\Services\ImageUploaderService;
 
 class ProductObserver
 {
@@ -38,13 +39,21 @@ class ProductObserver
     }
 
     /**
-     * When a core attribute (price, in_stock, rating, etc.) changes on an
-     * existing product, touch every linked published article so that
-     * `updated_at` signals freshness to Google, and purge all affected URLs.
+     * When a core attribute (price, in_stock, rating, etc.) or the image URL
+     * changes on an existing product, mirror any external image to R2, touch
+     * every linked published article so that `updated_at` signals freshness
+     * to Google, and purge all affected URLs.
      */
     public function updated(Product $product): void
     {
-        if (! $this->hasCoreAttributeChanged($product)) {
+        $imageChanged = $product->wasChanged('image_url')
+            && $this->isExternalImageUrl((string) $product->image_url);
+
+        if ($imageChanged) {
+            ImageUploaderService::uploadToR2($product);
+        }
+
+        if (! $this->hasCoreAttributeChanged($product) && ! $imageChanged) {
             return;
         }
 
@@ -64,6 +73,18 @@ class ProductObserver
         }
 
         PurgeCloudflareCacheJob::dispatch(array_unique($urls));
+    }
+
+    /**
+     * Whether the given image URL lives on an external host and therefore
+     * should be downloaded and mirrored to R2.
+     */
+    protected function isExternalImageUrl(string $imageUrl): bool
+    {
+        $publicUrl = (string) config('filesystems.disks.r2.url');
+
+        return ! str_contains($imageUrl, 'r2.dev')
+            && ! (filled($publicUrl) && str_starts_with($imageUrl, $publicUrl));
     }
 
     /**
