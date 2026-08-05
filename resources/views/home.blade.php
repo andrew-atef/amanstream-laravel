@@ -1,4 +1,40 @@
 <x-layouts.app>
+    @push('schema')
+        @php
+            $siteUrl = url('/');
+            $brandName = config('app.name', 'أمان ستريم');
+
+            // 1. Schema التعريف بالموقع ومربع البحث الفوري داخل جوجل
+            $websiteSchema = [
+                '@context' => 'https://schema.org',
+                '@type' => 'WebSite',
+                'name' => $brandName,
+                'alternateName' => 'AmanStream Egypt',
+                'url' => $siteUrl,
+                'potentialAction' => [
+                    '@type' => 'SearchAction',
+                    'target' => [
+                        '@type' => 'EntryPoint',
+                        'urlTemplate' => "{$siteUrl}/?q={search_term_string}",
+                    ],
+                    'query-input' => 'required name=search_term_string',
+                ],
+            ];
+
+            // 2. Schema التعريف بالمنظمة/البراند
+            $organizationSchema = [
+                '@context' => 'https://schema.org',
+                '@type' => 'Organization',
+                'name' => $brandName,
+                'url' => $siteUrl,
+                'logo' => "{$siteUrl}/favicon.svg",
+            ];
+        @endphp
+
+        <script type="application/ld+json">{!! json_encode($websiteSchema, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
+        <script type="application/ld+json">{!! json_encode($organizationSchema, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
+    @endpush
+
     <!-- 1. Hero Search Banner (Wuzzuf Style Header) -->
     <section class="-mx-4 -mt-8 mb-8 bg-[#001c38] px-4 py-10 text-white shadow-md sm:-mx-6 sm:px-8 lg:-mx-8">
         <div class="mx-auto max-w-4xl text-center">
