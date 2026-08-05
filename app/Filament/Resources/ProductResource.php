@@ -5,6 +5,7 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\ProductResource\Pages;
 use App\Models\Product;
 use App\Services\Amazon\AmazonUrlDataFetcher;
+use App\Services\ImageUploaderService;
 use Filament\Forms\Components\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -50,7 +51,7 @@ class ProductResource extends Resource
                             ->icon('heroicon-m-arrow-path')
                             ->label('سحب البيانات تلقائياً')
                             ->color('success')
-                            ->action(function (Get $get, Set $set) {
+                            ->action(function (Get $get, Set $set, ?Product $record = null) {
                                 $url = trim((string) $get('affiliate_url'));
 
                                 if (blank($url)) {
@@ -89,7 +90,16 @@ class ProductResource extends Resource
                                     $set('original_price', $data['original_price']);
                                 }
                                 if (filled($data['image_url'])) {
-                                    $set('image_url', $data['image_url']);
+                                    $imageUrl = $data['image_url'];
+
+                                    if ($record) {
+                                        $uploadedUrl = ImageUploaderService::uploadToR2($record, $imageUrl);
+                                    } else {
+                                        $seed = ($asin ?: $record?->asin ?: '').'-'.$data['title'].'-'.substr(md5($imageUrl), 0, 8);
+                                        $uploadedUrl = ImageUploaderService::upload($imageUrl, $seed);
+                                    }
+
+                                    $set('image_url', $uploadedUrl ?? $imageUrl);
                                 }
                                 if ($rating = $data['rating']) {
                                     $set('rating', $rating);

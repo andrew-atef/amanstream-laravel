@@ -78,17 +78,34 @@
                 ],
             ] : null;
 
+            $siteUrl = url('/');
+            $articleImageUrl = $product?->image_url ?: $siteUrl.'/images/default-og.jpg';
+            $brandName = config('app.name', 'أمان ستريم');
+
             $articleSchema = [
                 '@context' => 'https://schema.org',
                 '@type' => 'Article',
                 'mainEntityOfPage' => ['@type' => 'WebPage', '@id' => $pageUrl],
                 'headline' => $article->title,
                 'description' => $shortDescription,
+                'image' => [$articleImageUrl],
                 'datePublished' => $article->created_at?->toIso8601String(),
                 'dateModified' => $article->updated_at?->toIso8601String(),
                 'inLanguage' => 'ar-EG',
-                'author' => ['@type' => 'Organization', 'name' => config('app.name')],
-                'publisher' => ['@type' => 'Organization', 'name' => config('app.name')],
+                'author' => [
+                    '@type' => 'Organization',
+                    'name' => $brandName,
+                    'url' => $siteUrl,
+                ],
+                'publisher' => [
+                    '@type' => 'Organization',
+                    'name' => $brandName,
+                    'url' => $siteUrl,
+                    'logo' => [
+                        '@type' => 'ImageObject',
+                        'url' => $siteUrl.'/images/logo.png',
+                    ],
+                ],
             ];
 
             $categoryName = $product?->category?->name ?? 'مقالات';

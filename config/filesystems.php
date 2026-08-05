@@ -62,12 +62,12 @@ return [
 
         'r2' => [
             'driver' => 's3',
-            'key' => env('R2_ACCESS_KEY_ID'),
-            'secret' => env('R2_SECRET_ACCESS_KEY'),
-            'region' => env('R2_REGION', 'auto'),
-            'bucket' => env('R2_BUCKET'),
-            'url' => env('R2_PUBLIC_URL'),
-            'endpoint' => rtrim(env('R2_ENDPOINT', 'https://example.r2.cloudflarestorage.com'), '/'),
+            'key' => env('CLOUDFLARE_R2_ACCESS_KEY_ID', env('R2_ACCESS_KEY_ID')),
+            'secret' => env('CLOUDFLARE_R2_SECRET_ACCESS_KEY', env('R2_SECRET_ACCESS_KEY')),
+            'region' => env('CLOUDFLARE_R2_REGION', env('R2_REGION', 'auto')),
+            'bucket' => env('CLOUDFLARE_R2_BUCKET', env('R2_BUCKET')),
+            'url' => env('CLOUDFLARE_R2_PUBLIC_URL', env('R2_PUBLIC_URL')),
+            'endpoint' => rtrim(env('CLOUDFLARE_R2_ENDPOINT', env('R2_ENDPOINT', 'https://example.r2.cloudflarestorage.com')), '/'),
             'use_path_style_endpoint' => true,
             'visibility' => 'public',
             'throw' => false,

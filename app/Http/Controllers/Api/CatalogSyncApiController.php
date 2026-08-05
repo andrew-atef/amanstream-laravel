@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Jobs\PurgeCloudflareCacheJob;
 use App\Models\Article;
 use App\Models\Product;
+use App\Services\ImageUploaderService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -63,8 +64,9 @@ class CatalogSyncApiController extends Controller
         $updatedPrices = 0;
         $refreshedArticles = 0;
         $urlsToPurge = [];
+        $imagesToUpload = [];
 
-        DB::transaction(function () use ($payload, &$processed, &$updatedPrices, &$refreshedArticles, &$urlsToPurge) {
+        DB::transaction(function () use ($payload, &$processed, &$updatedPrices, &$refreshedArticles, &$urlsToPurge, &$imagesToUpload) {
             foreach ($payload['results'] as $result) {
                 $processed++;
 
@@ -82,7 +84,7 @@ class CatalogSyncApiController extends Controller
 
                 $priceChanged = $product->hasMaterialPriceChange((float) $result['live_price']);
 
-                $this->applySuccess($product, $result);
+                $this->applySuccess($product, $result, $imagesToUpload);
 
                 if ($priceChanged) {
                     $updatedPrices++;
@@ -95,6 +97,10 @@ class CatalogSyncApiController extends Controller
             PurgeCloudflareCacheJob::dispatch(array_unique($urlsToPurge));
         }
 
+        foreach ($imagesToUpload as $product) {
+            ImageUploaderService::uploadToR2($product);
+        }
+
         return response()->json([
             'processed' => $processed,
             'price_updates' => $updatedPrices,
@@ -104,8 +110,10 @@ class CatalogSyncApiController extends Controller
 
     /**
      * Persist a successful sync result with safe concurrency semantics.
+     *
+     * @param  array<int, Product>  $imagesToUpload  Mutated by reference — products with external image URLs are appended here.
      */
-    protected function applySuccess(Product $product, array $result): void
+    protected function applySuccess(Product $product, array $result, array &$imagesToUpload = []): void
     {
         $livePrice = round((float) $result['live_price'], 2);
 
@@ -139,12 +147,29 @@ class CatalogSyncApiController extends Controller
         if (filled($result['title'] ?? null)) {
             $update['title'] = $result['title'];
         }
+
         if (filled($result['image_url'] ?? null)) {
             $update['image_url'] = $result['image_url'];
+
+            if ($this->isExternalImageUrl($result['image_url'])) {
+                $imagesToUpload[] = $product;
+            }
         }
 
         $product->fill($update);
         $product->save();
+    }
+
+    /**
+     * Whether the given image URL lives on an external host and therefore
+     * should be downloaded and mirrored to R2.
+     */
+    protected function isExternalImageUrl(string $imageUrl): bool
+    {
+        $publicUrl = (string) config('filesystems.disks.r2.url');
+
+        return ! str_contains($imageUrl, 'r2.dev')
+            && ! (filled($publicUrl) && str_starts_with($imageUrl, $publicUrl));
     }
 
     /**
