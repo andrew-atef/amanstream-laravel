@@ -34,14 +34,14 @@ class AppServiceProvider extends ServiceProvider
         Product::observe(ProductObserver::class);
 
         // مشاركة التصنيفات ديناميكياً في الهيدر/الفوتر لجميع الصفحات
-        View::composer('layouts.app', function ($view) {
-            $view->with('headerCategories', \App\Models\Category::query()
+        if (\Illuminate\Support\Facades\Schema::hasTable('categories')) {
+            View::share('headerCategories', \App\Models\Category::query()
                 ->withCount(['articles' => fn ($query) => $query->where('is_published', true)])
                 ->whereHas('articles', fn ($query) => $query->where('is_published', true))
                 ->orderBy('name')
                 ->limit(8)
                 ->get());
-        });
+        }
 
         // إجبار Laravel و Livewire على استخدام https في جميع الروابط والركام
         if (config('app.env') !== 'local' || request()->header('X-Forwarded-Proto') === 'https') {
