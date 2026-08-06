@@ -54,13 +54,15 @@ class SitemapController extends Controller
     }
 
     /**
-     * Build a category URL. Eagerly-linked to a real filtered listing page
-     * once a category route exists; for now it points at a named route.
+     * Build a category URL using the existing homepage category filter, so
+     * each category resolves to its own filtered listing instead of the homepage.
      */
     protected function categoryUrl(string $slug): string
     {
-        $route = \Route::has('categories.show') ? route('categories.show', $slug) : url('/');
+        if (\Route::has('categories.show')) {
+            return route('categories.show', $slug);
+        }
 
-        return $route;
+        return route('home', ['category' => $slug]);
     }
 }

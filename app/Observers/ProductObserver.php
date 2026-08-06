@@ -32,10 +32,7 @@ class ProductObserver
             return;
         }
 
-        PurgeCloudflareCacheJob::dispatch([
-            url('/'),
-            url('/sitemap.xml'),
-        ]);
+        PurgeCloudflareCacheJob::dispatch($this->siteUrls());
     }
 
     /**
@@ -57,10 +54,7 @@ class ProductObserver
             return;
         }
 
-        $urls = [
-            url('/'),
-            url('/sitemap.xml'),
-        ];
+        $urls = $this->siteUrls();
 
         $articles = $product->articles()
             ->where('is_published', true)
@@ -73,6 +67,20 @@ class ProductObserver
         }
 
         PurgeCloudflareCacheJob::dispatch(array_unique($urls));
+    }
+
+    /**
+     * Homepage (both slash variants) and sitemap URLs that are cached.
+     *
+     * @return array<string>
+     */
+    protected function siteUrls(): array
+    {
+        return [
+            url('/'),
+            rtrim(url('/'), '/').'/',
+            url('/sitemap.xml'),
+        ];
     }
 
     /**

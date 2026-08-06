@@ -54,7 +54,10 @@ class ArticleObserver
             $urls[] = route('articles.show', $article->slug, true);
         }
 
+        // Cloudflare caches "https://amanstream.me" and "https://amanstream.me/"
+        // under separate cache keys, so purge both forms plus the sitemap.
         $urls[] = url('/');
+        $urls[] = rtrim(url('/'), '/').'/';
         $urls[] = url('/sitemap.xml');
 
         return array_unique($urls);
