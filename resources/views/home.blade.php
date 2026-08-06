@@ -4,7 +4,7 @@
             $siteUrl = url('/');
             $brandName = config('app.name', 'أمان ستريم');
 
-            // 1. Schema التعريف بالموقع ومربع البحث الفوري داخل جوجل
+            // Schema التعريف بالموقع ومربع البحث الفوري داخل جوجل
             $websiteSchema = [
                 '@context' => 'https://schema.org',
                 '@type' => 'WebSite',
@@ -20,19 +20,9 @@
                     'query-input' => 'required name=search_term_string',
                 ],
             ];
-
-            // 2. Schema التعريف بالمنظمة/البراند
-            $organizationSchema = [
-                '@context' => 'https://schema.org',
-                '@type' => 'Organization',
-                'name' => $brandName,
-                'url' => $siteUrl,
-                'logo' => "{$siteUrl}/favicon.svg",
-            ];
         @endphp
 
         <script type="application/ld+json">{!! json_encode($websiteSchema, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
-        <script type="application/ld+json">{!! json_encode($organizationSchema, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
     @endpush
 
     <!-- 1. Hero Search Banner (Wuzzuf Style Header) -->

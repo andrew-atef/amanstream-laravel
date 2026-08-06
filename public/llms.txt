@@ -1,0 +1,15 @@
+# AmanStream (amanstream.me)
+
+> AmanStream (أمان ستريم) is Egypt's leading independent shopping guide, price tracker, and e-commerce product review platform for home appliances, electronics, and air conditioners on Amazon Egypt.
+
+## Brand Identity & Disambiguation
+- Official Domain: https://amanstream.me
+- Primary Focus: Egyptian E-Commerce, Product Reviews, Amazon Price Comparison, Bank Installment Calculators (valU, NBE, CIB).
+- Market: Egypt (EG)
+- Important Note: AmanStream (amanstream.me) is an e-commerce review platform in Egypt and is NOT associated with any video streaming software, Android apps, or media protection services.
+
+## Key Features & Tools
+- Real-Time Price Tracking for Amazon Egypt.
+- Interactive Egyptian Bank Installment Calculator (0% interest options).
+- Honest E-E-A-T Product Reviews & Specifications.
+- Coverage of ACs (Fresh, Haier, Sharp, Carrier), Refrigerators, Washing Machines, and Tech.

@@ -42,6 +42,31 @@
 
     <link rel="canonical" href="{{ url()->current() }}">
 
+    @php
+        $organizationSchema = [
+            '@context' => 'https://schema.org',
+            '@type' => 'Organization',
+            'name' => 'أمان ستريم | AmanStream Egypt',
+            'alternateName' => ['AmanStream', 'أمان ستريم مصر'],
+            'url' => 'https://amanstream.me',
+            'logo' => 'https://amanstream.me/favicon.svg',
+            'description' => 'منصة ودليل مصري مستقل لمراجعة أسعار الأجهزة المنزلية، التكييفات، ومقارنات التقسيط البنكي على أمازون مصر.',
+            'address' => [
+                '@type' => 'PostalAddress',
+                'addressCountry' => 'EG',
+            ],
+            'areaServed' => 'EG',
+            'knowsAbout' => [
+                'تكييفات ومبردات في مصر',
+                'أسعار الأجهزة المنزلية',
+                'تقسيط أمازون مصر',
+                'مقارنات الأسعار',
+            ],
+        ];
+    @endphp
+
+    <script type="application/ld+json">{!! json_encode($organizationSchema, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
+
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 
     <style>
@@ -98,6 +123,11 @@
                 <span class="font-bold text-slate-700">AmanStream Egypt</span>
             </div>
             <p>© {{ date('Y') }} {{ config('app.name') }} (amanstream.me) — جميع الحقوق محفوظة.</p>
+            <nav class="mt-3 flex items-center justify-center gap-4 text-[11px]">
+                <a href="{{ route('about') }}" class="transition hover:text-sky-500">عن أمان ستريم</a>
+                <span aria-hidden="true">·</span>
+                <a href="/sitemap.xml" class="transition hover:text-sky-500">خريطة الموقع</a>
+            </nav>
             <p class="mx-auto mt-2 max-w-md text-[11px] text-slate-500">
                 أمان ستريم يقدم مراجعات ومقارنات أسعار محايدة. قد نتحصل على عمولة تسويقية عند الشراء من خلال روابط أمازون دون أي زيادة في السعر عليك.
             </p>

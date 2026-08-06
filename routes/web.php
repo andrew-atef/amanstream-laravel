@@ -55,6 +55,10 @@ Route::get('/', function (Request $request) {
     ]);
 })->name('home');
 
+Route::get('/about', function () {
+    return view('about');
+})->name('about');
+
 Route::get('/articles/{slug}', [ArticleController::class, 'show'])
     ->name('articles.show');
 

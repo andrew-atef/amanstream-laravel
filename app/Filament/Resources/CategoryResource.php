@@ -36,8 +36,8 @@ class CategoryResource extends Resource
                     ->required()
                     ->maxLength(255)
                     ->live(onBlur: true)
-                    ->afterStateUpdated(fn (string $operation, $state, TextInput $component) => $operation === 'create'
-                        ? $component->getContainer()->getComponent('slug')->state(Str::slug($state))
+                    ->afterStateUpdated(fn (string $operation, $state, $set) => $operation === 'create' && filled($state)
+                        ? $set('slug', Str::slug($state))
                         : null),
                 TextInput::make('slug')
                     ->label('المعرف (Slug)')
