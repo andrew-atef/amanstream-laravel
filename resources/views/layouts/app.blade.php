@@ -107,7 +107,7 @@
                 <a href="/" class="transition hover:text-sky-400 {{ request()->is('/') && ! request('q') && ! request('category') ? 'font-extrabold text-sky-400' : '' }}">
                     الرئيسية
                 </a>
-                @foreach ($headerCategories as $category)
+                @foreach ($headerCategories ?? collect() as $category)
                     <a href="{{ route('home', ['category' => $category->slug]) }}" class="transition hover:text-sky-400 {{ request('category') == $category->slug ? 'font-extrabold text-sky-400' : '' }}">
                         {{ $category->name }}
                     </a>
