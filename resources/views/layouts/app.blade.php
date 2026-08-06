@@ -96,7 +96,6 @@
                 <div class="flex flex-col">
                     <span class="flex items-center gap-1 text-lg font-black tracking-tight text-white">
                         AMAN<span class="text-sky-400">STREAM</span>
-                        <span class="rounded border border-emerald-500/30 bg-emerald-500/20 px-1.5 py-0.2 text-[10px] font-bold text-emerald-400">مصر</span>
                     </span>
                     <span class="-mt-1 text-[10px] font-medium text-slate-300">دليلك المباشر للشراء الآمن</span>
                 </div>

@@ -3,12 +3,14 @@
 namespace App\Providers;
 
 use App\Models\Article;
+use App\Models\Category;
 use App\Models\Product;
 use App\Observers\ArticleObserver;
 use App\Observers\ProductObserver;
 use App\Services\Amazon\Contracts\AmazonProductDataFetcher;
 use App\Services\Amazon\PlaceholderAmazonProductDataFetcher;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
@@ -34,8 +36,8 @@ class AppServiceProvider extends ServiceProvider
         Product::observe(ProductObserver::class);
 
         // مشاركة التصنيفات ديناميكياً في الهيدر/الفوتر لجميع الصفحات
-        if (\Illuminate\Support\Facades\Schema::hasTable('categories')) {
-            View::share('headerCategories', \App\Models\Category::query()
+        if (Schema::hasTable('categories')) {
+            View::share('headerCategories', Category::query()
                 ->withCount(['articles' => fn ($query) => $query->where('is_published', true)])
                 ->whereHas('articles', fn ($query) => $query->where('is_published', true))
                 ->orderBy('name')
