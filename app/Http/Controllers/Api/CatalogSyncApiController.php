@@ -31,13 +31,14 @@ class CatalogSyncApiController extends Controller
         $products = Product::query()
             ->pendingForCatalogSync()
             ->limit($limit)
-            ->get(['id', 'asin', 'platform', 'affiliate_url']);
+            ->get(['id', 'asin', 'platform', 'affiliate_url', 'raw_reviews_text']);
 
         return response()->json($products->map(fn (Product $product): array => [
             'id' => $product->id,
             'asin_or_sku' => $product->asin,
             'platform' => $product->platform,
             'url' => $product->affiliate_url,
+            'scrape_reviews' => blank($product->raw_reviews_text),
         ]));
     }
 
@@ -56,6 +57,7 @@ class CatalogSyncApiController extends Controller
             'results.*.review_count' => ['nullable', 'integer', 'min:0'],
             'results.*.title' => ['nullable', 'string'],
             'results.*.image_url' => ['nullable', 'string'],
+            'results.*.raw_reviews_text' => ['nullable', 'string'],
             'results.*.sync_status' => ['required', 'in:success,failed'],
             'results.*.error_reason' => ['nullable', 'string'],
         ]);
@@ -154,6 +156,13 @@ class CatalogSyncApiController extends Controller
             if ($this->isExternalImageUrl($result['image_url'])) {
                 $imagesToUpload[] = $product;
             }
+        }
+
+        // Persist scraped reviews only when we don't already have them, so the
+        // proxy-heavy scrape happens exactly once per product.
+        if (blank($product->raw_reviews_text) && filled($result['raw_reviews_text'] ?? null)) {
+            $update['raw_reviews_text'] = $result['raw_reviews_text'];
+            $update['reviews_scraped_at'] = now();
         }
 
         $product->fill($update);

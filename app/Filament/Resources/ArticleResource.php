@@ -107,6 +107,17 @@ class ArticleResource extends Resource
                             ->helperText('يُترك فارغًا لإنشاء وصف تلقائي'),
                     ])
                     ->columns(2),
+                Section::make('آراء وتقييمات المشتريين في أمازون (لصياغة المقال)')
+                    ->description('هذه التقييمات تم سحبها مرة واحدة فقط للاستعانة بها أثناء كتابة المقال ولا تتحدث تلقائياً لتوفير البروكسي.')
+                    ->schema([
+                        Textarea::make('product.raw_reviews_text')
+                            ->label('نصوص مراجعات العملاء الأصلين')
+                            ->readOnly()
+                            ->rows(6)
+                            ->columnSpanFull(),
+                    ])
+                    ->collapsible()
+                    ->collapsed(),
             ]);
     }
 

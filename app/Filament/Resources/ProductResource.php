@@ -7,7 +7,9 @@ use App\Models\Product;
 use App\Services\Amazon\AmazonUrlDataFetcher;
 use App\Services\ImageUploaderService;
 use Filament\Forms\Components\Actions\Action;
+use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Form;
@@ -186,6 +188,17 @@ class ProductResource extends Resource
                     ->disabled()
                     ->dehydrated(false)
                     ->helperText('يتم تحديثه تلقائيًا عبر أمر amazon:sync-prices'),
+                Section::make('آراء وتقييمات المشتريين في أمازون (لصياغة المقال)')
+                    ->description('هذه التقييمات تم سحبها مرة واحدة فقط للاستعانة بها أثناء كتابة المقال ولا تتحدث تلقائياً لتوفير البروكسي.')
+                    ->schema([
+                        Textarea::make('raw_reviews_text')
+                            ->label('نصوص مراجعات العملاء الأصلين')
+                            ->readOnly()
+                            ->rows(6)
+                            ->columnSpanFull(),
+                    ])
+                    ->collapsible()
+                    ->collapsed(),
             ]);
     }
 

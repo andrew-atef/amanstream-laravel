@@ -50,6 +50,8 @@ class ProductObserver
             ImageUploaderService::uploadToR2($product);
         }
 
+        $this->syncLinkedArticlesCategory($product);
+
         if (! $this->hasCoreAttributeChanged($product) && ! $imageChanged) {
             return;
         }
@@ -67,6 +69,20 @@ class ProductObserver
         }
 
         PurgeCloudflareCacheJob::dispatch(array_unique($urls));
+    }
+
+    /**
+     * Keep every linked article's category in lockstep with the product.
+     * Runs on both create and update; a no-op when the category is unchanged.
+     */
+    protected function syncLinkedArticlesCategory(Product $product): void
+    {
+        if (! $product->wasChanged('category_id') || $product->category_id === null) {
+            return;
+        }
+
+        $product->articles()->where('category_id', '!=', $product->category_id)
+            ->update(['category_id' => $product->category_id]);
     }
 
     /**

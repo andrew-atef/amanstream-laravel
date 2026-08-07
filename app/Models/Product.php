@@ -31,6 +31,8 @@ class Product extends Model
         'review_count',
         'affiliate_url',
         'image_url',
+        'raw_reviews_text',
+        'reviews_scraped_at',
         'in_stock',
         'supports_installment',
         'is_active',
@@ -54,6 +56,7 @@ class Product extends Model
             'sync_attempts' => 'integer',
             'last_sync_error' => 'string',
             'last_synced_at' => 'datetime',
+            'reviews_scraped_at' => 'datetime',
         ];
     }
 
