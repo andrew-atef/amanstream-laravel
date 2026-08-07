@@ -2,10 +2,10 @@
     <x-filament-panels::form wire:submit="import">
         {{ $this->form }}
 
-        <x-filament-panels::form.actions>
+        <div class="mt-4">
             <x-filament::button type="submit">
                 استيراد المنتجات
             </x-filament::button>
-        </x-filament-panels::form.actions>
+        </div>
     </x-filament-panels::form>
 </x-filament-panels::page>
