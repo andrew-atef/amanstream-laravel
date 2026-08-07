@@ -60,7 +60,7 @@ return [
 
     'amazon_scraper' => [
         'base_uri' => env('AMAZON_SCRAPER_BASE_URI', 'https://amazon-deals-telegram-bot.andrew-petr132.workers.dev/api/test-single-scrape'),
-        'timeout' => env('AMAZON_SCRAPER_TIMEOUT', 15),
+        'timeout' => env('AMAZON_SCRAPER_TIMEOUT', 60),
         'platform' => env('AMAZON_SCRAPER_PLATFORM', 'amazon'),
     ],
 
