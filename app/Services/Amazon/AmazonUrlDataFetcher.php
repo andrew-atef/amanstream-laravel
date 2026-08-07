@@ -40,6 +40,7 @@ class AmazonUrlDataFetcher
         return [
             'asin' => $this->extractAsin($affiliateUrl),
             'title' => $data['title'] ?? null,
+            'brand' => $data['brand'] ?? null,
             'price' => $price,
             'original_price' => ($wasPrice !== null && $price !== null && (float) $wasPrice > (float) $price)
                 ? $wasPrice
@@ -47,6 +48,7 @@ class AmazonUrlDataFetcher
             'image_url' => $data['image_url'] ?? null,
             'rating' => ($data['rating'] ?? 0) > 0 ? $data['rating'] : null,
             'review_count' => ($data['review_count'] ?? 0) > 0 ? $data['review_count'] : null,
+            'raw_reviews_text' => $data['raw_reviews_text'] ?? null,
             'in_stock' => (bool) ($data['in_stock'] ?? true),
         ];
     }

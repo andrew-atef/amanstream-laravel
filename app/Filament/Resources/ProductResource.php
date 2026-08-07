@@ -85,6 +85,12 @@ class ProductResource extends Resource
                                 if (filled($data['title'])) {
                                     $set('title', $data['title']);
                                 }
+                                if (filled($data['brand'])) {
+                                    $set('brand', $data['brand']);
+                                }
+                                if (filled($data['raw_reviews_text'])) {
+                                    $set('raw_reviews_text', $data['raw_reviews_text']);
+                                }
                                 if (filled($data['price'])) {
                                     $set('price', $data['price']);
                                 }
