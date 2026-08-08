@@ -120,6 +120,46 @@
                     ['@type' => 'ListItem', 'position' => 3, 'name' => $article->title, 'item' => $pageUrl],
                 ],
             ];
+
+            // Listicle / round-up articles (2+ attached comparison products) get
+            // a Google ItemList so the page can surface as a carousel/collection
+            // of ranked items inside the SERP.
+            $listicleItems = $article->articleProducts
+                ->sortBy('sort_order')
+                ->filter(fn ($row) => $row->product !== null)
+                ->values();
+
+            $itemListSchema = $listicleItems->count() >= 2 ? [
+                '@context' => 'https://schema.org',
+                '@type' => 'ItemList',
+                'name' => $article->title,
+                'itemListOrder' => 'https://schema.org/ItemListOrderAscending',
+                'numberOfItems' => $listicleItems->count(),
+                'itemListElement' => $listicleItems->map(function ($row, $index) {
+                    $product = $row->product;
+
+                    return [
+                        '@type' => 'ListItem',
+                        'position' => $index + 1,
+                        'name' => $product->title,
+                        'url' => $product->affiliate_url,
+                        'image' => $product->image_url ?: url('/favicon.svg'),
+                        'item' => [
+                            '@type' => 'Product',
+                            'name' => $product->title,
+                            'sku' => $product->asin,
+                            'brand' => ['@type' => 'Brand', 'name' => $product->brand ?: $product->title],
+                            'offers' => [
+                                '@type' => 'Offer',
+                                'url' => $product->affiliate_url,
+                                'priceCurrency' => 'EGP',
+                                'price' => number_format((float) $product->price, 2, '.', ''),
+                                'availability' => $product->in_stock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+                            ],
+                        ],
+                    ];
+                })->values()->all(),
+            ] : null;
         @endphp
 
         @if ($product && $productSchema)
@@ -128,6 +168,9 @@
 
         <script type="application/ld+json">{!! json_encode($articleSchema, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
         <script type="application/ld+json">{!! json_encode($breadcrumbSchema, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
+        @if ($itemListSchema)
+            <script type="application/ld+json">{!! json_encode($itemListSchema, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
+        @endif
     @endpush
 
     <article class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-10">

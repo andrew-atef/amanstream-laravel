@@ -3,8 +3,10 @@
 namespace App\Services;
 
 use App\Models\Article;
+use App\Models\ArticleProduct;
 use App\Models\InstallmentPlan;
 use App\Models\Product;
+use Illuminate\Support\Collection;
 use Illuminate\Support\HtmlString;
 use League\CommonMark\CommonMarkConverter;
 
@@ -33,7 +35,32 @@ class ShortcodeParser
             }
         }
 
+        $listicleProducts = $this->listicleProducts($article);
+
+        if ($listicleProducts->isNotEmpty()) {
+            if (str_contains($content, '[comparison_table]')) {
+                $content = str_replace('[comparison_table]', $this->comparisonTable($listicleProducts), $content);
+            }
+
+            if (str_contains($content, '[product_cards]')) {
+                $content = str_replace('[product_cards]', $this->productCards($listicleProducts), $content);
+            }
+        }
+
         return new HtmlString($content);
+    }
+
+    /**
+     * Comparison pivot rows sorted by their admin-defined ordering, eager linked
+     * to products (also serves ItemList schema & Blade's listicle queries).
+     *
+     * @return Collection<int, ArticleProduct>
+     */
+    protected function listicleProducts(Article $article): Collection
+    {
+        return $article->articleProducts
+            ->sortBy('sort_order')
+            ->values();
     }
 
     protected function markdownToHtml(string $content): string
@@ -44,10 +71,257 @@ class ShortcodeParser
         ]))->convert($content)->getContent();
     }
 
+    /**
+     * [comparison_table] — Responsive RTL comparison matrix built from the
+     * article's attached products: product name, live price, buy link, and
+     * every spec label shared across the selected devices.
+     *
+     * @param  Collection<int, ArticleProduct>  $rows
+     */
+    public function comparisonTable(Collection $rows): string
+    {
+        $products = $rows->map(fn (ArticleProduct $row) => $row->product)->filter();
+
+        if ($products->isEmpty()) {
+            return '';
+        }
+
+        $specLabels = [];
+        foreach ($rows as $row) {
+            foreach ($this->normalizeSpecs($row->specs_json) as $spec) {
+                if (isset($spec['label']) && ! in_array($spec['label'], $specLabels, true)) {
+                    $specLabels[] = $spec['label'];
+                }
+            }
+        }
+
+        $head = '<tr><th class="py-3 px-4 text-right">المنتج</th>';
+        foreach ($products as $index => $product) {
+            $head .= '<th class="py-3 px-4 text-center font-bold">'.($index + 1).'</th>';
+        }
+        $head .= '</tr>';
+
+        $bodyRows = '';
+
+        $cells = '<tr><th class="py-3 px-4 text-right font-bold text-slate-500">الصورة</th>';
+        foreach ($rows as $row) {
+            $product = $row->product;
+            $cells .= '<td class="py-3 px-4 text-center">'.$this->thumbImage($product).'</td>';
+        }
+        $cells .= '</tr>';
+        $bodyRows .= $cells;
+
+        $cells = '<tr><th class="py-3 px-4 text-right font-bold text-slate-500">التقييم</th>';
+        foreach ($rows as $row) {
+            $product = $row->product;
+            $cells .= '<td class="py-3 px-4 text-center text-sm font-semibold text-amber-600">⭐ '.number_format((float) $product->rating, 1).' / 5</td>';
+        }
+        $cells .= '</tr>';
+        $bodyRows .= $cells;
+
+        foreach ($specLabels as $label) {
+            $cells = '<tr><th class="py-3 px-4 text-right font-bold text-slate-500">'.e($label).'</th>';
+            foreach ($rows as $row) {
+                $matched = null;
+                foreach ($this->normalizeSpecs($row->specs_json) as $spec) {
+                    if (($spec['label'] ?? '') === $label) {
+                        $matched = $spec['value'] ?? '';
+                        break;
+                    }
+                }
+                $cells .= '<td class="py-3 px-4 text-center text-sm text-slate-700">'.e($matched ?? '—').'</td>';
+            }
+            $cells .= '</tr>';
+            $bodyRows .= $cells;
+        }
+
+        $prices = '<tr class="bg-slate-50"><th class="py-3 px-4 text-right font-bold text-slate-500">السعر اليوم</th>';
+        foreach ($rows as $row) {
+            $product = $row->product;
+            $prices .= '<td class="py-3 px-4 text-center"><span class="text-lg font-black text-blue-700">'.number_format((float) $product->price, 0).'</span> <span class="text-xs font-bold text-slate-500">ج.م</span></td>';
+        }
+        $prices .= '</tr>';
+        $bodyRows .= $prices;
+
+        $buys = '<tr><th class="py-3 px-4 text-right font-bold text-slate-500">الشراء</th>';
+        foreach ($rows as $row) {
+            $buys .= '<td class="py-3 px-4 text-center">'.$this->compactBuyButton($row->product).'</td>';
+        }
+        $buys .= '</tr>';
+        $bodyRows .= $buys;
+
+        return sprintf(
+            <<<'HTML'
+<div class="my-8 overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm" dir="rtl">
+    <table class="w-full min-w-[720px] border-collapse text-sm">
+        <thead class="bg-slate-900 text-white">
+            %s
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+            %s
+        </tbody>
+    </table>
+</div>
+HTML,
+            $head,
+            $bodyRows
+        );
+    }
+
+    /**
+     * [product_cards] — Rank-ordered (#1, #2, #3) rich review cards for each
+     * comparison product: badge, live price, rating, quick verdict, and specs.
+     *
+     * @param  Collection<int, ArticleProduct>  $rows
+     */
+    public function productCards(Collection $rows): string
+    {
+        $cards = '';
+
+        foreach ($rows as $index => $row) {
+            $product = $row->product;
+            $rank = $index + 1;
+
+            $badge = filled($row->badge_label)
+                ? $this->rankBadge($rank, e($row->badge_label))
+                : $this->rankBadge($rank);
+
+            $verdict = filled($row->quick_verdict)
+                ? '<p class="mt-2 text-sm leading-relaxed text-slate-600">'.e($row->quick_verdict).'</p>'
+                : '';
+
+            $specList = '';
+            foreach ($this->normalizeSpecs($row->specs_json) as $spec) {
+                if (blank($spec['label'])) {
+                    continue;
+                }
+                $specList .= '<div class="flex justify-between gap-3 border-b border-slate-100 py-2 text-xs">'
+                    .'<span class="font-medium text-slate-500">'.e($spec['label']).'</span>'
+                    .'<span class="text-left font-bold text-slate-800">'.e($spec['value'] ?? '—').'</span></div>';
+            }
+
+            $hasDiscount = (float) $product->original_price > (float) $product->price && (float) $product->original_price > 0;
+            $priceLine = $hasDiscount
+                ? '<span class="text-sm font-semibold text-slate-400 line-through">'.number_format((float) $product->original_price, 0).' ج.م</span> <span class="text-3xl font-black text-blue-700">'.number_format((float) $product->price, 0).' ج.م</span>'
+                : '<span class="text-3xl font-black text-blue-700">'.number_format((float) $product->price, 0).' ج.م</span>';
+
+            $cards .= sprintf(
+                <<<'HTML'
+<article class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <div class="flex flex-col gap-4 p-6 sm:flex-row sm:items-start sm:gap-6">
+        %1$s
+        <div class="min-w-0 flex-1">
+            %2$s
+            <h3 class="text-lg font-black text-slate-900">%3$d. %4$s</h3>
+            <div class="mt-1 text-xs font-medium text-slate-500">%5$s · ASIN: %6$s</div>
+            %7$s
+            <div class="mt-3 flex flex-wrap items-center gap-2">
+                %8$s
+                <span class="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-800">⭐ %9$s / 5 (%10$d)</span>
+            </div>
+            <div class="mt-3 flex flex-wrap items-center gap-2">%11$s</div>
+        </div>
+    </div>
+    %12$s
+</article>
+HTML,
+                $this->thumbImage($product),
+                $badge,
+                $rank,
+                e($product->title),
+                e($product->brand ?: 'معلوم'),
+                e($product->asin ?: 'N/A'),
+                $verdict,
+                $hasDiscount ? '<span class="rounded-md bg-red-50 px-2 py-0.5 text-xs font-bold text-red-600">خصم '.round(((float) $product->original_price - (float) $product->price) / (float) $product->original_price * 100).'%</span>' : '',
+                number_format((float) $product->rating, 1),
+                (int) $product->review_count,
+                $priceLine.$this->compactBuyButton($product),
+                $specList === '' ? '' : '<div class="border-t border-slate-100 bg-slate-50 px-6 py-4"><div class="grid gap-x-6 sm:grid-cols-2">'.$specList.'</div></div>'
+            );
+        }
+
+        return '<div class="my-8 space-y-6" dir="rtl">'.$cards.'</div>';
+    }
+
+    /**
+     * Render the rank chip with an optional admin-curated badge label.
+     */
+    protected function rankBadge(int $rank, string $label = ''): string
+    {
+        $emoji = $this->emojiForRank($rank);
+
+        if ($label === '') {
+            $label = "الخيار رقم {$rank}";
+        }
+
+        return '<div class="mb-3 inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-800">'.$emoji.' '.$label.'</div>';
+    }
+
+    /**
+     * Small inline CTA used in product cards / comparison table.
+     */
+    protected function compactBuyButton(Product $product): string
+    {
+        if ($product->in_stock === false) {
+            return '<span class="rounded-lg border border-slate-200 bg-slate-100 px-4 py-2.5 text-sm font-bold text-slate-500 cursor-not-allowed">⚠️ غير متوفر</span>';
+        }
+
+        return sprintf(
+            '<a href="%s" target="_blank" rel="nofollow sponsored noopener" class="inline-flex items-center justify-center gap-1.5 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-500/30 transition-colors hover:bg-blue-700">اشترِ الآن من أمازون 👈</a>',
+            e($product->affiliate_url)
+        );
+    }
+
+    /**
+     * Render a small lazy-loaded product thumbnail.
+     */
+    protected function thumbImage(Product $product): string
+    {
+        if (blank($product->image_url)) {
+            return '<span class="grid h-20 w-20 shrink-0 place-items-center rounded-xl border border-slate-200 bg-slate-100 text-3xl">📦</span>';
+        }
+
+        return sprintf(
+            '<img src="%s" alt="%s" width="80" height="80" loading="lazy" class="h-20 w-20 shrink-0 rounded-xl border border-slate-100 bg-white p-1 object-contain">',
+            e($product->image_url),
+            e($product->title)
+        );
+    }
+
+    /**
+     * Normalize the JSON specs array to a clean list of [label, value] pairs
+     * regardless of how Filament shaped the nested repeater keying.
+     *
+     * @return array<int, array{label: ?string, value: ?string}>
+     */
+    protected function normalizeSpecs(mixed $specs): array
+    {
+        $specs = is_array($specs) ? $specs : json_decode((string) $specs, true);
+
+        return collect($specs ?? [])
+            ->filter(fn ($spec) => is_array($spec))
+            ->map(fn ($spec): array => [
+                'label' => $spec['label'] ?? null,
+                'value' => $spec['value'] ?? null,
+            ])
+            ->values()
+            ->all();
+    }
+
+    protected function emojiForRank(int $rank): string
+    {
+        return match ($rank) {
+            1 => '🥇',
+            2 => '🥈',
+            3 => '🥉',
+            default => '⭐',
+        };
+    }
+
     public static function stripShortcodes(string $content): string
     {
         return str_replace(
-            ['[price]', '[rating]', '[installment]', '[buy_button]', '[summary_box]', '[interactive_installment]', '[price_history]'],
+            ['[price]', '[rating]', '[installment]', '[buy_button]', '[summary_box]', '[interactive_installment]', '[price_history]', '[comparison_table]', '[product_cards]'],
             '',
             $content
         );

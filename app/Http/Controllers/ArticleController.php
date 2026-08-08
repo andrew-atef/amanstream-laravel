@@ -16,7 +16,7 @@ class ArticleController extends Controller
     public function show(string $slug): View
     {
         $article = Article::query()
-            ->with(['product.category', 'category'])
+            ->with(['product.category', 'category', 'products', 'articleProducts.product'])
             ->where('slug', $slug)
             ->where('is_published', true)
             ->firstOrFail();

@@ -5,6 +5,7 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\ArticleResource\Pages;
 use App\Models\Article;
 use Filament\Forms\Components\MarkdownEditor;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -91,9 +92,58 @@ class ArticleResource extends Resource
                                 'redo',
                             ])
                             ->helperText(
-                                'اكتب بمحرر Markdown (يدعم HTML أيضاً). الأكواد المتاحة: [price] السعر | [rating] التقييم | [installment] التقسيط | [buy_button] زر الشراء | [summary_box] ملخص مميزات وعيوب'
+                                'اكتب بمحرر Markdown (يدعم HTML أيضاً). الأكواد المتاحة: [price] السعر | [rating] التقييم | [installment] التقسيط | [buy_button] زر الشراء | [summary_box] ملخص مميزات وعيوب | [comparison_table] جدول المقارنة | [product_cards] كروت المنتجات'
                             )
                             ->columnSpanFull(),
+                    ]),
+                Section::make('المنتجات المقارنة في المقال (Listicle Products)')
+                    ->description('أضف منتجات متعددة هنا لتصنيع مقالات "أفضل X" والمقارنات. تظهر عبر [comparison_table] و [product_cards] داخل المحتوى.')
+                    ->schema([
+                        Repeater::make('articleProducts')
+                            ->relationship()
+                            ->label('المنتجات المقارنة')
+                            ->schema([
+                                Select::make('product_id')
+                                    ->label('المنتج')
+                                    ->relationship('product', 'title')
+                                    ->preload()
+                                    ->searchable()
+                                    ->required(),
+                                TextInput::make('sort_order')
+                                    ->label('الترتيب')
+                                    ->numeric()
+                                    ->default(0)
+                                    ->required(),
+                                TextInput::make('badge_label')
+                                    ->label('الشارة المميزة')
+                                    ->placeholder('مثال: الخيار الأفضل بصفة عامة 🔥')
+                                    ->maxLength(120),
+                                Textarea::make('quick_verdict')
+                                    ->label('الحكم السريع')
+                                    ->placeholder('مثال: أفضل خيار لو هتشتغل تطوير ألعاب وتطبيقات AI')
+                                    ->rows(2)
+                                    ->columnSpanFull(),
+                                Repeater::make('specs_json')
+                                    ->label('المواصفات')
+                                    ->schema([
+                                        TextInput::make('label')
+                                            ->label('الميزة')
+                                            ->placeholder('مثال: الرامات')
+                                            ->required(),
+                                        TextInput::make('value')
+                                            ->label('القيمة')
+                                            ->placeholder('مثال: 16GB DDR5')
+                                            ->required(),
+                                    ])
+                                    ->columns(2)
+                                    ->defaultItems(0)
+                                    ->reorderable()
+                                    ->collapsible()
+                                    ->columnSpanFull(),
+                            ])
+                            ->columns(2)
+                            ->collapsible()
+                            ->addActionLabel('أضف منتجاً للمقارنة'),
                     ]),
                 Section::make('إعدادات SEO')
                     ->schema([
