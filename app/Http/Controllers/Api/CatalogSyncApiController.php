@@ -118,6 +118,7 @@ class CatalogSyncApiController extends Controller
     protected function applySuccess(Product $product, array $result, array &$imagesToUpload = []): void
     {
         $livePrice = round((float) $result['live_price'], 2);
+        $previousPrice = (float) $product->price;
 
         $update = [
             'price' => $livePrice,
@@ -164,6 +165,10 @@ class CatalogSyncApiController extends Controller
             $update['raw_reviews_text'] = $result['raw_reviews_text'];
             $update['reviews_scraped_at'] = now();
         }
+
+        // Golden rule: log a history row ONLY when the price actually moved.
+        // The memoized range + JSON window are updated in the same save below.
+        $product->recordPriceHistory($livePrice, now(), $previousPrice);
 
         $product->fill($update);
         $product->save();

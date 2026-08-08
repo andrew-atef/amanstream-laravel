@@ -86,6 +86,7 @@ class SyncAmazonPrices extends Command
      */
     protected function applyMarketData(Product $product, array $live, bool $dryRun): void
     {
+        $previousPrice = (float) $product->price;
         $price = (float) ($live['price'] ?? $product->price);
         $inStock = (bool) ($live['in_stock'] ?? $product->in_stock);
 
@@ -96,6 +97,10 @@ class SyncAmazonPrices extends Command
         $product->last_synced_at = now();
 
         if (! $dryRun) {
+            // Golden rule: log a history row + refresh the memoized range/JSON
+            // window ONLY when the price actually moved.
+            $product->recordPriceHistory($price, now(), $previousPrice);
+
             $product->save();
         }
     }

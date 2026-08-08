@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -33,6 +34,9 @@ class Product extends Model
         'brand',
         'price',
         'original_price',
+        'lowest_price',
+        'highest_price',
+        'price_history_json',
         'rating',
         'review_count',
         'affiliate_url',
@@ -54,6 +58,9 @@ class Product extends Model
         return [
             'price' => 'decimal:2',
             'original_price' => 'decimal:2',
+            'lowest_price' => 'decimal:2',
+            'highest_price' => 'decimal:2',
+            'price_history_json' => 'array',
             'rating' => 'decimal:2',
             'review_count' => 'integer',
             'in_stock' => 'boolean',
@@ -74,6 +81,12 @@ class Product extends Model
     public function articles(): HasMany
     {
         return $this->hasMany(Article::class);
+    }
+
+    public function priceHistories(): HasMany
+    {
+        return $this->hasMany(ProductPriceHistory::class)
+            ->orderBy('recorded_at');
     }
 
     /**
@@ -129,5 +142,122 @@ class Product extends Model
             ->orderByDesc('is_zero_interest')
             ->orderBy('months')
             ->get();
+    }
+
+    /**
+     * Log a price snapshot ONLY when the price actually changed (or when we
+     * have no cached history yet). While doing so it updates the memoized
+     * lowest_price / highest_price columns and rolls the compact
+     * price_history_json cache window forward — all inside the caller's
+     * single product UPDATE, keeping the DB ultra-lightweight.
+     */
+    public function recordPriceHistory(float $livePrice, ?CarbonInterface $when = null, ?float $previousPrice = null): void
+    {
+        $when ??= now();
+        $previousPrice ??= (float) $this->price;
+
+        $points = (array) $this->price_history_json;
+
+        // Golden rule #1 — zero rows when the price did not move.
+        if ($previousPrice === $livePrice && $points !== []) {
+            return;
+        }
+
+        ProductPriceHistory::create([
+            'product_id' => $this->id,
+            'price' => $livePrice,
+            'recorded_at' => $when,
+        ]);
+
+        // Golden rule #2 — maintain ready-made range columns incrementally.
+        $this->lowest_price = $this->lowest_price !== null && (float) $this->lowest_price < $livePrice
+            ? $this->lowest_price
+            : $livePrice;
+
+        $this->highest_price = $this->highest_price !== null && (float) $this->highest_price > $livePrice
+            ? $this->highest_price
+            : $livePrice;
+
+        // Roll the compact JSON window forward (max 10 points).
+        $points[] = ['p' => $livePrice, 'd' => $when->format('d/m')];
+
+        $this->price_history_json = array_slice($points, -10);
+    }
+
+    /**
+     * Pre-calculated lowest recorded EGP price, read straight from the
+     * product row — zero SQL queries.
+     */
+    public function getLowestRecordedPrice(): float
+    {
+        return (float) ($this->lowest_price ?: $this->price);
+    }
+
+    /**
+     * Pre-calculated highest recorded EGP price, read straight from the
+     * product row, falling back to the struck-through original price or a
+     * 15% premium on the live price. Zero SQL queries.
+     */
+    public function getHighestRecordedPrice(): float
+    {
+        if ((float) ($this->highest_price ?: 0) > 0) {
+            return (float) $this->highest_price;
+        }
+
+        return (float) $this->original_price > 0
+            ? (float) $this->original_price
+            : (float) $this->price * 1.15;
+    }
+
+    /**
+     * Classify the current price against the cached historical range.
+     * Pure in-memory — executes zero additional queries.
+     *
+     * @return array{status: 'excellent'|'fair'|'high', label: string, color: 'emerald'|'sky'|'rose'}
+     */
+    public function getPriceStatus(): array
+    {
+        $current = (float) $this->price;
+        $lowest = $this->getLowestRecordedPrice();
+        $highest = $this->getHighestRecordedPrice();
+
+        if ($current <= $lowest * 1.03) {
+            return [
+                'status' => 'excellent',
+                'label' => 'سعر ممتاز للشراء 🔥',
+                'color' => 'emerald',
+            ];
+        }
+
+        if ($current >= $highest * 0.95) {
+            return [
+                'status' => 'high',
+                'label' => 'غير جيد (سعر مرتفع ⚠️)',
+                'color' => 'rose',
+            ];
+        }
+
+        return [
+            'status' => 'fair',
+            'label' => 'سعر متوازن ⚖️',
+            'color' => 'sky',
+        ];
+    }
+
+    /**
+     * The compact price_history_json cache decoded into chart-ready points
+     * (oldest first). Pure in-memory — executes zero additional queries.
+     *
+     * @return array<int, array{date: string, price: float}>
+     */
+    public function getPriceHistoryPoints(): array
+    {
+        return array_map(
+            fn (array $point): array => [
+                'date' => (string) ($point['d'] ?? ''),
+                'price' => (float) ($point['p'] ?? 0),
+            ],
+            (array) $this->price_history_json
+        );
     }
 }

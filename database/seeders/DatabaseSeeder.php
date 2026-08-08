@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\Article;
 use App\Models\Category;
 use App\Models\Product;
+use App\Models\ProductPriceHistory;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
@@ -21,6 +22,7 @@ class DatabaseSeeder extends Seeder
     {
         $this->seedAdminUser();
         $this->seedEgyptianDemoData();
+        $this->seedHaierDemoData();
         $this->call(AmazonEgyptInstallmentSeeder::class);
     }
 
@@ -82,8 +84,127 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
+        $this->seedPriceHistory($product, [
+            [22400, 185],
+            [21800, 156],
+            [21200, 130],
+            [21900, 104],
+            [20100, 86],
+            [18900, 70],
+            [20400, 54],
+            [19300, 38],
+            [18650, 26],
+            [18520, 16],
+            [18700, 7],
+            [18521, 0],
+        ]);
+
         $this->command?->info('Demo data seeded: 1 category, 1 product, 1 article.');
         $this->command?->info("Article URL: /articles/{$article->slug}");
+    }
+
+    /**
+     * Seed a realistic six-month historical price timeline for the Haier AC so
+     * the Kanbakam-style barometer/chart has rich moment-to-moment data.
+     */
+    private function seedHaierDemoData(): void
+    {
+        $category = Category::query()->updateOrCreate(
+            ['slug' => Str::slug('تكييفات')],
+            [
+                'name' => 'تكييفات',
+                'description' => 'أفضل أسعار ومميزات أجهزة التكييف المتاحة على أمازون مصر مع مراجعات واقعية من السوق المصري.',
+            ]
+        );
+
+        $product = Product::query()->updateOrCreate(
+            ['asin' => 'B0HAIER0001'],
+            [
+                'category_id' => $category->id,
+                'title' => 'تكييف هير Haier 1.5 حصان بارد فقط سمارت إنفرتر',
+                'brand' => 'Haier',
+                'price' => 21850.00,
+                'original_price' => 24900.00,
+                'rating' => 4.6,
+                'review_count' => 145,
+                'affiliate_url' => 'https://www.amazon.eg/dp/B0HAIER0001?tag=your-affiliate-tag-21',
+                'image_url' => 'https://m.media-amazon.com/images/I/51-haier-1.5hp-inverter.webp',
+                'in_stock' => true,
+            ]
+        );
+
+        $this->seedPriceHistory($product, [
+            [24900, 190],
+            [24000, 160],
+            [23400, 130],
+            [24200, 100],
+            [22800, 75],
+            [24100, 55],
+            [23000, 40],
+            [22450, 25],
+            [22000, 12],
+            [22400, 5],
+            [21850, 0],
+        ]);
+
+        Article::query()->updateOrCreate(
+            ['slug' => Str::slug('سعر تكييف هير Haier 1.5 حصان بارد فقط سمارت إنفرتر')],
+            [
+                'product_id' => $product->id,
+                'category_id' => $category->id,
+                'title' => 'سعر تكييف هير Haier 1.5 حصان بارد فقط سمارت إنفرتر',
+                'meta_title' => 'سعر تكييف هير 1.5 حصان بارد فقط سمارت إنفرتر في مصر 2026 ومميزاته وعيوبه',
+                'meta_description' => 'تعرف على سعر تكييف هير Haier 1.5 حصان بارد فقط سمارت إنفرتر في مصر، مع مؤشر تاريخ السعر ومميزات وأبرز العيوب والقرار النهائي.',
+                'is_published' => true,
+                'content' => $this->buildHaierArticleContent(),
+            ]
+        );
+
+        $this->command?->info("Haier article seeded: /articles/{$product->articles()->where('is_published', true)->first()?->slug}");
+    }
+
+    /**
+     * Persist (idempotently) an ordered list of price points into the history
+     * table, each keyed by [product, recorded_at] so re-seeding never duplicates.
+     * After inserting, the ready-made lowest_price / highest_price columns and
+     * the compact price_history_json window (max 10 points) are recomputed and
+     * stored on the product row itself for zero-query page rendering.
+     *
+     * @param  array<int, array{0: float, 1: int}>  $timeline  [price, daysAgo]
+     */
+    private function seedPriceHistory(Product $product, array $timeline): void
+    {
+        foreach ($timeline as [$price, $daysAgo]) {
+            ProductPriceHistory::query()->updateOrCreate(
+                [
+                    'product_id' => $product->id,
+                    'recorded_at' => now()->subDays($daysAgo)->startOfDay(),
+                ],
+                ['price' => $price]
+            );
+        }
+
+        $rows = ProductPriceHistory::query()
+            ->where('product_id', $product->id)
+            ->orderBy('recorded_at')
+            ->get();
+
+        if ($rows->isEmpty()) {
+            return;
+        }
+
+        $product->lowest_price = (float) $rows->min('price');
+        $product->highest_price = (float) $rows->max('price');
+        $product->price_history_json = $rows
+            ->take(-10)
+            ->map(fn (ProductPriceHistory $row): array => [
+                'p' => (float) $row->price,
+                'd' => $row->recorded_at->format('d/m'),
+            ])
+            ->values()
+            ->all();
+
+        $product->save();
     }
 
     /**
@@ -105,6 +226,10 @@ class DatabaseSeeder extends Seeder
 <p>يتفاوت السعر بين المتاجر وعبر المنصات الإلكترونية وفقًا للعروض ووسائل الدفع. على أمازون مصر، يبلغ السعر الحالي للموديل بروفيشنال تربو نحو:</p>
 
 <p><strong>السعر الحالي على أمازون مصر:</strong> [price]</p>
+
+<p>لا تشترِ قبل الاطلاع على مؤشر تاريخ السعر أدناه — فهو يوضّح هل نحن أمام سعر منخفض أم أن هناك وقتًا أفضل للشراء:</p>
+
+[price_history]
 
 [installment]
 
@@ -145,6 +270,36 @@ class DatabaseSeeder extends Seeder
 <p>إذا كنت تبحث عن تكييف عملي بتبريد قوي وسعر تنافسي داخل مصر، فإن هذا الموديل يستحق النظر إليه بجدية. ننصحك دائمًا بمقارنة السعر مع العروض الحالية والتحقق من توفر الدعم المحلي قبل اتخاذ القرار النهائي.</p>
 
 <p>لأفضل سعر مضمون وضمان أمازون الرسمي، يمكنك الشراء الآن مباشرة:</p>
+
+<p>[buy_button]</p>
+HTML;
+    }
+
+    /**
+     * Compact second demo article exercising the price-history widget.
+     */
+    private function buildHaierArticleContent(): string
+    {
+        return <<<'HTML'
+<h2>تكييف هير Haier 1.5 حصان سمارت إنفرتر</h2>
+
+<p>تكييف هير مبنيّ على ضاغط إنفرتر ذكي يجمع بين توفير الطاقة وتبريد سريع، مع تقييم مرتفع داخل السوق المصري. دعنا نلقي نظرة على سعره الحالي وتاريخه:</p>
+
+<p><strong>السعر الحالي على أمازون مصر:</strong> [price]</p>
+
+[price_history]
+
+<h2>أبرز الملاحظات</h2>
+
+<ul>
+<li>إنفرتر يوفر حتى 40% من استهلاك الكهرباء.</li>
+<li>تبريد سريع مع تشغيل هادئ على السرعات الليلية.</li>
+<li>ضمان محلي متاح مع وكلاء منتشرون في جميع المحافظات.</li>
+</ul>
+
+<h2>القرار النهائي</h2>
+
+<p>نوصي بمراجعة مؤشر تاريخ السعر أولًا قبل إتمام الشراء، ثم الشراء مباشرة بأفضل سعر متاح:</p>
 
 <p>[buy_button]</p>
 HTML;

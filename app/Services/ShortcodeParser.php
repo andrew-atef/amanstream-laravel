@@ -20,12 +20,23 @@ class ShortcodeParser
         $product = $article->product;
 
         if ($product !== null) {
-            $content = str_replace('[price]', $this->priceBadge($product), $content);
-            $content = str_replace('[rating]', $this->ratingWidget($product), $content);
-            $content = str_replace('[installment]', $this->installmentBox($product), $content);
-            $content = str_replace('[buy_button]', $this->buyButton($product), $content);
-            $content = str_replace('[summary_box]', $this->summaryBox($product), $content);
-            $content = str_replace('[interactive_installment]', $this->interactiveInstallment($product), $content);
+            $replacements = [
+                '[price]' => fn (): string => $this->priceBadge($product),
+                '[rating]' => fn (): string => $this->ratingWidget($product),
+                '[installment]' => fn (): string => $this->installmentBox($product),
+                '[buy_button]' => fn (): string => $this->buyButton($product),
+                '[summary_box]' => fn (): string => $this->summaryBox($product),
+                '[interactive_installment]' => fn (): string => $this->interactiveInstallment($product),
+                '[price_history]' => fn (): string => $this->priceHistory($product),
+            ];
+
+            // Lazily render only the shortcodes actually used in the article,
+            // so unused builders (e.g. DB-backed installment tables) never run.
+            foreach ($replacements as $token => $builder) {
+                if (str_contains($content, $token)) {
+                    $content = str_replace($token, $builder(), $content);
+                }
+            }
         }
 
         return new HtmlString($content);
@@ -51,7 +62,7 @@ class ShortcodeParser
     public static function stripShortcodes(string $content): string
     {
         return str_replace(
-            ['[price]', '[rating]', '[installment]', '[buy_button]', '[summary_box]', '[interactive_installment]'],
+            ['[price]', '[rating]', '[installment]', '[buy_button]', '[summary_box]', '[interactive_installment]', '[price_history]'],
             '',
             $content
         );
@@ -363,5 +374,292 @@ HTML,
             e($product->affiliate_url),
             $rows
         );
+    }
+
+    /**
+     * [price_history] — Kanbakam-style price history barometer with a zero-JS
+     * responsive SVG line chart. Rendered fully server-side (100/100 CWV).
+     */
+    protected function priceHistory(Product $product): string
+    {
+        $status = $product->getPriceStatus();
+        $color = $status['color'];
+
+        $current = (float) $product->price;
+        $lowest = $product->getLowestRecordedPrice();
+        $highest = $product->getHighestRecordedPrice();
+
+        // Zero extra SQL — the last-10 window is already cached on the product row.
+        $points = $product->getPriceHistoryPoints();
+
+        $lowestDate = '—';
+        $highestDate = '—';
+        foreach ($points as $point) {
+            if ((float) $point['price'] === $lowest) {
+                $lowestDate = $point['date'];
+            }
+
+            if ((float) $point['price'] === $highest) {
+                $highestDate = $point['date'];
+            }
+        }
+
+        $discountPercent = $highest > $current && $highest > 0
+            ? (int) round((1 - $current / $highest) * 100)
+            : 0;
+
+        $discountBadge = $discountPercent > 0
+            ? '<span class="mt-1.5 inline-block rounded-full bg-red-50 px-2.5 py-0.5 text-[11px] font-bold text-red-600 border border-red-100">خصم '.$discountPercent.'% عن أعلى سعر</span>'
+            : '<span class="mt-1.5 inline-block rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-bold text-emerald-600 border border-emerald-100">بأفضل سعر تاريخي 🔥</span>';
+
+        $badge = sprintf(
+            '<span class="inline-flex items-center gap-1.5 rounded-full border px-4 py-1.5 text-xs font-bold %s" role="status">%s</span>',
+            match ($color) {
+                'emerald' => 'bg-emerald-50 text-emerald-700 border-emerald-200',
+                'rose' => 'bg-rose-50 text-rose-700 border-rose-200',
+                default => 'bg-sky-50 text-sky-700 border-sky-200',
+            },
+            $status['label']
+        );
+
+        $card = <<<'HTML'
+<div class="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4">
+    <div class="flex items-center gap-1.5 text-xs font-bold text-emerald-700">🟢 أقل سعر سُجِّل</div>
+    <div class="mt-2 text-2xl font-black text-emerald-700">{{LOWEST}} ج.م</div>
+    <div class="mt-1 text-[11px] text-emerald-600">سجّل في {{LOWEST_DATE}}</div>
+</div>
+HTML;
+        $card = str_replace(['{{LOWEST}}', '{{LOWEST_DATE}}'], [number_format($lowest, 2), $lowestDate], $card);
+
+        $cardCurrent = <<<'HTML'
+<div class="rounded-2xl border border-blue-100 bg-blue-50/70 p-4">
+    <div class="flex items-center gap-1.5 text-xs font-bold text-blue-700">🔵 السعر الحالي اليوم</div>
+    <div class="mt-2 text-2xl font-black text-blue-700">{{CURRENT}} ج.م</div>
+    {{DISCOUNT_BADGE}}
+</div>
+HTML;
+        $cardCurrent = str_replace(['{{CURRENT}}', '{{DISCOUNT_BADGE}}'], [number_format($current, 2), $discountBadge], $cardCurrent);
+
+        $cardHigh = <<<'HTML'
+<div class="rounded-2xl border border-rose-100 bg-rose-50/70 p-4">
+    <div class="flex items-center gap-1.5 text-xs font-bold text-rose-700">🔴 أعلى سعر سُجِّل</div>
+    <div class="mt-2 text-2xl font-black text-rose-700">{{HIGHEST}} ج.م</div>
+    <div class="mt-1 text-[11px] text-rose-600">سجّل في {{HIGHEST_DATE}}</div>
+</div>
+HTML;
+        $cardHigh = str_replace(['{{HIGHEST}}', '{{HIGHEST_DATE}}'], [number_format($highest, 2), $highestDate], $cardHigh);
+
+        $chart = $this->priceHistoryChart($points, $color);
+
+        $html = <<<'HTML'
+<div class="my-10 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm" dir="rtl">
+    <div class="flex flex-wrap items-center justify-between gap-3 bg-slate-900 px-5 py-4">
+        <div class="flex items-center gap-3">
+            <span class="grid place-items-center h-10 w-10 rounded-xl bg-emerald-600">📉</span>
+            <div>
+                <h3 class="font-extrabold text-base text-white">مؤشر أمان ستريم لتاريخ السعر (كان بكام)</h3>
+                <p class="text-xs text-slate-400">تحليل ذكي لحركة السعر خلال الأشهر الماضية</p>
+            </div>
+        </div>
+        {{BADGE}}
+    </div>
+
+    <div class="grid grid-cols-1 gap-4 p-5 sm:grid-cols-3">
+        {{CARD_LOW}}
+        {{CARD_CURRENT}}
+        {{CARD_HIGH}}
+    </div>
+
+    <div class="px-5 pb-5">{{CHART}}</div>
+
+    <div class="flex flex-col gap-4 border-t border-slate-100 bg-slate-50 p-5 sm:flex-row sm:items-center sm:justify-between">
+        <p class="max-w-xl text-sm leading-relaxed text-slate-600">💡 تتبع الأسعار: يقوم أمان ستريم بفرز وتتبع أسعار هذا المنتج يوميًا لمساعدتك على معرفة هل السعر الحالي فرصة جيدة أم لا.</p>
+        <a href="{{URL}}" target="_blank" rel="nofollow sponsored noopener" class="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-blue-500/30 transition-colors hover:bg-blue-700">
+            اشترِ الآن بأفضل سعر من أمازون مصر 👈
+        </a>
+    </div>
+</div>
+HTML;
+
+        return str_replace([
+            '{{BADGE}}',
+            '{{CARD_LOW}}',
+            '{{CARD_CURRENT}}',
+            '{{CARD_HIGH}}',
+            '{{CHART}}',
+            '{{URL}}',
+        ], [
+            $badge,
+            $card,
+            $cardCurrent,
+            $cardHigh,
+            $chart,
+            e($product->affiliate_url),
+        ], $html);
+    }
+
+    /**
+     * Render a lightweight, fully server-rendered (zero-JS) responsive SVG line
+     * chart mapping the historical price points to a 500x120 viewBox.
+     *
+     * @param  array<int, array{date: string, price: float}>  $points
+     */
+    protected function priceHistoryChart(array $points, string $accent = 'emerald'): string
+    {
+        if (count($points) < 2) {
+            return '<div class="flex h-28 items-center justify-center rounded-xl bg-slate-50 text-xs text-slate-400">لا توجد بيانات سعرية كافية بعد — يتابع أمان ستريم هذا المنتج يوميًا.</div>';
+        }
+
+        $width = 500;
+        $height = 120;
+        $padTop = 16;
+        $padRight = 18;
+        $padBottom = 30;
+        $padLeft = 54;
+
+        $plotW = $width - $padLeft - $padRight;
+        $plotH = $height - $padTop - $padBottom;
+        $baseline = $padTop + $plotH;
+
+        $prices = array_column($points, 'price');
+        $minRaw = min($prices);
+        $maxRaw = max($prices);
+        $spread = $maxRaw - $minRaw;
+        $pad = $spread > 0 ? $spread * 0.12 : ($maxRaw > 0 ? $maxRaw * 0.05 : 100);
+        $min = max(0, $minRaw - $pad);
+        $max = $maxRaw + $pad;
+
+        $count = count($points);
+        $coords = [];
+        foreach ($points as $i => $point) {
+            $x = $padLeft + ($count === 1 ? 0.5 : $i / ($count - 1)) * $plotW;
+            $ratio = ($point['price'] - $min) / ($max - $min);
+            $y = $padTop + (1 - $ratio) * $plotH;
+            $coords[] = ['x' => round($x, 2), 'y' => round($y, 2)];
+        }
+
+        $line = $this->smoothLinePath($coords);
+        $area = "{$line} L {$coords[$count - 1]['x']} {$baseline} L {$coords[0]['x']} {$baseline} Z";
+
+        [$stroke, $fill] = match ($accent) {
+            'rose' => ['#e11d48', '#e11d48'],
+            'sky' => ['#0284c7', '#0284c7'],
+            default => ['#059669', '#059669'],
+        };
+
+        $gradId = 'ph-grad-'.bin2hex(random_bytes(4));
+
+        $axis = '';
+        foreach ([0.0, 0.5, 1.0] as $ratio) {
+            $y = $padTop + $ratio * $plotH;
+            $value = $max - $ratio * ($max - $min);
+            $axis .= sprintf(
+                '<line x1="%1$d" y1="%2$s" x2="%3$d" y2="%2$s" stroke="#f1f5f9" stroke-width="1" />',
+                $padLeft,
+                round($y, 2),
+                $width - $padRight
+            );
+            $axis .= sprintf(
+                '<text x="%d" y="%s" text-anchor="end" fill="#94a3b8" font-size="10">%s</text>',
+                $padLeft - 8,
+                round($y + 3.5, 2),
+                number_format($value, 0)
+            );
+        }
+
+        $dates = '';
+        foreach (array_values(array_unique([0, (int) floor(($count - 1) / 2), $count - 1])) as $idx) {
+            $dates .= sprintf(
+                '<text x="%s" y="%d" text-anchor="middle" fill="#94a3b8" font-size="10">%s</text>',
+                $coords[$idx]['x'],
+                $height - 14,
+                e($points[$idx]['date'])
+            );
+        }
+
+        $minIdx = array_search($minRaw, $prices, true);
+        $maxIdx = array_search($maxRaw, $prices, true);
+
+        $nodes = '';
+        $nodes .= sprintf(
+            '<circle cx="%s" cy="%s" r="8" fill="#10b981" opacity="0.18" /><circle cx="%s" cy="%s" r="5" fill="#10b981" stroke="#ffffff" stroke-width="2.5"><title>أقل سعر: %s في %s</title></circle>',
+            $coords[$minIdx]['x'],
+            $coords[$minIdx]['y'],
+            $coords[$minIdx]['x'],
+            $coords[$minIdx]['y'],
+            number_format($minRaw, 2),
+            e($points[$minIdx]['date'])
+        );
+        $nodes .= sprintf(
+            '<circle cx="%s" cy="%s" r="8" fill="#f43f5e" opacity="0.18" /><circle cx="%s" cy="%s" r="5" fill="#f43f5e" stroke="#ffffff" stroke-width="2.5"><title>أعلى سعر: %s في %s</title></circle>',
+            $coords[$maxIdx]['x'],
+            $coords[$maxIdx]['y'],
+            $coords[$maxIdx]['x'],
+            $coords[$maxIdx]['y'],
+            number_format($maxRaw, 2),
+            e($points[$maxIdx]['date'])
+        );
+
+        return sprintf(
+            <<<'SVG'
+<svg class="w-full h-auto" viewBox="0 0 %1$d %2$d" role="img" aria-label="مخطط تاريخ أسعار المنتج بالجنيه المصري">
+    <defs>
+        <linearGradient id="%3$s" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="%4$s" stop-opacity="0.28" />
+            <stop offset="1" stop-color="%4$s" stop-opacity="0" />
+        </linearGradient>
+    </defs>
+    %5$s
+    <path d="%6$s" fill="url(#%3$s)" />
+    <path d="%7$s" fill="none" stroke="%4$s" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+    %8$s
+    %9$s
+</svg>
+SVG,
+            $width,
+            $height,
+            $gradId,
+            $stroke,
+            $axis,
+            $area,
+            $line,
+            $nodes,
+            $dates
+        );
+    }
+
+    /**
+     * Map points to a smooth continuous line using a Catmull-Rom spline
+     * expressed as cubic beziers — no client-side smoothing required.
+     *
+     * @param  array<int, array{x: float, y: float}>  $points
+     */
+    protected function smoothLinePath(array $points): string
+    {
+        $count = count($points);
+        $path = "M {$points[0]['x']} {$points[0]['y']}";
+
+        if ($count === 2) {
+            return $path." L {$points[1]['x']} {$points[1]['y']}";
+        }
+
+        for ($i = 0; $i < $count - 1; $i++) {
+            $p0 = $points[max($i - 1, 0)];
+            $p1 = $points[$i];
+            $p2 = $points[$i + 1];
+            $p3 = $points[min($i + 2, $count - 1)];
+
+            $path .= sprintf(
+                ' C %s %s, %s %s, %s %s',
+                round($p1['x'] + ($p2['x'] - $p0['x']) / 6, 2),
+                round($p1['y'] + ($p2['y'] - $p0['y']) / 6, 2),
+                round($p2['x'] - ($p3['x'] - $p1['x']) / 6, 2),
+                round($p2['y'] - ($p3['y'] - $p1['y']) / 6, 2),
+                $p2['x'],
+                $p2['y']
+            );
+        }
+
+        return $path;
     }
 }
