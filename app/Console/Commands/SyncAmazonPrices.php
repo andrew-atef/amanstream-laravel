@@ -94,6 +94,9 @@ class SyncAmazonPrices extends Command
         $product->rating = (float) ($live['rating'] ?? $product->rating);
         $product->review_count = (int) ($live['review_count'] ?? $product->review_count);
         $product->last_synced_at = now();
+        $product->sync_status = Product::SYNC_STATUS_SYNCED;
+        $product->sync_attempts = 0;
+        $product->last_sync_error = null;
 
         if (! $dryRun) {
             // Golden rule: log a history row + refresh the memoized range/JSON
