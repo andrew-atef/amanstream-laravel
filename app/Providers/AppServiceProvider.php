@@ -38,9 +38,12 @@ class AppServiceProvider extends ServiceProvider
         Article::observe(ArticleObserver::class);
         Product::observe(ProductObserver::class);
 
-        // مشاركة التصنيفات ديناميكياً مع الهيدر/الفوتر فقط، من كاش يومي بدلاً من
-        // استعلامٍ غير مخزَّن على كل طلب HTTP.
-        View::composer(['layouts.*', 'partials.*'], function (ViewFactory $view): void {
+        // مشاركة التصنيفات ديناميكياً مع الهيدر/الفوتر لجميع الصفحات، من كاش
+        // يومي بدلاً من استعلامٍ غير مخزَّن على كل طلب HTTP.
+        // ملاحظة: عند استخدام `<x-layouts.app>` كـ anonymous component، يُحفظ
+        // الـ view تحت اسم namespaced (hash::layouts.app) لا "layouts.app"،
+        // لذلك نسجل composer على '*' (أي view) فيتم تغطية كل النماذج.
+        View::composer('*', function (ViewFactory $view): void {
             $view->with('headerCategories', $this->headerCategories());
         });
 
@@ -54,6 +57,12 @@ class AppServiceProvider extends ServiceProvider
      * Load the shared header category list, cached for a full day. The table
      * check runs before the cache block so unmigrated/fresh installs fail safe.
      *
+     * Note: we never write an *empty* result into the cache. `Cache::remember`
+     * would store a blank collection for a whole day if the DB was seeded
+     * after the first request (which is exactly what happened in production).
+     * Using `Cache::get` + only caching when non-empty keeps the header live
+     * within one request after data becomes available.
+     *
      * @return \Illuminate\Database\Eloquent\Collection<int, Category>
      */
     protected function headerCategories(): Collection
@@ -62,11 +71,23 @@ class AppServiceProvider extends ServiceProvider
             return new Collection();
         }
 
-        return Cache::remember('header_categories', now()->addDay(), fn () => Category::query()
+        $headerCategories = Cache::get('header_categories');
+
+        if ($headerCategories instanceof Collection && $headerCategories->isNotEmpty()) {
+            return $headerCategories;
+        }
+
+        $headerCategories = Category::query()
             ->withCount(['articles' => fn ($query) => $query->where('is_published', true)])
             ->whereHas('articles', fn ($query) => $query->where('is_published', true))
             ->orderBy('name')
             ->limit(8)
-            ->get());
+            ->get();
+
+        if ($headerCategories->isNotEmpty()) {
+            Cache::put('header_categories', $headerCategories, now()->addDay());
+        }
+
+        return $headerCategories;
     }
 }
