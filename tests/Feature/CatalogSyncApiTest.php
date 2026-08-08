@@ -60,6 +60,16 @@ class CatalogSyncApiTest extends TestCase
         $this->assertArrayHasKey('url', $response->json()[0]);
     }
 
+    public function test_synced_products_older_than_six_hours_return_to_the_queue(): void
+    {
+        $this->makeProduct(['asin' => 'STALE-SYNCED', 'sync_status' => Product::SYNC_STATUS_SYNCED, 'last_synced_at' => now()->subHours(7)]);
+
+        $response = $this->getJson('/api/v1/catalog/pending-sync?limit=10', ['x-sync-token' => self::TOKEN])
+            ->assertOk();
+
+        $this->assertEquals('STALE-SYNCED', $response->json()[0]['asin_or_sku']);
+    }
+
     public function test_pending_sync_caps_limit_at_twenty(): void
     {
         for ($i = 0; $i < 25; $i++) {

@@ -19,16 +19,17 @@ class ResetCatalogSyncQueue extends Command
      *
      * @var string
      */
-    protected $description = 'Re-queue products whose last catalog sync is older than 24 hours back to pending status.';
+    protected $description = 'Re-queue products whose last catalog sync is older than 6 hours back to pending status.';
 
     /**
      * Execute the console command.
      */
     public function handle(): int
     {
-        $cutoff = now()->subHours(24);
+        $cutoff = now()->subHours(Product::SYNC_RECYCLE_HOURS);
 
         $affected = Product::query()
+            ->where('is_active', true)
             ->where('last_synced_at', '<', $cutoff)
             ->whereIn('sync_status', [Product::SYNC_STATUS_SYNCED, Product::SYNC_STATUS_FAILED])
             ->update([
