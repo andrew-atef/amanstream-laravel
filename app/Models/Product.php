@@ -159,7 +159,7 @@ class Product extends Model
         $points = (array) $this->price_history_json;
 
         // Golden rule #1 — zero rows when the price did not move.
-        if ($previousPrice === $livePrice && $points !== []) {
+        if (abs($previousPrice - $livePrice) < 0.01 && $points !== []) {
             return;
         }
 
@@ -220,6 +220,14 @@ class Product extends Model
         $current = (float) $this->price;
         $lowest = $this->getLowestRecordedPrice();
         $highest = $this->getHighestRecordedPrice();
+
+        if ($current <= 0) {
+            return [
+                'status' => 'fair',
+                'label' => 'السعر قيد التحديث ⏳',
+                'color' => 'sky',
+            ];
+        }
 
         if ($current <= $lowest * 1.03) {
             return [

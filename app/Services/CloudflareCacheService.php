@@ -19,9 +19,19 @@ class CloudflareCacheService
     }
 
     /**
-     * Purge multiple URLs from the Cloudflare edge cache in a single request.
+     * Maximum URLs accepted per /purge_cache request (Cloudflare API limit - 300).
+     * Chunking stays safely below the cap while balancing request count.
+     */
+    protected const MAX_URLS_PER_CHUNK = 250;
+
+    /**
+     * Purge multiple URLs from the Cloudflare edge cache.
      *
-     * Returns true when every URL was purged successfully, false otherwise.
+     * URLs are deduplicated and cleaned, then split into chunks of at most
+     * MAX_URLS_PER_CHUNK and sent as separate requests, because Cloudflare
+     * rejects /purge_cache payloads with more than 300 files.
+     *
+     * Returns true only when every chunk was purged successfully.
      */
     public function purgeUrls(array $urls): bool
     {
@@ -36,9 +46,57 @@ class CloudflareCacheService
             return false;
         }
 
-        if ($urls === []) {
+        $cleanUrls = $this->cleanUrls($urls);
+
+        if ($cleanUrls === []) {
             return true;
         }
+
+        $allPurged = true;
+
+        foreach (array_chunk($cleanUrls, self::MAX_URLS_PER_CHUNK) as $chunk) {
+            if (! $this->purgeChunk($chunk)) {
+                $allPurged = false;
+            }
+        }
+
+        return $allPurged;
+    }
+
+    /**
+     * Deduplicate, trim and drop blank entries from the given URL list.
+     *
+     * @param  array<int, mixed>  $urls
+     * @return array<int, string>
+     */
+    protected function cleanUrls(array $urls): array
+    {
+        $cleaned = [];
+
+        foreach ($urls as $url) {
+            if (! is_string($url)) {
+                continue;
+            }
+
+            $url = trim($url);
+
+            if ($url === '') {
+                continue;
+            }
+
+            $cleaned[$url] = true;
+        }
+
+        return array_keys($cleaned);
+    }
+
+    /**
+     * Send a single purged request for the given chunk of URLs.
+     */
+    protected function purgeChunk(array $chunk): bool
+    {
+        $token = config('services.cloudflare.api_token') ?? config('services.cloudflare.token');
+        $zone = config('services.cloudflare.zone_id');
 
         try {
             $response = Http::withHeaders([
@@ -48,23 +106,23 @@ class CloudflareCacheService
                 ->timeout(15)
                 ->post(
                     'https://api.cloudflare.com/client/v4/zones/'.$zone.'/purge_cache',
-                    ['files' => $urls]
+                    ['files' => $chunk]
                 );
 
-            $ok = $response->successful();
-
-            if (! $ok) {
-                Log::warning('CloudflareCache: purge request failed.', [
-                    'urls' => $urls,
-                    'status' => $response->status(),
-                    'body' => (string) $response->body(),
-                ]);
+            if ($response->successful()) {
+                return true;
             }
 
-            return $ok;
+            Log::warning('CloudflareCache: purge chunk failed.', [
+                'urls' => $chunk,
+                'status' => $response->status(),
+                'body' => (string) $response->body(),
+            ]);
+
+            return false;
         } catch (ConnectionException|\Throwable $e) {
-            Log::error('CloudflareCache: purge threw exception.', [
-                'urls' => $urls,
+            Log::error('CloudflareCache: purge chunk threw exception.', [
+                'urls' => $chunk,
                 'error' => $e->getMessage(),
             ]);
 

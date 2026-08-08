@@ -17,6 +17,13 @@ class ImageUploaderService
     protected const WEBP_QUALITY = 85;
 
     /**
+     * Raw image payloads above this size are skipped for WebP conversion.
+     * GD decodes the whole image into memory, so an oversized JPEG on a
+     * memory-constrained VPS would risk an out-of-memory kernel kill.
+     */
+    protected const MAX_SOURCE_BYTES = 8 * 1024 * 1024;
+
+    /**
      * Download an external image, convert it to WebP and upload it to Cloudflare R2.
      *
      * Returns the permanent public R2 URL on success, null when the source is
@@ -98,26 +105,60 @@ class ImageUploaderService
     /**
      * Convert raw image bytes to a WebP-encoded string when the GD extension is
      * available and the source can be decoded. Returns null otherwise.
+     *
+     * Oversized payloads, un-decodable sources and GD failures are logged with
+     * context and never propagated to the caller; the image resource is always
+     * freed via imagedestroy() in every code path.
      */
     protected static function convertToWebP(string $source): ?string
     {
         if (! extension_loaded('gd')) {
+            Log::warning('ImageUploader: GD extension not loaded; skipping WebP conversion.');
+
+            return null;
+        }
+
+        $sizeInBytes = strlen($source);
+
+        if ($sizeInBytes > self::MAX_SOURCE_BYTES) {
+            Log::warning('ImageUploader: source exceeds 8MB; skipping WebP conversion.', [
+                'size_bytes' => $sizeInBytes,
+            ]);
+
             return null;
         }
 
         $image = @imagecreatefromstring($source);
 
         if ($image === false) {
+            Log::warning('ImageUploader: GD failed to decode the source image.', [
+                'size_bytes' => $sizeInBytes,
+            ]);
+
             return null;
         }
 
-        ob_start();
-        imagewebp($image, null, self::WEBP_QUALITY);
-        $webp = ob_get_clean();
+        try {
+            ob_start();
+            imagewebp($image, null, self::WEBP_QUALITY);
+            $webp = ob_get_clean();
+        } catch (\Throwable $e) {
+            ob_end_clean();
+            Log::error('ImageUploader: WebP conversion threw exception.', [
+                'error' => $e->getMessage(),
+                'size_bytes' => $sizeInBytes,
+            ]);
 
-        imagedestroy($image);
+            return null;
+        } finally {
+            imagedestroy($image);
+        }
 
         if ($webp === false || $webp === '') {
+            Log::warning('ImageUploader: WebP conversion produced empty output.', [
+                'size_bytes' => $sizeInBytes,
+            ]);
+
             return null;
         }
 

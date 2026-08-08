@@ -3,13 +3,11 @@
 namespace App\Jobs;
 
 use App\Services\CloudflareCacheService;
-use App\Services\InstantIndexingService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\Log;
 
 class PurgeCloudflareCacheJob implements ShouldQueue
 {
@@ -25,21 +23,22 @@ class PurgeCloudflareCacheJob implements ShouldQueue
     public function __construct(public readonly array $urls) {}
 
     /**
-     * Purge the given URLs from Cloudflare and notify search engines for
-     * any article URLs found among them.
+     * Purge the given URLs from Cloudflare and enqueue instant-indexing
+     * notifications for any article URLs found among them.
      */
-    public function handle(CloudflareCacheService $cache, InstantIndexingService $indexing): void
+    public function handle(CloudflareCacheService $cache): void
     {
         $cache->purgeUrls($this->urls);
 
-        $this->notifySearchEngines($indexing);
+        $this->notifySearchEngines();
     }
 
     /**
-     * Submit article URLs to Google Indexing API and IndexNow so search
-     * engines pick up the fresh content as soon as the cache is warm.
+     * Queue one SendInstantIndexingNotification per article URL so Google
+     * Indexing + IndexNow submissions run in the background without blocking
+     * this worker thread or hammering the Indexing API rate limits.
      */
-    protected function notifySearchEngines(InstantIndexingService $indexing): void
+    protected function notifySearchEngines(): void
     {
         $articleBase = url('/articles/');
 
@@ -48,10 +47,7 @@ class PurgeCloudflareCacheJob implements ShouldQueue
                 continue;
             }
 
-            Log::info('PurgeCloudflareCacheJob: notifying search engines.', ['url' => $url]);
-
-            $indexing->notifyGoogle($url);
-            $indexing->notifyIndexNow($url);
+            SendInstantIndexingNotification::dispatch($url);
         }
     }
 }

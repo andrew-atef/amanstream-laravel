@@ -530,10 +530,11 @@ HTML;
         $max = $maxRaw + $pad;
 
         $count = count($points);
+        $range = max(0.001, $max - $min);
         $coords = [];
         foreach ($points as $i => $point) {
-            $x = $padLeft + ($count === 1 ? 0.5 : $i / ($count - 1)) * $plotW;
-            $ratio = ($point['price'] - $min) / ($max - $min);
+            $x = $padLeft + ($i / max(1, $count - 1)) * $plotW;
+            $ratio = ($point['price'] - $min) / $range;
             $y = $padTop + (1 - $ratio) * $plotH;
             $coords[] = ['x' => round($x, 2), 'y' => round($y, 2)];
         }

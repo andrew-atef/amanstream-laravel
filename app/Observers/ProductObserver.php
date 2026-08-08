@@ -3,8 +3,9 @@
 namespace App\Observers;
 
 use App\Jobs\PurgeCloudflareCacheJob;
+use App\Jobs\UploadProductImageToR2Job;
+use App\Models\Article;
 use App\Models\Product;
-use App\Services\ImageUploaderService;
 
 class ProductObserver
 {
@@ -47,7 +48,7 @@ class ProductObserver
             && $this->isExternalImageUrl((string) $product->image_url);
 
         if ($imageChanged) {
-            ImageUploaderService::uploadToR2($product);
+            UploadProductImageToR2Job::dispatch($product->id, (string) $product->image_url);
         }
 
         $this->syncLinkedArticlesCategory($product);
@@ -60,15 +61,18 @@ class ProductObserver
 
         $articles = $product->articles()
             ->where('is_published', true)
-            ->get();
+            ->get(['id', 'slug']);
+
+        if ($articles->isNotEmpty()) {
+            Article::whereIn('id', $articles->pluck('id'))
+                ->update(['updated_at' => now()]);
+        }
 
         foreach ($articles as $article) {
-            $article->touch();
-
             $urls[] = route('articles.show', $article->slug, true);
         }
 
-        PurgeCloudflareCacheJob::dispatch(array_unique($urls));
+        PurgeCloudflareCacheJob::dispatch(array_values(array_unique($urls)));
     }
 
     /**

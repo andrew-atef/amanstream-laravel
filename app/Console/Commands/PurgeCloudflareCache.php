@@ -35,22 +35,28 @@ class PurgeCloudflareCache extends Command
 
             $this->info("Purging article: {$article->title}");
         } elseif ($this->option('all')) {
-            $articles = Article::where('is_published', true)->get();
+            $count = 0;
 
-            foreach ($articles as $article) {
-                $urls[] = route('articles.show', $article->slug, true);
-            }
+            Article::where('is_published', true)->chunk(500, function ($articles) use (&$urls, &$count) {
+                foreach ($articles as $article) {
+                    $urls[] = route('articles.show', $article->slug, true);
+                    $count++;
+                }
+            });
 
-            $this->info("Purging {$articles->count()} article(s) + homepage + sitemap.");
+            $this->info("Purging {$count} article(s) + homepage + sitemap.");
         } else {
             $this->info('Purging homepage + sitemap only.');
         }
 
-        $uniqueUrls = array_unique($urls);
+        $uniqueUrls = array_values(array_unique($urls));
+        $jobs = array_chunk($uniqueUrls, 250);
 
-        PurgeCloudflareCacheJob::dispatch($uniqueUrls);
+        foreach ($jobs as $chunk) {
+            PurgeCloudflareCacheJob::dispatch($chunk);
+        }
 
-        $this->info('Dispatched PurgeCloudflareCacheJob with '.count($uniqueUrls).' URL(s).');
+        $this->info('Dispatched '.count($jobs).' PurgeCloudflareCacheJob(s) with '.count($uniqueUrls).' URL(s) total.');
         $this->newLine();
 
         foreach ($uniqueUrls as $url) {

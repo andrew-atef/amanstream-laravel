@@ -25,11 +25,6 @@ class SyncAmazonPrices extends Command
      */
     protected $description = 'Synchronise product pricing, stock and ratings with Amazon and refresh Google freshness signals.';
 
-    /**
-     * Price movements under this ratio are considered noise and ignored.
-     */
-    protected const PRICE_CHANGE_THRESHOLD = 0.05;
-
     public function __construct(private readonly AmazonProductDataFetcher $fetcher)
     {
         parent::__construct();
@@ -40,39 +35,43 @@ class SyncAmazonPrices extends Command
      */
     public function handle(): int
     {
-        $products = Product::with('articles')->where('in_stock', true)->get();
+        $total = Product::where('in_stock', true)->count();
 
-        if ($products->isEmpty()) {
+        if ($total === 0) {
             $this->warn('No active products to sync.');
 
             return self::SUCCESS;
         }
 
-        $this->info("Syncing {$products->count()} active product(s)...");
+        $this->info("Syncing {$total} active product(s)...");
 
         $synced = 0;
         $refreshed = 0;
         $dryRun = (bool) $this->option('dry-run');
 
-        foreach ($products as $product) {
-            try {
-                $live = $this->fetcher->fetch($product);
+        Product::where('in_stock', true)
+            ->with('articles')
+            ->chunk(100, function ($products) use ($dryRun, &$synced, &$refreshed) {
+                foreach ($products as $product) {
+                    try {
+                        $live = $this->fetcher->fetch($product);
 
-                $this->info("  [{$product->asin}] {$product->title}");
+                        $this->info("  [{$product->asin}] {$product->title}");
 
-                $shouldRefresh = ! $dryRun && $this->touchesArticles($product, (float) $live['price']);
+                        $shouldRefresh = ! $dryRun && $product->hasMaterialPriceChange((float) $live['price']);
 
-                $this->applyMarketData($product, $live, $dryRun);
-                $synced++;
+                        $this->applyMarketData($product, $live, $dryRun);
+                        $synced++;
 
-                if ($shouldRefresh) {
-                    $this->refreshAssociatedArticles($product, $dryRun);
-                    $refreshed += $product->articles->count();
+                        if ($shouldRefresh) {
+                            $this->refreshAssociatedArticles($product, $dryRun);
+                            $refreshed += $product->articles->count();
+                        }
+                    } catch (\Throwable $e) {
+                        $this->error("  Failed to sync {$product->asin}: {$e->getMessage()}");
+                    }
                 }
-            } catch (\Throwable $e) {
-                $this->error("  Failed to sync {$product->asin}: {$e->getMessage()}");
-            }
-        }
+            });
 
         $this->newLine();
         $this->info("Done. Products synced: {$synced}.".($dryRun ? ' [dry-run, no changes persisted]' : ''));
@@ -106,29 +105,13 @@ class SyncAmazonPrices extends Command
     }
 
     /**
-     * Determine whether the price moved enough to warrant a freshness refresh.
-     */
-    protected function touchesArticles(Product $product, float $livePrice): bool
-    {
-        $current = (float) $product->price;
-
-        if ($current <= 0) {
-            return false;
-        }
-
-        $ratio = abs($livePrice - $current) / $current;
-
-        return $ratio > self::PRICE_CHANGE_THRESHOLD;
-    }
-
-    /**
      * Touch every associated published article to refresh Google freshness signals
      * and dispatch a Cloudflare cache purge for all affected URLs.
      */
     protected function refreshAssociatedArticles(Product $product, bool $dryRun): void
     {
         if ($dryRun) {
-            $this->line('      > Price moved >5%; would refresh '.$product->articles->count().' article(s).');
+            $this->line('      > Material price change; would refresh '.$product->articles->count().' article(s).');
 
             return;
         }
@@ -149,6 +132,6 @@ class SyncAmazonPrices extends Command
 
         PurgeCloudflareCacheJob::dispatch(array_unique($urls));
 
-        $this->line('      > Price moved >5%; refreshed '.$articles->count().' article(s) + purged cache.');
+        $this->line('      > Material price change; refreshed '.$articles->count().' article(s) + purged cache.');
     }
 }

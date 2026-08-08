@@ -4,11 +4,12 @@ namespace App\Jobs;
 
 use App\Services\InstantIndexingService;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Foundation\Queue\Queueable;
 
 class SendInstantIndexingNotification implements ShouldQueue
 {
-    use Queueable;
+    use Dispatchable, Queueable;
 
     /**
      * The absolute public URL of the affected article.

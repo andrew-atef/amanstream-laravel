@@ -9,21 +9,10 @@ class ArticleObserver
 {
     /**
      * Purge Cloudflare and notify search engines whenever a published
-     * article is created or saved.
+     * article is created or saved. Fires on both inserts and updates,
+     * so purge jobs are dispatched exactly once per save cycle.
      */
     public function saved(Article $article): void
-    {
-        if (! $article->is_published) {
-            return;
-        }
-
-        PurgeCloudflareCacheJob::dispatch($this->collectUrls($article));
-    }
-
-    /**
-     * Flush stale cache when a published article's content or slug changes.
-     */
-    public function updated(Article $article): void
     {
         if (! $article->is_published) {
             return;
@@ -60,6 +49,6 @@ class ArticleObserver
         $urls[] = rtrim(url('/'), '/').'/';
         $urls[] = url('/sitemap.xml');
 
-        return array_unique($urls);
+        return array_values(array_unique($urls));
     }
 }

@@ -4,9 +4,9 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Jobs\PurgeCloudflareCacheJob;
+use App\Jobs\UploadProductImageToR2Job;
 use App\Models\Article;
 use App\Models\Product;
-use App\Services\ImageUploaderService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -96,11 +96,11 @@ class CatalogSyncApiController extends Controller
         });
 
         if ($urlsToPurge !== []) {
-            PurgeCloudflareCacheJob::dispatch(array_unique($urlsToPurge));
+            PurgeCloudflareCacheJob::dispatch(array_values(array_unique($urlsToPurge)));
         }
 
         foreach ($imagesToUpload as $product) {
-            ImageUploaderService::uploadToR2($product);
+            UploadProductImageToR2Job::dispatch($product->id, $product->image_url);
         }
 
         return response()->json([

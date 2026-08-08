@@ -14,9 +14,10 @@ class VerifyCatalogSyncToken
     public function handle(Request $request, Closure $next): Response
     {
         $provided = $request->header('x-sync-token');
+        $providedString = is_array($provided) ? ($provided[0] ?? '') : (string) $provided;
         $expected = (string) config('services.catalog_sync.token');
 
-        if (blank($provided) || blank($expected) || ! hash_equals($expected, $provided)) {
+        if (blank($providedString) || blank($expected) || ! hash_equals($expected, $providedString)) {
             return response()->json([
                 'message' => 'Unauthorized. Missing or invalid x-sync-token header.',
             ], 401);

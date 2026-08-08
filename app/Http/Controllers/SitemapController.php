@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Article;
+use Illuminate\Support\Facades\Cache;
 
 class SitemapController extends Controller
 {
@@ -12,34 +13,38 @@ class SitemapController extends Controller
      */
     public function index()
     {
-        $urls = [];
+        $xml = Cache::remember('sitemap_xml_content', now()->addHours(6), function (): string {
+            $urls = [];
 
-        // Static pages.
-        $static = [
-            ['loc' => route('home'), 'lastmod' => now(), 'changefreq' => 'daily', 'priority' => '1.0'],
-        ];
+            // Static pages.
+            $static = [
+                ['loc' => route('home'), 'lastmod' => now(), 'changefreq' => 'daily', 'priority' => '1.0'],
+            ];
 
-        foreach ($static as $entry) {
-            $urls[] = $entry;
-        }
+            foreach ($static as $entry) {
+                $urls[] = $entry;
+            }
 
-        // Published articles only (canonical, no filtered/parameterised URLs).
-        Article::query()
-            ->where('is_published', true)
-            ->whereNotNull('slug')
-            ->select('slug', 'updated_at')
-            ->get()
-            ->each(function (Article $article) use (&$urls): void {
-                $urls[] = [
-                    'loc' => route('articles.show', $article->slug),
-                    'lastmod' => $article->updated_at,
-                    'changefreq' => 'weekly',
-                    'priority' => '0.9',
-                ];
-            });
+            // Published articles only (canonical, no filtered/parameterised URLs).
+            Article::query()
+                ->where('is_published', true)
+                ->whereNotNull('slug')
+                ->select('slug', 'updated_at')
+                ->cursor()
+                ->each(function (Article $article) use (&$urls): void {
+                    $urls[] = [
+                        'loc' => route('articles.show', $article->slug),
+                        'lastmod' => $article->updated_at,
+                        'changefreq' => 'weekly',
+                        'priority' => '0.9',
+                    ];
+                });
 
-        return response()
-            ->view('sitemap', ['urls' => $urls])
-            ->header('Content-Type', 'application/xml');
+            return view('sitemap', ['urls' => $urls])->render();
+        });
+
+        return response($xml, 200)
+            ->header('Content-Type', 'application/xml')
+            ->header('Cache-Control', 'public, max-age=21600, s-maxage=86400');
     }
 }
