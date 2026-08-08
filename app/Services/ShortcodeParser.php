@@ -14,40 +14,126 @@ class ShortcodeParser
 {
     public function parse(Article $article): HtmlString
     {
-        $content = $this->markdownToHtml($article->content);
-        $product = $article->product;
+        // [buy_button position="N"] resolved BEFORE markdown: the CommonMark
+        // converter HTML-encodes the inner quotes, which would break the regex.
+        $content = $this->replacePositionalBuyButtons($article->content, $article);
 
-        if ($product !== null) {
-            $replacements = [
-                '[price]' => fn (): string => $this->priceBadge($product),
-                '[rating]' => fn (): string => $this->ratingWidget($product),
-                '[installment]' => fn (): string => $this->installmentBox($product),
-                '[buy_button]' => fn (): string => $this->buyButton($product),
-                '[summary_box]' => fn (): string => $this->summaryBox($product),
-                '[interactive_installment]' => fn (): string => $this->interactiveInstallment($product),
-                '[price_history]' => fn (): string => $this->priceHistory($product),
-            ];
+        $content = $this->markdownToHtml($content);
 
-            foreach ($replacements as $token => $builder) {
-                if (str_contains($content, $token)) {
-                    $content = str_replace($token, $builder(), $content);
-                }
-            }
-        }
-
-        $listicleProducts = $this->listicleProducts($article);
-
-        if ($listicleProducts->isNotEmpty()) {
-            if (str_contains($content, '[comparison_table]')) {
-                $content = str_replace('[comparison_table]', $this->comparisonTable($listicleProducts), $content);
-            }
-
-            if (str_contains($content, '[product_cards]')) {
-                $content = str_replace('[product_cards]', $this->productCards($listicleProducts), $content);
-            }
-        }
+        $content = $this->replaceListicleShortcodes($content, $article);
+        $content = $this->replaceAdaptiveShortcodes($content, $article);
 
         return new HtmlString($content);
+    }
+
+    /**
+     * [buy_button position="N"] — render the buy button for the Nth comparison
+     * product only (1-based). Works for both single and multi articles.
+     */
+    protected function replacePositionalBuyButtons(string $content, Article $article): string
+    {
+        return preg_replace_callback(
+            '/\[buy_button\s+position\s*=\s*["\']?(\d+)["\']?\]/i',
+            function (array $matches) use ($article): string {
+                $position = (int) $matches[1];
+                $product = $this->productByPosition($article, $position);
+
+                return $product !== null ? $this->buyButton($product) : '';
+            },
+            $content
+        ) ?? $content;
+    }
+
+    /**
+     * [comparison_table] & [product_cards] — only meaningful for listicles.
+     */
+    protected function replaceListicleShortcodes(string $content, Article $article): string
+    {
+        $rows = $this->listicleProducts($article);
+
+        if ($rows->isEmpty()) {
+            return $content;
+        }
+
+        if (str_contains($content, '[comparison_table]')) {
+            $content = str_replace('[comparison_table]', $this->comparisonTable($rows), $content);
+        }
+
+        if (str_contains($content, '[product_cards]')) {
+            $content = str_replace('[product_cards]', $this->productCards($rows), $content);
+        }
+
+        return $content;
+    }
+
+    /**
+     * Single-product tokens that become adaptive for comparison articles:
+     * when no single product exists but compared products do, they render for
+     * ALL compared products. Otherwise fall back to the single product.
+     */
+    protected function replaceAdaptiveShortcodes(string $content, Article $article): string
+    {
+        $single = $article->product;
+        $compared = $this->comparedProducts($article);
+
+        // [summary_box] adapts: single -> product story; multi -> per-product stories
+        if (str_contains($content, '[summary_box]')) {
+            $html = $single !== null
+                ? $this->summaryBox($single)
+                : $this->summaryBoxes($compared);
+            $content = str_replace('[summary_box]', $html, $content);
+        }
+
+        // [interactive_installment] — multi => stacked interactive plans.
+        // NOTE: must run BEFORE plain [installment] since its token contains it.
+        if (str_contains($content, '[interactive_installment]')) {
+            $html = $single !== null
+                ? $this->interactiveInstallment($single)
+                : $this->interactiveInstallments($compared);
+            $content = str_replace('[interactive_installment]', $html, $content);
+        }
+
+        // [installment] — multi => stacked boxes, one per compared product.
+        if (str_contains($content, '[installment]')) {
+            $html = $single !== null
+                ? $this->installmentBox($single)
+                : $this->installmentBoxes($compared);
+            $content = str_replace('[installment]', $html, $content);
+        }
+
+        // [price_history] — multi => stacked Kanbakam-style bars.
+        if (str_contains($content, '[price_history]')) {
+            $html = $single !== null
+                ? $this->priceHistory($single)
+                : $this->priceHistories($compared);
+            $content = str_replace('[price_history]', $html, $content);
+        }
+
+        // [buy_button] (no position) — multi => one CTA row per compared product.
+        if (str_contains($content, '[buy_button]')) {
+            $html = $single !== null
+                ? $this->buyButton($single)
+                : $this->multiBuyButtons($compared);
+            $content = str_replace('[buy_button]', $html, $content);
+        }
+
+        // [price] — multi => per-product price badge.
+        if (str_contains($content, '[price]')) {
+            $html = $single !== null
+                ? $this->priceBadge($single)
+                : $this->priceBadges($compared);
+            $content = str_replace('[price]', $html, $content);
+        }
+
+        // [rating] — multi => per-product rating widget.
+        if (str_contains($content, '[rating]')) {
+            $html = $single !== null
+                ? $this->ratingWidget($single)
+                : $this->ratingWidgets($compared);
+            $content = str_replace('[rating]', $html, $content);
+        }
+
+        return $content;
     }
 
     /**
@@ -61,6 +147,211 @@ class ShortcodeParser
         return $article->articleProducts
             ->sortBy('sort_order')
             ->values();
+    }
+
+    /**
+     * Plain Product models from the comparison rows, in pivot order.
+     *
+     * @return Collection<int, Product>
+     */
+    protected function comparedProducts(Article $article): Collection
+    {
+        return $this->listicleProducts($article)
+            ->map(fn (ArticleProduct $row) => $row->product)
+            ->filter()
+            ->values();
+    }
+
+    /**
+     * Resolve either the Nth comparison product or the single linked product.
+     */
+    protected function productByPosition(Article $article, int $position): ?Product
+    {
+        if ($position >= 1) {
+            $product = $this->comparedProducts($article)->get($position - 1);
+
+            if ($product !== null) {
+                return $product;
+            }
+        }
+
+        return $article->product;
+    }
+
+    /**
+     * Stacked [summary_box] panels, one per compared product.
+     *
+     * @param  Collection<int, Product>  $products
+     */
+    protected function summaryBoxes(Collection $products): string
+    {
+        if ($products->isEmpty()) {
+            return '';
+        }
+
+        $html = '';
+
+        foreach ($products as $product) {
+            $html .= $this->summaryBoxWithTitle($product);
+        }
+
+        return '<div class="my-8 space-y-6" dir="rtl">'.$html.'</div>';
+    }
+
+    /**
+     * [summary_box] + a bold product heading so readers know which device.
+     */
+    protected function summaryBoxWithTitle(Product $product): string
+    {
+        return '<div>'
+            .'<h4 class="mb-1 text-base font-black text-slate-900">'.e($product->title).'</h4>'
+            .$this->summaryBox($product)
+            .'</div>';
+    }
+
+    /**
+     * Stacked [installment] boxes, one per compared product.
+     *
+     * @param  Collection<int, Product>  $products
+     */
+    protected function installmentBoxes(Collection $products): string
+    {
+        if ($products->isEmpty()) {
+            return '';
+        }
+
+        $html = '';
+
+        foreach ($products as $product) {
+            $html .= '<div>'
+                .'<h4 class="mt-2 mb-1 font-bold text-slate-800">'.e($product->title).'</h4>'
+                .$this->installmentBox($product)
+                .'</div>';
+        }
+
+        return '<div class="my-8 space-y-4" dir="rtl">'.$html.'</div>';
+    }
+
+    /**
+     * Stacked [interactive_installment] plans, one per compared product.
+     *
+     * @param  Collection<int, Product>  $products
+     */
+    protected function interactiveInstallments(Collection $products): string
+    {
+        if ($products->isEmpty()) {
+            return '';
+        }
+
+        $html = '';
+
+        foreach ($products as $product) {
+            $html .= '<div>'
+                .'<h4 class="mb-1 font-bold text-slate-800">'.e($product->title).'</h4>'
+                .$this->interactiveInstallment($product)
+                .'</div>';
+        }
+
+        return '<div class="my-8 space-y-8" dir="rtl">'.$html.'</div>';
+    }
+
+    /**
+     * Stacked [price_history] bars, one per compared product.
+     *
+     * @param  Collection<int, Product>  $products
+     */
+    protected function priceHistories(Collection $products): string
+    {
+        if ($products->isEmpty()) {
+            return '';
+        }
+
+        $html = '';
+
+        foreach ($products as $product) {
+            $html .= '<div>'
+                .'<h4 class="mb-2 font-bold text-slate-800">'.e($product->title).'</h4>'
+                .$this->priceHistory($product)
+                .'</div>';
+        }
+
+        return '<div class="my-8 space-y-8" dir="rtl">'.$html.'</div>';
+    }
+
+    /**
+     * [buy_button] (no position) inside a comparison article: one labeled CTA
+     * row per compared product so no device is silently dropped.
+     *
+     * @param  Collection<int, Product>  $products
+     */
+    protected function multiBuyButtons(Collection $products): string
+    {
+        if ($products->isEmpty()) {
+            return '';
+        }
+
+        $buttons = '';
+
+        foreach ($products as $product) {
+            $buttons .= sprintf(
+                '<div class="my-2 flex flex-col items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center">
+                    <span class="text-center text-sm font-bold text-slate-900 sm:text-right">%s</span>
+                    <span class="whitespace-nowrap text-sm font-black text-blue-700">%s ج.م</span>
+                    %s
+                </div>',
+                e($product->title),
+                number_format((float) $product->price, 0),
+                $this->buyButton($product)
+            );
+        }
+
+        return '<div class="my-6 space-y-4" dir="rtl">'.$buttons.'</div>';
+    }
+
+    /**
+     * Stacked [price] badges, one per compared product.
+     *
+     * @param  Collection<int, Product>  $products
+     */
+    protected function priceBadges(Collection $products): string
+    {
+        if ($products->isEmpty()) {
+            return '';
+        }
+
+        $html = '';
+
+        foreach ($products as $product) {
+            $html .= '<div>'
+                .'<span class="mb-1 block text-xs font-bold text-slate-600">'.e($product->title).'</span>'
+                .$this->priceBadge($product)
+                .'</div>';
+        }
+
+        return '<div class="my-6 space-y-3" dir="rtl">'.$html.'</div>';
+    }
+
+    /**
+     * Stacked [rating] widgets, one per compared product.
+     *
+     * @param  Collection<int, Product>  $products
+     */
+    protected function ratingWidgets(Collection $products): string
+    {
+        if ($products->isEmpty()) {
+            return '';
+        }
+
+        $html = '';
+
+        foreach ($products as $product) {
+            $html .= '<div>'
+                .'<span class="mb-1 block text-xs font-bold text-slate-600">'.e($product->title).'</span>'
+                .$this->ratingWidget($product)
+                .'</div>';
+        }
+
+        return '<div class="my-6 space-y-3" dir="rtl">'.$html.'</div>';
     }
 
     protected function markdownToHtml(string $content): string
@@ -320,6 +611,8 @@ HTML,
 
     public static function stripShortcodes(string $content): string
     {
+        $content = preg_replace('/\[buy_button\s+position\s*=\s*["\']?(\d+)["\']?\]/i', '', $content) ?? $content;
+
         return str_replace(
             ['[price]', '[rating]', '[installment]', '[buy_button]', '[summary_box]', '[interactive_installment]', '[price_history]', '[comparison_table]', '[product_cards]'],
             '',
@@ -610,7 +903,7 @@ HTML,
     }
 
     /**
-     * [price_history] — Sleek, accurate Kanbakam price barometer.
+     * [price_history] — Sleek, ultra-flat Kanbakam price barometer.
      */
     protected function priceHistory(Product $product): string
     {
@@ -635,65 +928,84 @@ HTML,
             }
         }
 
-        $badgeClass = match ($color) {
-            'emerald' => 'bg-emerald-50 text-emerald-700 border-emerald-200',
-            'rose' => 'bg-rose-50 text-rose-700 border-rose-200',
-            default => 'bg-sky-50 text-sky-700 border-sky-200',
-        };
+        $discountVsMax = $highest > $current && $highest > 0
+            ? (int) round((1 - $current / $highest) * 100)
+            : 0;
+
+        $statusBadge = sprintf(
+            '<span class="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold %s">%s</span>',
+            match ($color) {
+                'emerald' => 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30',
+                'rose' => 'bg-rose-500/15 text-rose-400 border border-rose-500/30',
+                default => 'bg-sky-500/15 text-sky-400 border border-sky-500/30',
+            },
+            $status['label']
+        );
 
         $chartHtml = $this->priceHistoryChart($points, $current, $lowest, $highest, $color);
 
         return sprintf(
             <<<'HTML'
-<div class="my-10 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm" dir="rtl">
-    <div class="flex flex-wrap items-center justify-between gap-3 bg-slate-900 px-6 py-4">
-        <div class="flex items-center gap-3">
-            <span class="grid place-items-center h-10 w-10 rounded-xl bg-emerald-600 text-white font-bold">📉</span>
+<div class="my-8 overflow-hidden rounded-2xl border border-slate-800 bg-[#0f172a] text-white shadow-lg" dir="rtl">
+    <!-- Sleek Flat Header -->
+    <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 bg-slate-900/80 px-5 py-3.5">
+        <div class="flex items-center gap-2.5">
+            <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/20 text-sm font-bold text-emerald-400">📉</div>
             <div>
-                <h3 class="font-extrabold text-base text-white">مؤشر أمان ستريم لتاريخ السعر (كان بكام)</h3>
-                <p class="text-xs text-slate-300">تحليل حركة السعر ومقارنته بأعلى وأقل سعر مسجل</p>
+                <h3 class="text-sm font-bold leading-none text-white">مؤشر أمان ستريم لتاريخ السعر (كان بكام)</h3>
+                <span class="text-[11px] text-slate-400">تحليل حركة السعر اليومية على أمازون مصر</span>
             </div>
         </div>
-        <span class="inline-flex items-center gap-1.5 rounded-full border px-4 py-1.5 text-xs font-bold %1$s" role="status">
-            %2$s
-        </span>
+        %1$s
     </div>
 
-    <div class="grid grid-cols-1 gap-4 p-6 sm:grid-cols-3">
-        <div class="rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4">
-            <div class="flex items-center gap-1.5 text-xs font-bold text-emerald-700">🟢 أقل سعر سُجِّل</div>
-            <div class="mt-2 text-2xl font-black text-emerald-700">%3$s ج.م</div>
-            <div class="mt-1 text-[11px] text-emerald-600">تاريخ التسجيل: %4$s</div>
+    <!-- Compact Horizontal Price Strip -->
+    <div class="grid grid-cols-1 divide-y divide-slate-800/80 sm:grid-cols-3 sm:divide-x sm:divide-y-0 sm:divide-x-reverse">
+        <!-- Lowest -->
+        <div class="flex items-center justify-between p-4 sm:flex-col sm:items-start sm:justify-center">
+            <div class="flex items-center gap-1.5 text-xs font-semibold text-emerald-400">
+                <span class="h-2 w-2 rounded-full bg-emerald-400"></span> أقل سعر سُجّل
+            </div>
+            <div class="text-lg font-black text-white sm:mt-1">%2$s <span class="text-xs font-normal text-slate-400">ج.م</span></div>
+            <div class="mt-0.5 hidden text-[10px] text-slate-400 sm:block">تاريخ التسجيل: %3$s</div>
         </div>
 
-        <div class="rounded-2xl border border-blue-100 bg-blue-50/60 p-4">
-            <div class="flex items-center gap-1.5 text-xs font-bold text-blue-700">🔵 السعر الحالي اليوم</div>
-            <div class="mt-2 text-2xl font-black text-blue-700">%5$s ج.م</div>
-            <div class="mt-1 text-[11px] text-blue-600">محدث مباشرة من أمازون مصر</div>
+        <!-- Current -->
+        <div class="flex items-center justify-between bg-slate-800/40 p-4 sm:flex-col sm:items-start sm:justify-center">
+            <div class="flex items-center gap-1.5 text-xs font-semibold text-sky-400">
+                <span class="h-2 w-2 rounded-full bg-sky-400"></span> السعر الحالي اليوم
+            </div>
+            <div class="text-xl font-black text-sky-400 sm:mt-1">%4$s <span class="text-xs font-normal text-slate-400">ج.م</span></div>
+            <div class="mt-0.5 hidden text-[10px] font-semibold text-emerald-400 sm:block">%5$s</div>
         </div>
 
-        <div class="rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
-            <div class="flex items-center gap-1.5 text-xs font-bold text-slate-700">🔴 أعلى سعر سُجِّل</div>
-            <div class="mt-2 text-2xl font-black text-slate-700">%6$s ج.م</div>
-            <div class="mt-1 text-[11px] text-slate-500">تاريخ التسجيل: %7$s</div>
+        <!-- Highest -->
+        <div class="flex items-center justify-between p-4 sm:flex-col sm:items-start sm:justify-center">
+            <div class="flex items-center gap-1.5 text-xs font-semibold text-slate-400">
+                <span class="h-2 w-2 rounded-full bg-slate-500"></span> أعلى سعر سُجّل
+            </div>
+            <div class="text-lg font-black text-slate-300 sm:mt-1">%6$s <span class="text-xs font-normal text-slate-400">ج.م</span></div>
+            <div class="mt-0.5 hidden text-[10px] text-slate-400 sm:block">تاريخ التسجيل: %7$s</div>
         </div>
     </div>
 
-    <div class="px-6 pb-6">%8$s</div>
+    <!-- Flat Chart / Range Container -->
+    <div class="border-t border-slate-800/60 bg-slate-900/40 px-5 py-4">%8$s</div>
 
-    <div class="flex flex-col gap-4 border-t border-slate-100 bg-slate-50 p-5 sm:flex-row sm:items-center sm:justify-between">
-        <p class="max-w-xl text-xs leading-relaxed text-slate-600">💡 يتابع أمان ستريم أسعار هذا الجهاز يومياً لمساعدتك في معرفة الوقت الأنسب للشراء بأقل سعر.</p>
-        <a href="%9$s" target="_blank" rel="nofollow sponsored noopener" class="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-xs font-bold text-white shadow-lg shadow-blue-500/30 transition-colors hover:bg-blue-700">
+    <!-- Footer Action Bar -->
+    <div class="flex flex-col items-center justify-between gap-3 border-t border-slate-800 bg-slate-900/80 px-5 py-3 sm:flex-row">
+        <p class="text-[11px] text-slate-400">💡 يتابع أمان ستريم أسعار هذا الجهاز يومياً لمساعدتك في الشراء بأقل سعر.</p>
+        <a href="%9$s" target="_blank" rel="nofollow sponsored noopener" class="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-sky-600 px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-sky-500">
             اشترِ الآن بأفضل سعر من أمازون مصر 👈
         </a>
     </div>
 </div>
 HTML,
-            $badgeClass,
-            $status['label'],
+            $statusBadge,
             number_format($lowest, 2),
             $lowestDate,
             number_format($current, 2),
+            $discountVsMax > 0 ? "خصم {$discountVsMax}% عن أعلى سعر" : 'محدث مباشرة من أمازون',
             number_format($highest, 2),
             $highestDate,
             $chartHtml,
@@ -702,47 +1014,43 @@ HTML,
     }
 
     /**
-     * Render SVG chart or sleek position slider if historical points are scarce.
+     * Render flat responsive sparkline or clean range bar.
      */
     protected function priceHistoryChart(array $points, float $current, float $lowest, float $highest, string $accent): string
     {
-        // If we have 2 or more points, render continuous SVG sparkline
         if (count($points) >= 2) {
             return $this->priceSvgSparkline($points, $accent);
         }
 
-        // Sleek Range Bar for initial products
         $range = max(1, $highest - $lowest);
         $percent = min(100, max(0, round((($current - $lowest) / $range) * 100)));
 
         return sprintf(
             <<<'HTML'
-<div class="rounded-2xl border border-slate-100 bg-slate-50 p-5">
-    <div class="flex justify-between text-xs font-bold text-slate-600 mb-2">
+<div class="rounded-xl border border-slate-800 bg-slate-800/50 p-3">
+    <div class="mb-2 flex justify-between text-[11px] font-bold text-slate-300">
         <span>أدنى سعر (%s ج.م)</span>
-        <span>موقع السعر الحالي</span>
+        <span class="text-sky-400">موقع السعر الحالي اليوم</span>
         <span>أعلى سعر (%s ج.م)</span>
     </div>
-    <div class="relative h-3 w-full rounded-full bg-slate-200">
+    <div class="relative h-2 w-full overflow-hidden rounded-full bg-slate-700">
         <div class="absolute top-0 bottom-0 left-0 rounded-full bg-emerald-500" style="width: %d%%"></div>
-        <div class="absolute top-1/2 -translate-y-1/2 h-5 w-5 rounded-full border-2 border-white bg-blue-600 shadow-md" style="right: calc(%d%% - 10px)"></div>
     </div>
 </div>
 HTML,
             number_format($lowest, 0),
             number_format($highest, 0),
-            $percent,
-            100 - $percent
+            $percent
         );
     }
 
     protected function priceSvgSparkline(array $points, string $accent): string
     {
         $width = 500;
-        $height = 100;
+        $height = 90;
         $padTop = 15;
         $padRight = 20;
-        $padBottom = 25;
+        $padBottom = 20;
         $padLeft = 50;
 
         $plotW = $width - $padLeft - $padRight;
@@ -769,13 +1077,13 @@ HTML,
         }
 
         $stroke = match ($accent) {
-            'rose' => '#e11d48',
-            'sky' => '#0284c7',
-            default => '#059669',
+            'rose' => '#f43f5e',
+            'sky' => '#38bdf8',
+            default => '#10b981',
         };
 
         return sprintf(
-            '<svg class="w-full h-24" viewBox="0 0 %d %d" role="img"><path d="%s" fill="none" stroke="%s" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" /></svg>',
+            '<svg class="h-20 w-full" viewBox="0 0 %d %d" role="img"><path d="%s" fill="none" stroke="%s" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" /></svg>',
             $width,
             $height,
             $path,

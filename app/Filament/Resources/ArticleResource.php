@@ -57,12 +57,12 @@ class ArticleResource extends Resource
                             ->unique(ignoreRecord: true)
                             ->helperText('يُستخدم في رابط المقال مثل /articles/اسم-المقال'),
                         Select::make('product_id')
-                            ->label('المنتج المرتبط')
+                            ->label('المنتج المرتبط (للمقالات الفردية فقط)')
                             ->relationship('product', 'title')
                             ->preload()
                             ->searchable()
-                            ->required()
-                            ->helperText('تُستخرج البيانات الديناميكية (السعر، التقييم...) من هذا المنتج'),
+                            ->nullable()
+                            ->helperText('اختر منتجاً في حالة المقال الفردي (مراجعة منتج واحد). اتركه فارغاً إذا كان هذا مقال مقارنة أو تجميعة وتستخدم [comparison_table] أو [product_cards].'),
                         Select::make('category_id')
                             ->label('التصنيف')
                             ->relationship('category', 'name')
