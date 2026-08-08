@@ -44,14 +44,13 @@
     <meta property="og:site_name" content="{{ config('app.name') }}">
     <meta property="og:title" content="{{ $ogTitle ?? ($metaTitle ?? '') }}">
     <meta property="og:description" content="{{ $ogDescription ?? ($metaDescription ?? '') }}">
-    @if (! empty($ogImage))
-        <meta property="og:image" content="{{ $ogImage }}">
-    @endif
+    <meta property="og:image" content="{{ ! empty($ogImage) ? $ogImage : url('/favicon.svg') }}">
     <meta property="og:url" content="{{ url()->current() }}">
 
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="{{ $ogTitle ?? ($metaTitle ?? '') }}">
     <meta name="twitter:description" content="{{ $ogDescription ?? ($metaDescription ?? '') }}">
+    <meta name="twitter:image" content="{{ ! empty($ogImage) ? $ogImage : url('/favicon.svg') }}">
 
     <link rel="canonical" href="{{ url()->current() }}">
 

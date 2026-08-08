@@ -77,12 +77,12 @@
                 <h2 class="mb-4 flex items-center justify-between border-b border-slate-100 pb-3 text-xs font-bold text-slate-900">
                     <span>الفئات المتاحة</span>
                     <span class="text-[11px] font-semibold text-slate-500">تصفية تلقائية</span>
-                </h3>
+                </h2>
 
                 <ul class="space-y-1.5 text-xs font-medium">
                     <!-- All Articles Option -->
                     <li>
-                        <a href="{{ route('home', request()->only('q')) }}"
+                        <a href="{{ route('home', array_filter(request()->only('q'))) }}"
                            class="flex items-center justify-between rounded-xl px-3 py-2.5 transition {{ ! request('category') ? 'bg-blue-50 font-extrabold text-blue-700 border border-blue-100' : 'text-slate-700 hover:bg-slate-50' }}">
                             <span>جميع المراجعات</span>
                             <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-600">{{ $totalArticlesCount }}</span>
@@ -92,7 +92,7 @@
                     <!-- Dynamic Categories from Database -->
                     @foreach ($categories as $cat)
                         <li>
-                            <a href="{{ route('home', ['category' => $cat->slug] + request()->only('q')) }}"
+                            <a href="{{ route('home', array_merge(['category' => $cat->slug], array_filter(request()->only('q')))) }}"
                                class="flex items-center justify-between rounded-xl px-3 py-2.5 transition {{ request('category') == $cat->slug ? 'bg-blue-50 font-extrabold text-blue-700 border border-blue-100' : 'text-slate-700 hover:bg-slate-50' }}">
                                 <span class="truncate">{{ $cat->name }}</span>
                                 <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-600">{{ $cat->articles_count }}</span>
@@ -187,19 +187,20 @@
                     <!-- Bottom Part: Price and CTA Button -->
                     <div class="mt-4 flex items-center justify-between border-t border-slate-100 pt-3.5 text-xs">
                         <div>
-                            @php
-                                $current = (float) $article->product->price;
-                                $original = (float) ($article->product->original_price ?? 0);
-                            @endphp
                             @if ($article->product)
+                                @php
+                                    $current = (float) $article->product->price;
+                                    $original = (float) ($article->product->original_price ?? 0);
+                                    $hasDiscount = $original > $current && $original > 0;
+                                @endphp
                                 <div class="flex flex-wrap items-center gap-2">
                                     <span class="text-slate-500">السعر اليوم: </span>
-                                    @if ($original > $current)
+                                    @if ($hasDiscount)
                                         <span class="line-through text-sm font-semibold text-slate-500">{{ number_format($original, 2) }} ج.م</span>
                                     @endif
                                     <span class="text-lg font-black text-slate-900">{{ number_format($current, 2) }}</span>
                                     <span class="font-bold text-slate-500"> ج.م</span>
-                                    @if ($original > $current)
+                                    @if ($hasDiscount)
                                         <span class="rounded-md bg-red-50 px-2 py-0.5 text-[11px] font-bold text-red-600">
                                             خصم {{ round((($original - $current) / $original) * 100) }}%
                                         </span>

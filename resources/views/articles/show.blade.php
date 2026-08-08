@@ -17,7 +17,7 @@
                 '@context' => 'https://schema.org',
                 '@type' => 'Product',
                 'name' => $product->title,
-                'image' => $product->image_url,
+                'image' => $product->image_url ?: url('/favicon.svg'),
                 'description' => $schemaDescription,
                 'brand' => ['@type' => 'Brand', 'name' => $product->brand ?: $product->title],
                 'sku' => $product->asin,
@@ -69,17 +69,17 @@
                         'returnFees' => 'https://schema.org/FreeReturn',
                     ],
                 ],
-                'aggregateRating' => [
+                'aggregateRating' => $product->rating > 0 && $product->review_count > 0 ? [
                     '@type' => 'AggregateRating',
                     'ratingValue' => number_format((float) $product->rating, 1, '.', ''),
-                    'reviewCount' => $product->review_count ?: 10,
+                    'reviewCount' => (int) $product->review_count,
                     'bestRating' => 5,
                     'worstRating' => 1,
-                ],
+                ] : null,
             ] : null;
 
             $siteUrl = url('/');
-            $articleImageUrl = $product?->image_url ?: $siteUrl.'/images/default-og.jpg';
+            $articleImageUrl = $product?->image_url ?: $siteUrl.'/favicon.svg';
             $brandName = config('app.name', 'أمان ستريم');
 
             $articleSchema = [
@@ -103,30 +103,31 @@
                     'url' => $siteUrl,
                     'logo' => [
                         '@type' => 'ImageObject',
-                        'url' => $siteUrl.'/images/logo.png',
+                        'url' => $siteUrl.'/favicon.svg',
                     ],
                 ],
             ];
 
             $categoryName = $product?->category?->name ?? 'مقالات';
+            $categoryUrl = $product?->category ? route('home', ['category' => $product->category->slug]) : url('/');
 
             $breadcrumbSchema = [
                 '@context' => 'https://schema.org',
                 '@type' => 'BreadcrumbList',
                 'itemListElement' => [
                     ['@type' => 'ListItem', 'position' => 1, 'name' => 'الرئيسية', 'item' => url('/')],
-                    ['@type' => 'ListItem', 'position' => 2, 'name' => $categoryName, 'item' => url('/')],
+                    ['@type' => 'ListItem', 'position' => 2, 'name' => $categoryName, 'item' => $categoryUrl],
                     ['@type' => 'ListItem', 'position' => 3, 'name' => $article->title, 'item' => $pageUrl],
                 ],
             ];
         @endphp
 
         @if ($product && $productSchema)
-            <script type="application/ld+json">{!! json_encode($productSchema, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT) !!}</script>
+            <script type="application/ld+json">{!! json_encode(array_filter($productSchema), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
         @endif
 
-        <script type="application/ld+json">{!! json_encode($articleSchema, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT) !!}</script>
-        <script type="application/ld+json">{!! json_encode($breadcrumbSchema, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT) !!}</script>
+        <script type="application/ld+json">{!! json_encode($articleSchema, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
+        <script type="application/ld+json">{!! json_encode($breadcrumbSchema, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
     @endpush
 
     <article class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-10">
@@ -134,7 +135,7 @@
             <ol class="flex flex-wrap items-center gap-1">
                 <li><a href="/" class="hover:text-blue-600">الرئيسية</a></li>
                 @if ($product?->category)
-                    <li><span aria-hidden="true">/</span> <a href="/" class="hover:text-blue-600">{{ $product->category->name }}</a></li>
+                    <li><span aria-hidden="true">/</span> <a href="{{ route('home', ['category' => $product->category->slug]) }}" class="hover:text-blue-600">{{ $product->category->name }}</a></li>
                 @endif
                 <li aria-current="page"><span aria-hidden="true">/</span> <span class="text-slate-800">{{ $article->title }}</span></li>
             </ol>
@@ -146,7 +147,7 @@
             <div class="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 text-xs font-medium sm:text-sm">
                 <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200 px-3 py-1 text-emerald-700">
                     <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                    آخر تحديث للسعر والمواصفات: {{ now()->format('Y/m/d') }}
+                    آخر تحديث للسعر والمواصفات: {{ $article->updated_at?->format('Y/m/d') ?: now()->format('Y/m/d') }}
                 </span>
                 <span class="inline-flex items-center gap-1.5 text-slate-500">
                     <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
@@ -175,7 +176,7 @@
                             @php
                                 $showPrice = (float) $product->price;
                                 $showOriginal = (float) ($product->original_price ?? 0);
-                                $hasDiscount = $showOriginal > $showPrice;
+                                $hasDiscount = $showOriginal > $showPrice && $showOriginal > 0;
                             @endphp
                             <div class="mt-2 flex flex-wrap items-center gap-2 text-2xl font-black text-blue-700">
                                 @if ($hasDiscount)
@@ -190,14 +191,20 @@
                             </div>
                         </div>
                     </div>
-                    <a
-                        href="{{ $product->affiliate_url }}"
-                        target="_blank"
-                        rel="nofollow sponsored noopener"
-                        class="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-3 font-bold text-white shadow-lg shadow-blue-500/30 transition-colors hover:bg-blue-700"
-                    >
-                        اشترِ الآن من أمازون مصر
-                    </a>
+                    @if ($product->in_stock)
+                        <a
+                            href="{{ $product->affiliate_url }}"
+                            target="_blank"
+                            rel="nofollow sponsored noopener"
+                            class="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-3 font-bold text-white shadow-lg shadow-blue-500/30 transition-colors hover:bg-blue-700"
+                        >
+                            اشترِ الآن من أمازون مصر
+                        </a>
+                    @else
+                        <span class="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-slate-100 border border-slate-200 px-6 py-3 font-bold text-slate-500 cursor-not-allowed">
+                            ⚠️ غير متوفر حالياً في أمازون مصر
+                        </span>
+                    @endif
                 </div>
             @endif
         </header>
@@ -217,24 +224,42 @@
             class="fixed inset-x-0 bottom-0 z-40 hidden border-t border-slate-200 bg-white/95 px-4 pb-4 pt-3 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] backdrop-blur lg:hidden"
         >
             <div class="mx-auto flex max-w-5xl items-center justify-between gap-3">
-                <div class="min-w-0">
-                    <div class="text-xs text-slate-500">{{ $product->title }}</div>
-                    <div class="truncate">
-                        @if ($hasDiscount)
-                            <span class="text-xs font-semibold text-slate-500 line-through">{{ number_format($showOriginal, 2) }} ج.م</span>
-                            <span class="mx-1"></span>
-                        @endif
-                        <span class="text-xl font-black text-blue-700">{{ number_format($showPrice, 2) }} ج.م</span>
+                <div class="flex min-w-0 items-center gap-2.5">
+                    @if ($product->image_url)
+                        <img
+                            src="{{ $product->image_url }}"
+                            alt="{{ $product->title }}"
+                            width="40"
+                            height="40"
+                            loading="lazy"
+                            class="h-10 w-10 shrink-0 rounded-lg border border-slate-100 bg-white object-contain p-0.5"
+                        >
+                    @endif
+                    <div class="min-w-0">
+                        <div class="truncate text-xs font-bold text-slate-900">{{ $product->title }}</div>
+                        <div class="truncate">
+                            @if ($hasDiscount)
+                                <span class="text-xs font-semibold text-slate-500 line-through">{{ number_format($showOriginal, 2) }} ج.م</span>
+                                <span class="mx-1"></span>
+                            @endif
+                            <span class="text-xl font-black text-blue-700">{{ number_format($showPrice, 2) }} ج.م</span>
+                        </div>
                     </div>
                 </div>
-                <a
-                    href="{{ $product->affiliate_url }}"
-                    target="_blank"
-                    rel="nofollow sponsored noopener"
-                    class="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-blue-500/30 transition-colors hover:bg-blue-700"
-                >
-                    اشترِ الآن
-                </a>
+                @if ($product->in_stock)
+                    <a
+                        href="{{ $product->affiliate_url }}"
+                        target="_blank"
+                        rel="nofollow sponsored noopener"
+                        class="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-blue-500/30 transition-colors hover:bg-blue-700"
+                    >
+                        اشترِ الآن
+                    </a>
+                @else
+                    <span class="inline-flex shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-slate-100 px-6 py-3 text-sm font-bold text-slate-500 cursor-not-allowed">
+                        غير متوفر حالياً
+                    </span>
+                @endif
             </div>
         </div>
 

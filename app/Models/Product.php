@@ -185,28 +185,33 @@ class Product extends Model
     }
 
     /**
-     * Pre-calculated lowest recorded EGP price, read straight from the
-     * product row — zero SQL queries.
+     * Pre-calculated lowest recorded EGP price bounded safely by current price.
      */
     public function getLowestRecordedPrice(): float
     {
-        return (float) ($this->lowest_price ?: $this->price);
+        $current = (float) $this->price;
+
+        if ($current <= 0) {
+            return 0;
+        }
+
+        $lowest = (float) ($this->lowest_price ?: $current);
+
+        // Guarantees lowest recorded is NEVER higher than current live price.
+        return min($lowest, $current);
     }
 
     /**
-     * Pre-calculated highest recorded EGP price, read straight from the
-     * product row, falling back to the struck-through original price or a
-     * 15% premium on the live price. Zero SQL queries.
+     * Pre-calculated highest recorded EGP price bounded safely by original price or historical max.
      */
     public function getHighestRecordedPrice(): float
     {
-        if ((float) ($this->highest_price ?: 0) > 0) {
-            return (float) $this->highest_price;
-        }
+        $current = (float) $this->price;
+        $original = (float) ($this->original_price ?? 0);
+        $highest = (float) ($this->highest_price ?: max($original, $current * 1.12));
 
-        return (float) $this->original_price > 0
-            ? (float) $this->original_price
-            : (float) $this->price * 1.15;
+        // Guarantees highest recorded is NEVER lower than current or original price.
+        return max($highest, $current, $original);
     }
 
     /**
@@ -229,10 +234,10 @@ class Product extends Model
             ];
         }
 
-        if ($current <= $lowest * 1.03) {
+        if (abs($current - $lowest) < 0.01) {
             return [
                 'status' => 'excellent',
-                'label' => 'سعر ممتاز للشراء 🔥',
+                'label' => 'أفضل سعر سُجِّل حتى الآن 🔥',
                 'color' => 'emerald',
             ];
         }
@@ -240,14 +245,14 @@ class Product extends Model
         if ($current >= $highest * 0.95) {
             return [
                 'status' => 'high',
-                'label' => 'غير جيد (سعر مرتفع ⚠️)',
+                'label' => 'سعر مرتفع نسبياً ⚠️',
                 'color' => 'rose',
             ];
         }
 
         return [
             'status' => 'fair',
-            'label' => 'سعر متوازن ⚖️',
+            'label' => 'سعر متوازن للشراء ⚖️',
             'color' => 'sky',
         ];
     }
