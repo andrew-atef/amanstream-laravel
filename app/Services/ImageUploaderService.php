@@ -24,6 +24,14 @@ class ImageUploaderService
     protected const MAX_SOURCE_BYTES = 8 * 1024 * 1024;
 
     /**
+     * Minimum canvas dimension for small source images. Images narrower or
+     * shorter than this are centered on a white canvas first, so the brand
+     * watermark always has room to be visible and the result keeps the clean
+     * white look Amazon thumbnails are used to.
+     */
+    protected const MIN_CANVAS_SIZE = 400;
+
+    /**
      * Download an arbitrary external image URL, apply the AmanStream brand
      * watermark, upload the resulting WebP to Cloudflare R2 and return the
      * permanent public URL. Returns null on any failure (never throws).
@@ -149,6 +157,10 @@ class ImageUploaderService
         }
 
         try {
+            // Small sources get padded onto a white canvas so the output
+            // always has room for the brand logo and keeps a clean look.
+            $image = self::padToMinimumCanvas($image);
+
             self::applyAmanStreamWatermark($image);
 
             ob_start();
@@ -187,11 +199,47 @@ class ImageUploaderService
     protected const WATERMARK_LOGO_PATH = __DIR__.'/../../public/img/logo_dark_watermark.png';
 
     /**
+     * Center a small image onto a white canvas so the final thumbnail keeps a
+     * clean, product-photo look and always leaves room for the brand mark.
+     *
+     * @param  \GdImage  $image
+     * @return \GdImage  Padded canvas; the caller must free the returned resource.
+     */
+    private static function padToMinimumCanvas(\GdImage $image): \GdImage
+    {
+        $width = imagesx($image);
+        $height = imagesy($image);
+
+        if ($width >= self::MIN_CANVAS_SIZE && $height >= self::MIN_CANVAS_SIZE) {
+            return $image;
+        }
+
+        $canvasW = max($width, self::MIN_CANVAS_SIZE);
+        $canvasH = max($height, self::MIN_CANVAS_SIZE);
+
+        $canvas = imagecreatetruecolor($canvasW, $canvasH);
+
+        // White background matching Amazon's clean product-photo look.
+        $white = imagecolorallocate($canvas, 255, 255, 255);
+        imagefilledrectangle($canvas, 0, 0, $canvasW, $canvasH, $white);
+
+        // Center the original inside the canvas.
+        $offsetX = (int) round(($canvasW - $width) / 2);
+        $offsetY = (int) round(($canvasH - $height) / 2);
+
+        imagecopy($canvas, $image, $offsetX, $offsetY, 0, 0, $width, $height);
+
+        imagedestroy($image);
+
+        return $canvas;
+    }
+
+    /**
      * Overlay the Aman logo onto the source image, before WebP encoding.
      *
-     * The banner is scaled relative to the image (max 38% of its width) and
-     * placed in the bottom-right corner with a small margin. Skipped on
-     * postage-stamp sized sources where the logo would not be legible.
+     * The banner is scaled relative to the image and placed in the bottom-right
+     * corner with a small margin. Skipped only on truly postage-stamp sources
+     * where no strip would be legible.
      *
      * @param  \GdImage  $gd
      */
@@ -200,8 +248,8 @@ class ImageUploaderService
         $width = imagesx($gd);
         $height = imagesy($gd);
 
-        // Skip tiny thumbnail sources — a banner would dominate the photo.
-        if ($width < 300 || $height < 220) {
+        // Skip genuinely tiny sources — the strip would be unreadable.
+        if ($width < 96 || $height < 48) {
             return;
         }
 
@@ -229,15 +277,17 @@ class ImageUploaderService
                 return;
             }
 
-            // Scale so the banner fits nicely inside the thumbnail area.
-            $targetW = (int) round($height * 0.38);
-            $targetW = max(160, min($targetW, 520));
+            // Scale so the banner is readable but never overwhelms the photo:
+            // roughly a third of the image height, with a small floor so wide,
+            // short thumbnails still get a visible mark.
+            $targetW = (int) round(max($height, $width * 0.5) * 0.32);
+            $targetW = max(90, min($targetW, 520));
             $targetH = (int) round($targetW * ($logoH / $logoW));
-            $targetH = max(40, $targetH);
+            $targetH = max(24, $targetH);
 
             // Keep the composition proportional if the image is very wide.
-            if ($targetW > (int) round($width * 0.85)) {
-                $targetW = (int) round($width * 0.85);
+            if ($targetW > (int) round($width * 0.82)) {
+                $targetW = (int) round($width * 0.82);
                 $targetH = (int) round($targetW * ($logoH / $logoW));
             }
 
