@@ -264,6 +264,123 @@
         </div>
     </article>
 
+    <!-- SLIDER 1: منتجات ومراجعات من نفس القسم -->
+    @if ($relatedArticles->isNotEmpty())
+        <section class="mt-12">
+            <div class="mb-4 flex items-center justify-between">
+                <h2 class="flex items-center gap-2 text-lg font-black text-slate-900">
+                    <span class="text-xl">📦</span> منتجات ومراجعات من نفس القسم ({{ $article->category?->name ?: 'التصنيف' }})
+                </h2>
+                <span class="text-xs font-bold text-slate-500">اسحب للمزيد ←</span>
+            </div>
+
+            <div class="no-scrollbar -mx-4 flex gap-4 overflow-x-auto px-4 pb-4 snap-x snap-mandatory sm:-mx-6 sm:px-6">
+                @foreach ($relatedArticles as $rel)
+                    @php
+                        $relProduct = $rel->product;
+                        $relCurrent = (float) ($relProduct?->price ?? 0);
+                        $relOriginal = (float) ($relProduct?->original_price ?? 0);
+                        $relHasDiscount = $relOriginal > $relCurrent && $relOriginal > 0;
+                        $relDiscountPct = $relHasDiscount ? round((($relOriginal - $relCurrent) / $relOriginal) * 100) : 0;
+                    @endphp
+
+                    <article class="group relative flex w-60 shrink-0 snap-start flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition duration-200 hover:border-blue-500 hover:shadow-md">
+                        <a href="{{ route('articles.show', $rel->slug) }}" class="relative flex h-40 w-full items-center justify-center rounded-xl bg-white p-2">
+                            @if ($relProduct?->image_url)
+                                <img src="{{ $relProduct->image_url }}" alt="{{ $relProduct->title }}" width="120" height="120" loading="lazy" class="max-h-full max-w-full object-contain transition duration-300 group-hover:scale-105">
+                            @else
+                                <span class="text-xs font-bold text-slate-400">لا توجد صورة</span>
+                            @endif
+                            @if ($relHasDiscount)
+                                <span class="absolute right-1 top-1 rounded-md bg-red-600 px-2 py-0.5 text-[10px] font-black text-white shadow-sm">-{{ $relDiscountPct }}%</span>
+                            @endif
+                        </a>
+
+                        <h3 class="mt-3 line-clamp-3 text-xs font-bold leading-snug text-slate-800 transition group-hover:text-blue-600">
+                            <a href="{{ route('articles.show', $rel->slug) }}">
+                                {{ $rel->title }}
+                            </a>
+                        </h3>
+
+                        <div class="mt-4 flex items-end justify-between border-t border-slate-100 pt-3">
+                            <div>
+                                <div class="text-base font-black text-slate-900">
+                                    {{ number_format($relCurrent, 0) }} <span class="text-[10px] font-semibold text-slate-500">ج.م</span>
+                                </div>
+                            </div>
+                            <a href="{{ route('articles.show', $rel->slug) }}" class="rounded-lg bg-blue-50 border border-blue-100 px-3 py-1.5 text-[11px] font-bold text-blue-700 hover:bg-blue-600 hover:text-white transition">
+                                المراجعة 👈
+                            </a>
+                        </div>
+                    </article>
+                @endforeach
+            </div>
+        </section>
+    @endif
+
+    <!-- SLIDER 2: 🔥 أقوى عروض وتخفيضات اليوم في مصر -->
+    @if ($topDeals->isNotEmpty())
+        <section class="mt-10">
+            <div class="mb-4 flex items-center justify-between">
+                <h2 class="flex items-center gap-2 text-lg font-black text-slate-900">
+                    <span class="text-xl">🔥</span> أقوى عروض وتخفيضات اليوم على أمازون مصر
+                </h2>
+                <span class="text-xs font-bold text-slate-500">اسحب للمزيد ←</span>
+            </div>
+
+            <div class="no-scrollbar -mx-4 flex gap-4 overflow-x-auto px-4 pb-4 snap-x snap-mandatory sm:-mx-6 sm:px-6">
+                @foreach ($topDeals as $deal)
+                    @php
+                        $dealProduct = $deal->product;
+                        $dealCurrent = (float) ($dealProduct?->price ?? 0);
+                        $dealOriginal = (float) ($dealProduct?->original_price ?? 0);
+                        $dealDiscount = $dealOriginal > $dealCurrent && $dealOriginal > 0
+                            ? round((($dealOriginal - $dealCurrent) / $dealOriginal) * 100)
+                            : 0;
+                    @endphp
+
+                    <article class="group relative flex w-60 shrink-0 snap-start flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition duration-200 hover:border-red-500 hover:shadow-md">
+                        <a href="{{ route('articles.show', $deal->slug) }}" class="relative flex h-40 w-full items-center justify-center rounded-xl bg-white p-2">
+                            @if ($dealProduct?->image_url)
+                                <img src="{{ $dealProduct->image_url }}" alt="{{ $dealProduct->title }}" width="120" height="120" loading="lazy" class="max-h-full max-w-full object-contain transition duration-300 group-hover:scale-105">
+                            @else
+                                <span class="text-xs font-bold text-slate-400">لا توجد صورة</span>
+                            @endif
+
+                            @if ($dealDiscount > 0)
+                                <div class="absolute right-1 top-1 flex items-center gap-1 rounded-md bg-red-600 px-2 py-0.5 text-[10px] font-black text-white shadow-sm">
+                                    📉 -{{ $dealDiscount }}%
+                                </div>
+                            @endif
+                        </a>
+
+                        <h3 class="mt-3 line-clamp-3 text-xs font-bold leading-snug text-slate-800 transition group-hover:text-red-600">
+                            <a href="{{ route('articles.show', $deal->slug) }}">
+                                {{ $deal->title }}
+                            </a>
+                        </h3>
+
+                        <div class="mt-4 flex items-end justify-between border-t border-slate-100 pt-3">
+                            <div>
+                                <div class="text-base font-black text-red-600">
+                                    {{ number_format($dealCurrent, 0) }} <span class="text-[10px] font-semibold text-slate-500">ج.م</span>
+                                </div>
+                                @if ($dealDiscount > 0)
+                                    <div class="text-[11px] font-semibold text-slate-400 line-through">
+                                        {{ number_format($dealOriginal, 0) }}
+                                    </div>
+                                @endif
+                            </div>
+                            <a href="{{ route('articles.show', $deal->slug) }}" class="rounded-lg bg-red-50 border border-red-100 px-3 py-1.5 text-[11px] font-bold text-red-700 hover:bg-red-600 hover:text-white transition">
+                                تفاصيل الخصم 👈
+                            </a>
+                        </div>
+                    </article>
+                @endforeach
+            </div>
+        </section>
+    @endif
+
     @if ($product)
         <div
             id="sticky-buy-bar"

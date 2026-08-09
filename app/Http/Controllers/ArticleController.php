@@ -23,10 +23,34 @@ class ArticleController extends Controller
 
         $parsedContent = $this->shortcodeParser->parse($article);
 
+        // مقالات من نفس القسم (مع استبعاد المقال الحالي) — للـ Dwell Time وعدم الارتداد
+        $relatedArticles = Article::query()
+            ->with(['product', 'category'])
+            ->where('category_id', $article->category_id)
+            ->where('id', '!=', $article->id)
+            ->where('is_published', true)
+            ->latest()
+            ->limit(8)
+            ->get();
+
+        // أقوى العروض الجارية (منتجات لها خصم حقيقي) — لتقوية lid Search Intent
+        $topDeals = Article::query()
+            ->with(['product', 'category'])
+            ->where('is_published', true)
+            ->where('id', '!=', $article->id)
+            ->whereHas('product', function ($q) {
+                $q->whereColumn('original_price', '>', 'price');
+            })
+            ->latest()
+            ->limit(8)
+            ->get();
+
         return view('articles.show', [
             'article' => $article,
             'product' => $article->product,
             'parsedContent' => $parsedContent,
+            'relatedArticles' => $relatedArticles,
+            'topDeals' => $topDeals,
         ]);
     }
 }
