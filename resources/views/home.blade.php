@@ -25,123 +25,18 @@
         <script type="application/ld+json">{!! json_encode($websiteSchema, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
     @endpush
 
-    <!-- 1. Hero Search Banner (Wuzzuf / Kanbakam Style Header) -->
-    <section class="-mx-4 -mt-8 mb-8 bg-[#001c38] px-4 py-10 text-white shadow-md sm:-mx-6 sm:px-8 lg:-mx-8">
-        <div class="mx-auto max-w-4xl text-center">
-            <h1 class="text-2xl font-black leading-tight sm:text-4xl">
-                ابحث عن مواصفات وأسعار الأجهزة في مصر
-            </h1>
-            <p class="mt-2 text-xs text-slate-300 sm:text-sm">
-                مقارنات دقيقة، أسعار يومية، وحاسبة التقسيط الأمان على أمازون مصر
-            </p>
+    <!-- 1. Hero Search Banner -->
+    <x-hero-search :search-query="$searchQuery" :deals-only="$dealsOnly" />
 
-            <!-- Search Bar -->
-            <form action="{{ route('home') }}" method="GET" class="mt-6 flex flex-col gap-2 sm:flex-row sm:items-center">
-                @if (request('category'))
-                    <input type="hidden" name="category" value="{{ request('category') }}">
-                @endif
-                @if ($dealsOnly)
-                    <input type="hidden" name="deals" value="1">
-                @endif
-                <div class="relative flex-1">
-                    <input
-                        type="text"
-                        name="q"
-                        value="{{ $searchQuery }}"
-                        placeholder="ابحث باسم الجهاز أو الماركة (مثال: تكييف فريش 1.5 حصان)..."
-                        class="w-full rounded-xl border-0 px-4 py-3.5 pl-10 text-sm text-slate-900 shadow-inner focus:ring-2 focus:ring-blue-500"
-                    >
-                    <svg class="absolute left-3 top-3.5 h-5 w-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-                    </svg>
-                </div>
-                <button type="submit" class="rounded-xl bg-blue-600 px-8 py-3.5 text-sm font-bold text-white shadow-md shadow-blue-600/20 transition hover:bg-blue-700">
-                    بحث سريع
-                </button>
-            </form>
-
-            <!-- Trending Pills -->
-            <div class="mt-4 flex flex-wrap items-center justify-center gap-2 text-xs text-slate-300">
-                <span class="font-bold text-slate-400">الأكثر بحثاً:</span>
-                <a href="{{ route('home', ['q' => 'تكييف']) }}" class="rounded-lg bg-white/10 px-2.5 py-1 transition hover:bg-white/20">تكييفات</a>
-                <a href="{{ route('home', ['q' => 'فريش']) }}" class="rounded-lg bg-white/10 px-2.5 py-1 transition hover:bg-white/20">منتجات فريش</a>
-                <a href="{{ route('home', ['q' => 'شاشة']) }}" class="rounded-lg bg-white/10 px-2.5 py-1 transition hover:bg-white/20">شاشات</a>
-                <a href="{{ route('home', ['q' => 'غسالة']) }}" class="rounded-lg bg-white/10 px-2.5 py-1 transition hover:bg-white/20">غسالات</a>
-            </div>
-        </div>
-    </section>
-
-    <!-- 2. Top Deals Slider (Kanbakam Style) -->
+    <!-- 2. Top Deals Slider -->
     @if ($topDeals->isNotEmpty() && ! $searchQuery && ! $selectedCategory)
-        <section class="mb-10">
-            <div class="mb-4 flex items-center justify-between">
-                <h2 class="flex items-center gap-2 text-lg font-black text-slate-900">
-                    <span class="text-xl">🔥</span> أكبر التخفيضات اليوم
-                </h2>
-                <span class="text-xs font-bold text-slate-500">اسحب للمزيد ←</span>
-            </div>
-
-            <div class="no-scrollbar -mx-4 flex gap-4 overflow-x-auto px-4 pb-4 sm:-mx-6 sm:px-6">
-                @foreach ($topDeals as $deal)
-                    @php
-                        $dealProduct = $deal->product;
-                        $dealCurrent = (float) ($dealProduct?->price ?? 0);
-                        $dealOriginal = (float) ($dealProduct?->original_price ?? 0);
-                        $dealDiscount = $dealOriginal > $dealCurrent && $dealOriginal > 0
-                            ? round((($dealOriginal - $dealCurrent) / $dealOriginal) * 100)
-                            : 0;
-
-                        $dealUrl = $dealProduct?->affiliate_url ?? '';
-                        $dealMerchant = 'amazon';
-                        if (str_contains($dealUrl, 'noon.com')) { $dealMerchant = 'noon'; }
-                        elseif (str_contains($dealUrl, 'jumia.com')) { $dealMerchant = 'jumia'; }
-                    @endphp
-
-                    <article class="group relative flex w-60 shrink-0 snap-start flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition duration-200 hover:border-blue-500 hover:shadow-md">
-                        <!-- Image & Merchant Badge -->
-                        <a href="{{ route('articles.show', $deal->slug) }}" class="relative flex h-44 w-full items-center justify-center rounded-xl bg-white p-2">
-                            @if ($dealProduct?->image_url)
-                                <img src="{{ $dealProduct->image_url }}" alt="{{ $dealProduct->title }}" loading="lazy" class="max-h-full max-w-full object-contain transition duration-300 group-hover:scale-105">
-                            @else
-                                <span class="text-xs font-bold text-slate-400">لا توجد صورة</span>
-                            @endif
-
-                            @include('partials.merchant-badge', ['merchant' => $dealMerchant, 'brand' => $dealProduct?->brand])
-                        </a>
-
-                        <!-- Title -->
-                        <h3 class="mt-3 line-clamp-3 text-xs font-bold leading-snug text-slate-800 transition group-hover:text-blue-600">
-                            <a href="{{ route('articles.show', $deal->slug) }}">
-                                {{ $deal->title }}
-                            </a>
-                        </h3>
-
-                        <!-- Price & Kanbakam Trend Badge -->
-                        <div class="mt-4 flex items-end justify-between border-t border-slate-100 pt-3">
-                            <div>
-                                <div class="text-base font-black text-slate-900">
-                                    {{ number_format($dealCurrent, 0) }} <span class="text-[10px] font-semibold text-slate-500">ج.م</span>
-                                </div>
-                                @if ($dealDiscount > 0)
-                                    <div class="text-[11px] font-semibold text-slate-400 line-through">
-                                        {{ number_format($dealOriginal, 0) }}
-                                    </div>
-                                @endif
-                            </div>
-
-                            @if ($dealDiscount > 0)
-                                <div class="flex items-center gap-0.5 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] font-extrabold text-emerald-700">
-                                    <svg class="h-3 w-3 text-emerald-600" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M13 17h8m0 0v-8m0 8l-8-8-4 4-6-6"/>
-                                    </svg>
-                                    -{{ $dealDiscount }}%
-                                </div>
-                            @endif
-                        </div>
-                    </article>
-                @endforeach
-            </div>
-        </section>
+        <x-sliders.deals-slider
+            :articles="$topDeals"
+            title="أكبر التخفيضات اليوم"
+            icon="🔥"
+            accent="blue"
+            leading
+        />
     @endif
 
     <!-- 3. Main Layout Grid -->
@@ -149,34 +44,7 @@
 
         <!-- Sidebar Filters -->
         <aside class="space-y-6 lg:col-span-1">
-            <div class="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm">
-                <h2 class="mb-4 flex items-center justify-between border-b border-slate-100 pb-3 text-xs font-bold text-slate-900">
-                    <span>الفئات المتاحة</span>
-                    <span class="text-[11px] font-semibold text-slate-500">تصفية تلقائية</span>
-                </h2>
-
-                <ul class="space-y-1.5 text-xs font-medium">
-                    <!-- All Articles Option -->
-                    <li>
-                        <a href="{{ route('home', array_filter(request()->only('q'))) }}"
-                           class="flex items-center justify-between rounded-xl px-3 py-2.5 transition {{ ! request('category') ? 'bg-blue-50 font-extrabold text-blue-700 border border-blue-100' : 'text-slate-700 hover:bg-slate-50' }}">
-                            <span>جميع المراجعات</span>
-                            <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-600">{{ $totalArticlesCount }}</span>
-                        </a>
-                    </li>
-
-                    <!-- Dynamic Categories from Database -->
-                    @foreach ($categories as $cat)
-                        <li>
-                            <a href="{{ route('home', array_merge(['category' => $cat->slug], array_filter(request()->only('q')))) }}"
-                               class="flex items-center justify-between rounded-xl px-3 py-2.5 transition {{ request('category') == $cat->slug ? 'bg-blue-50 font-extrabold text-blue-700 border border-blue-100' : 'text-slate-700 hover:bg-slate-50' }}">
-                                <span class="truncate">{{ $cat->name }}</span>
-                                <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-600">{{ $cat->articles_count }}</span>
-                            </a>
-                        </li>
-                    @endforeach
-                </ul>
-            </div>
+            <x-filters.category-list :categories="$categories" :total-articles-count="$totalArticlesCount" />
 
             <!-- Trust Badge Box -->
             <div class="rounded-2xl border border-blue-100 bg-blue-50 p-4 text-xs text-slate-600">
@@ -229,76 +97,7 @@
             <!-- Kanbakam Style Product Grid -->
             <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
             @forelse ($articles as $article)
-                @php
-                    $primaryProduct = $article->product;
-                    $product = $primaryProduct ?: $article->products->first();
-                    $isComparison = ! $primaryProduct && $article->products->count() > 1;
-                    $current = (float) ($product?->price ?? 0);
-                    $original = (float) ($product?->original_price ?? 0);
-                    $hasDiscount = $original > $current && $original > 0;
-                    $discountPct = $hasDiscount ? round((($original - $current) / $original) * 100) : 0;
-
-                    $url = $product?->affiliate_url ?? '';
-                    $merchant = 'amazon';
-                    if (str_contains($url, 'noon.com')) { $merchant = 'noon'; }
-                    elseif (str_contains($url, 'jumia.com')) { $merchant = 'jumia'; }
-                @endphp
-
-                <article class="group relative flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-3 shadow-sm transition duration-200 hover:border-blue-500 hover:shadow-md">
-                    <!-- Image & Merchant Logo -->
-                    <a href="{{ route('articles.show', $article->slug) }}" class="relative flex h-40 w-full items-center justify-center rounded-xl bg-white p-2">
-                        @if ($product?->image_url)
-                            <img src="{{ $product->image_url }}" alt="{{ $product->title ?: $article->title }}" loading="lazy" class="max-h-full max-w-full object-contain transition duration-300 group-hover:scale-105">
-                        @else
-                            <span class="text-xs font-bold text-slate-400">لا توجد صورة</span>
-                        @endif
-
-                        @if ($isComparison)
-                            <span class="absolute left-1 top-1 rounded-lg border border-purple-200 bg-white/95 px-2 py-0.5 text-[10px] font-extrabold text-purple-700 shadow-sm backdrop-blur">⚖️ مقارنة</span>
-                        @endif
-
-                        @include('partials.merchant-badge', ['merchant' => $merchant, 'brand' => $product?->brand])
-                    </a>
-
-                    <!-- Title -->
-                    <h2 class="mt-3 line-clamp-2 text-xs font-bold leading-snug text-slate-800 transition group-hover:text-blue-600">
-                        <a href="{{ route('articles.show', $article->slug) }}">
-                            {{ $article->title }}
-                        </a>
-                    </h2>
-
-                    <!-- Specs Pills -->
-                    <div class="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] font-medium text-slate-500">
-                        @if ($product)
-                            <span class="rounded bg-slate-100 px-2 py-0.5 text-slate-700">⭐ {{ number_format((float) $product->rating, 1) }}</span>
-                            <span class="rounded border border-blue-100 bg-blue-50 px-2 py-0.5 font-bold text-blue-700">تقسيط 0%</span>
-                        @endif
-                    </div>
-
-                    <!-- Kanbakam Price Area & Trend Badge -->
-                    <div class="mt-auto flex items-end justify-between border-t border-slate-100 pt-3">
-                        <div>
-                            <div class="text-lg font-black text-slate-900">
-                                {{ number_format($current, 0) }} <span class="text-[10px] font-semibold text-slate-500">ج.م</span>
-                            </div>
-                            @if ($hasDiscount)
-                                <div class="text-[11px] font-semibold text-slate-400 line-through">
-                                    {{ number_format($original, 0) }}
-                                </div>
-                            @endif
-                        </div>
-
-                        <!-- Kanbakam Trend / Discount Badge -->
-                        @if ($hasDiscount)
-                            <div class="flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-extrabold text-emerald-700">
-                                <svg class="h-3.5 w-3.5 text-emerald-600" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M13 17h8m0 0v-8m0 8l-8-8-4 4-6-6"/>
-                                </svg>
-                                -{{ $discountPct }}%
-                            </div>
-                        @endif
-                    </div>
-                </article>
+                <x-cards.product-card :article="$article" />
             @empty
                 <div class="col-span-full rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center text-sm text-slate-500">
                     <p class="mb-1 text-base font-bold text-slate-700">لم نجد أي مراجعات مطابقة لبحثك!</p>

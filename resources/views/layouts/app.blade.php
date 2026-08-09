@@ -92,38 +92,7 @@
 <body class="min-h-screen bg-[#f8fafc] text-slate-900 antialiased selection:bg-sky-500 selection:text-white">
 
     <!-- Rich AmanStream Header -->
-    <header class="sticky top-0 z-50 border-b border-slate-800 bg-[#0f172a] text-white shadow-md">
-        <div class="mx-auto flex max-w-6xl items-center justify-between px-4 py-3.5 sm:px-6">
-
-            <!-- Logo AmanStream -->
-            <a href="/" class="group shrink-0" aria-label="أمان ستريم الرئيسية">
-                <img src="/logo.svg" alt="أمان ستريم | AmanStream" width="429" height="120" class="h-10 w-auto transition duration-200 sm:h-11 group-hover:opacity-90">
-            </a>
-
-            <!-- Dynamic Category Navigation Links -->
-            <nav class="hidden items-center gap-5 text-xs font-semibold text-slate-300 md:flex">
-                <a href="/" class="transition hover:text-sky-400 {{ request()->is('/') && ! request('q') && ! request('category') ? 'font-extrabold text-sky-400' : '' }}">
-                    الرئيسية
-                </a>
-                @foreach ($headerCategories ?? collect() as $category)
-                    <a href="{{ route('home', ['category' => $category->slug]) }}" class="transition hover:text-sky-400 {{ request('category') == $category->slug ? 'font-extrabold text-sky-400' : '' }}">
-                        {{ $category->name }}
-                    </a>
-                @endforeach
-                <a href="/about" class="transition hover:text-sky-400 {{ request()->is('about') ? 'font-extrabold text-sky-400' : '' }}">
-                    عن أمان ستريم
-                </a>
-            </nav>
-
-            <!-- Quick Action Mobile Button -->
-            <div class="flex items-center gap-3">
-                <a href="/about" class="text-xs font-bold text-sky-400 transition hover:text-white md:hidden">
-                    عن الموقع
-                </a>
-            </div>
-
-        </div>
-    </header>
+    <x-layouts.header :categories="$headerCategories ?? collect()" />
 
     <!-- Main Content Slot -->
     <main class="mx-auto max-w-6xl px-4 py-8 sm:px-6">
@@ -131,30 +100,7 @@
     </main>
 
     <!-- AmanStream Footer -->
-    <footer class="mt-20 border-t border-slate-200 bg-white py-10 text-center text-xs text-slate-600">
-        <div class="mx-auto max-w-6xl px-4">
-
-            <!-- Footer Links -->
-            <div class="mb-4 flex flex-wrap items-center justify-center gap-4 text-xs font-bold text-slate-600">
-                <a href="/" class="transition hover:text-sky-600">الرئيسية</a>
-                <span aria-hidden="true">•</span>
-                <a href="/about" class="transition hover:text-sky-600">عن أمان ستريم</a>
-                <span aria-hidden="true">•</span>
-                <a href="/sitemap.xml" class="transition hover:text-sky-600">خريطة الموقع (Sitemap)</a>
-                <span aria-hidden="true">•</span>
-                <a href="/llms.txt" target="_blank" rel="noopener" class="rounded border border-slate-200 bg-slate-100 px-2 py-0.5 font-mono text-[11px] transition hover:text-sky-600">llms.txt (AI Specs)</a>
-            </div>
-
-            <div class="mb-4 flex items-center justify-center">
-                <img src="/logo_dark.svg" alt="AmanStream Egypt" width="429" height="120" class="h-14 w-auto sm:h-16" loading="lazy">
-            </div>
-
-            <p>© {{ date('Y') }} {{ config('app.name') }} (amanstream.me) — جميع الحقوق محفوظة.</p>
-            <p class="mx-auto mt-2 max-w-md text-[11px] text-slate-500">
-                موقع أمان ستريم يقدم مراجعات ومقارنات أسعار محايدة. قد نتحصل على عمولة تسويقية عند الشراء من خلال روابط أمازون دون أي زيادة في السعر عليك.
-            </p>
-        </div>
-    </footer>
+    <x-layouts.footer />
 
 </body>
 </html>
