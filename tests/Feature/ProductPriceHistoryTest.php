@@ -223,15 +223,19 @@ final class ProductPriceHistoryTest extends TestCase
         $html = $this->get('/articles/'.$article->slug)->getContent();
 
         $this->assertStringNotContainsString('[price_history]', $html);
-        $this->assertStringContainsString('مؤشر أمان ستريم لتاريخ السعر (كان بكام)', $html);
+        $this->assertStringContainsString('مؤشر أمان ستريم لتاريخ السعر', $html);
         $this->assertStringContainsString('أقل سعر سُجِّل', $html);
         $this->assertStringContainsString('السعر الحالي اليوم', $html);
         $this->assertStringContainsString('أعلى سعر سُجِّل', $html);
-        $this->assertStringContainsString('24,000.00 ج.م', $html);
-        $this->assertStringContainsString('18,521.00 ج.م', $html);
-        $this->assertStringContainsString('<svg class="w-full h-auto" viewBox="0 0 500 120"', $html);
-        $this->assertStringContainsString('<linearGradient', $html);
-        $this->assertStringContainsString('اشترِ الآن بأفضل سعر من أمازون مصر 👈', $html);
+        $this->assertStringContainsString('24,000.00', $html);
+        $this->assertStringContainsString('18,521.00', $html);
+        $this->assertStringContainsString('role="img"', $html);
+        $this->assertStringContainsString('data-ph-chart="1"', $html);
+        $this->assertStringContainsString('data-ph-labels=', $html);
+        $this->assertStringContainsString('data-ph-prices=', $html);
+        $this->assertStringContainsString('24,000', $html);
+        $this->assertStringContainsString('/icons/amazon.png', $html);
+        $this->assertStringContainsString('اشترِ الآن', $html);
         $this->assertStringContainsString('https://www.amazon.eg/dp/B0PRICETEST?tag=demo-21', $html);
     }
 

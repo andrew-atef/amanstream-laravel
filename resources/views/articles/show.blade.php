@@ -241,7 +241,10 @@
                             rel="nofollow sponsored noopener"
                             class="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-3 font-bold text-white shadow-lg shadow-blue-500/30 transition-colors hover:bg-blue-700"
                         >
-                            اشترِ الآن من أمازون مصر
+                            <span class="flex items-center justify-center rounded-md bg-white px-2 py-1">
+                                <img src="/icons/amazon.png" alt="Amazon" width="80" height="24" loading="lazy" class="h-5 w-auto object-contain">
+                            </span>
+                            اشترِ الآن
                         </a>
                     @else
                         <span class="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-slate-100 border border-slate-200 px-6 py-3 font-bold text-slate-500 cursor-not-allowed">
@@ -296,6 +299,7 @@
                         rel="nofollow sponsored noopener"
                         class="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-blue-500/30 transition-colors hover:bg-blue-700"
                     >
+                        <img src="/icons/amazon.png" alt="Amazon" width="60" height="20" loading="lazy" class="h-4 w-auto object-contain">
                         اشترِ الآن
                     </a>
                 @else

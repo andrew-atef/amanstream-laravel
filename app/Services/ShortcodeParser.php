@@ -558,7 +558,9 @@ HTML,
         }
 
         return sprintf(
-            '<a href="%s" target="_blank" rel="nofollow sponsored noopener" class="inline-flex items-center justify-center gap-1.5 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-500/30 transition-colors hover:bg-blue-700">اشترِ الآن من أمازون 👈</a>',
+            '<a href="%s" target="_blank" rel="nofollow sponsored noopener" class="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-500/30 transition-colors hover:bg-blue-700">'
+            .'<span class="flex items-center justify-center rounded-md bg-white px-1.5 py-1"><img src="/icons/amazon.png" alt="Amazon" width="60" height="20" loading="lazy" class="h-4 w-auto object-contain"></span>'
+            .'اشترِ الآن</a>',
             e($product->affiliate_url)
         );
     }
@@ -699,7 +701,9 @@ HTML,
         }
 
         return sprintf(
-            '<a href="%s" target="_blank" rel="nofollow sponsored noopener" class="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-lg px-8 py-4 shadow-lg shadow-blue-500/30 transition-colors">اشترِ الآن من أمازون مصر 👈</a>',
+            '<a href="%s" target="_blank" rel="nofollow sponsored noopener" class="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-lg px-8 py-4 shadow-lg shadow-blue-500/30 transition-colors">'
+            .'<span class="flex items-center justify-center rounded-md bg-white px-2 py-1"><img src="/icons/amazon.png" alt="Amazon" width="80" height="24" loading="lazy" class="h-5 w-auto object-contain"></span>'
+            .'اشترِ الآن</a>',
             e($product->affiliate_url)
         );
     }
@@ -903,13 +907,10 @@ HTML,
     }
 
     /**
-     * [price_history] — Sleek, ultra-flat Kanbakam price barometer.
+     * [price_history] — بسيط وواضح: جدول أسعار بدون تعقيد.
      */
     protected function priceHistory(Product $product): string
     {
-        $status = $product->getPriceStatus();
-        $color = $status['color'];
-
         $current = (float) $product->price;
         $lowest = $product->getLowestRecordedPrice();
         $highest = $product->getHighestRecordedPrice();
@@ -932,80 +933,50 @@ HTML,
             ? (int) round((1 - $current / $highest) * 100)
             : 0;
 
-        $statusBadge = sprintf(
-            '<span class="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold %s">%s</span>',
-            match ($color) {
-                'emerald' => 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30',
-                'rose' => 'bg-rose-500/15 text-rose-400 border border-rose-500/30',
-                default => 'bg-sky-500/15 text-sky-400 border border-sky-500/30',
-            },
-            $status['label']
-        );
-
-        $chartHtml = $this->priceHistoryChart($points, $current, $lowest, $highest, $color);
+        $chartHtml = $this->priceHistoryChart($points, $current, $lowest, $highest);
 
         return sprintf(
             <<<'HTML'
-<div class="my-8 overflow-hidden rounded-2xl border border-slate-800 bg-[#0f172a] text-white shadow-lg" dir="rtl">
-    <!-- Sleek Flat Header -->
-    <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 bg-slate-900/80 px-5 py-3.5">
-        <div class="flex items-center gap-2.5">
-            <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/20 text-sm font-bold text-emerald-400">📉</div>
-            <div>
-                <h3 class="text-sm font-bold leading-none text-white">مؤشر أمان ستريم لتاريخ السعر (كان بكام)</h3>
-                <span class="text-[11px] text-slate-400">تحليل حركة السعر اليومية على أمازون مصر</span>
-            </div>
-        </div>
-        %1$s
+<div class="my-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm" dir="rtl">
+    <div class="border-b border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-900">
+        📉 مؤشر أمان ستريم لتاريخ السعر
     </div>
 
-    <!-- Compact Horizontal Price Strip -->
-    <div class="grid grid-cols-1 divide-y divide-slate-800/80 sm:grid-cols-3 sm:divide-x sm:divide-y-0 sm:divide-x-reverse">
-        <!-- Lowest -->
-        <div class="flex items-center justify-between p-4 sm:flex-col sm:items-start sm:justify-center">
-            <div class="flex items-center gap-1.5 text-xs font-semibold text-emerald-400">
-                <span class="h-2 w-2 rounded-full bg-emerald-400"></span> أقل سعر سُجّل
-            </div>
-            <div class="text-lg font-black text-white sm:mt-1">%2$s <span class="text-xs font-normal text-slate-400">ج.م</span></div>
-            <div class="mt-0.5 hidden text-[10px] text-slate-400 sm:block">تاريخ التسجيل: %3$s</div>
-        </div>
+    <table class="w-full text-right text-sm">
+        <tbody class="divide-y divide-slate-100">
+            <tr>
+                <th class="px-4 py-2.5 font-semibold text-slate-500">أقل سعر سُجِّل</th>
+                <td class="px-4 py-2.5 text-left font-bold text-slate-900">%1$s <span class="text-xs font-normal text-slate-400">ج.م</span></td>
+                <td class="px-4 py-2.5 whitespace-nowrap text-left text-xs text-slate-400">%2$s</td>
+            </tr>
+            <tr class="bg-sky-50/70">
+                <th class="px-4 py-2.5 font-bold text-slate-900">السعر الحالي اليوم</th>
+                <td class="px-4 py-2.5 text-left text-lg font-black text-sky-700">%3$s <span class="text-xs font-normal text-slate-400">ج.م</span></td>
+                <td class="px-4 py-2.5 whitespace-nowrap text-left text-xs font-bold text-emerald-600">%4$s</td>
+            </tr>
+            <tr>
+                <th class="px-4 py-2.5 font-semibold text-slate-500">أعلى سعر سُجِّل</th>
+                <td class="px-4 py-2.5 text-left font-bold text-slate-900">%5$s <span class="text-xs font-normal text-slate-400">ج.م</span></td>
+                <td class="px-4 py-2.5 whitespace-nowrap text-left text-xs text-slate-400">%6$s</td>
+            </tr>
+        </tbody>
+    </table>
 
-        <!-- Current -->
-        <div class="flex items-center justify-between bg-slate-800/40 p-4 sm:flex-col sm:items-start sm:justify-center">
-            <div class="flex items-center gap-1.5 text-xs font-semibold text-sky-400">
-                <span class="h-2 w-2 rounded-full bg-sky-400"></span> السعر الحالي اليوم
-            </div>
-            <div class="text-xl font-black text-sky-400 sm:mt-1">%4$s <span class="text-xs font-normal text-slate-400">ج.م</span></div>
-            <div class="mt-0.5 hidden text-[10px] font-semibold text-emerald-400 sm:block">%5$s</div>
-        </div>
+    <div class="border-t border-slate-200 px-4 py-3">%7$s</div>
 
-        <!-- Highest -->
-        <div class="flex items-center justify-between p-4 sm:flex-col sm:items-start sm:justify-center">
-            <div class="flex items-center gap-1.5 text-xs font-semibold text-slate-400">
-                <span class="h-2 w-2 rounded-full bg-slate-500"></span> أعلى سعر سُجّل
-            </div>
-            <div class="text-lg font-black text-slate-300 sm:mt-1">%6$s <span class="text-xs font-normal text-slate-400">ج.م</span></div>
-            <div class="mt-0.5 hidden text-[10px] text-slate-400 sm:block">تاريخ التسجيل: %7$s</div>
-        </div>
-    </div>
-
-    <!-- Flat Chart / Range Container -->
-    <div class="border-t border-slate-800/60 bg-slate-900/40 px-5 py-4">%8$s</div>
-
-    <!-- Footer Action Bar -->
-    <div class="flex flex-col items-center justify-between gap-3 border-t border-slate-800 bg-slate-900/80 px-5 py-3 sm:flex-row">
-        <p class="text-[11px] text-slate-400">💡 يتابع أمان ستريم أسعار هذا الجهاز يومياً لمساعدتك في الشراء بأقل سعر.</p>
-        <a href="%9$s" target="_blank" rel="nofollow sponsored noopener" class="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-sky-600 px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-sky-500">
-            اشترِ الآن بأفضل سعر من أمازون مصر 👈
+    <div class="flex flex-col items-center justify-between gap-2 border-t border-slate-200 bg-slate-50 px-4 py-3 sm:flex-row">
+        <p class="text-xs text-slate-500">💡 أمان ستريم يتابع سعر هذا الجهاز يومياً ليساعدك في الشراء بأقل سعر.</p>
+        <a href="%8$s" target="_blank" rel="nofollow sponsored noopener" class="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-sky-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-sky-500">
+            <span class="flex items-center justify-center rounded bg-white px-1 py-0.5"><img src="/icons/amazon.png" alt="Amazon" width="48" height="16" loading="lazy" class="h-3 w-auto object-contain"></span>
+            اشترِ الآن
         </a>
     </div>
 </div>
 HTML,
-            $statusBadge,
             number_format($lowest, 2),
             $lowestDate,
             number_format($current, 2),
-            $discountVsMax > 0 ? "خصم {$discountVsMax}% عن أعلى سعر" : 'محدث مباشرة من أمازون',
+            $discountVsMax > 0 ? "خصم {$discountVsMax}%" : '—',
             number_format($highest, 2),
             $highestDate,
             $chartHtml,
@@ -1014,12 +985,12 @@ HTML,
     }
 
     /**
-     * Render flat responsive sparkline or clean range bar.
+     * Render the interactive Chart.js line chart or a clean range bar.
      */
-    protected function priceHistoryChart(array $points, float $current, float $lowest, float $highest, string $accent): string
+    protected function priceHistoryChart(array $points, float $current, float $lowest, float $highest): string
     {
         if (count($points) >= 2) {
-            return $this->priceSvgSparkline($points, $accent);
+            return $this->priceChartCanvas($points);
         }
 
         $range = max(1, $highest - $lowest);
@@ -1027,15 +998,12 @@ HTML,
 
         return sprintf(
             <<<'HTML'
-<div class="rounded-xl border border-slate-800 bg-slate-800/50 p-3">
-    <div class="mb-2 flex justify-between text-[11px] font-bold text-slate-300">
-        <span>أدنى سعر (%s ج.م)</span>
-        <span class="text-sky-400">موقع السعر الحالي اليوم</span>
-        <span>أعلى سعر (%s ج.م)</span>
-    </div>
-    <div class="relative h-2 w-full overflow-hidden rounded-full bg-slate-700">
-        <div class="absolute top-0 bottom-0 left-0 rounded-full bg-emerald-500" style="width: %d%%"></div>
-    </div>
+<div class="flex items-center justify-between text-[11px] font-bold text-slate-400">
+    <span>أدنى سعر (%s ج.م)</span>
+    <span>أعلى سعر (%s ج.م)</span>
+</div>
+<div class="relative mt-1 h-2 w-full overflow-hidden rounded-full bg-slate-200">
+    <div class="absolute top-0 bottom-0 left-0 rounded-full bg-emerald-500" style="width: %d%%"></div>
 </div>
 HTML,
             number_format($lowest, 0),
@@ -1044,50 +1012,36 @@ HTML,
         );
     }
 
-    protected function priceSvgSparkline(array $points, string $accent): string
+    /**
+     * Interactive Chart.js line chart — tooltips show date + price on hover.
+     */
+    protected function priceChartCanvas(array $points): string
     {
-        $width = 500;
-        $height = 90;
-        $padTop = 15;
-        $padRight = 20;
-        $padBottom = 20;
-        $padLeft = 50;
+        $labels = array_map(
+            fn (array $point): string => e((string) $point['date']),
+            $points
+        );
 
-        $plotW = $width - $padLeft - $padRight;
-        $plotH = $height - $padTop - $padBottom;
-
-        $prices = array_column($points, 'price');
-        $minRaw = min($prices);
-        $maxRaw = max($prices);
-        $range = max(1, $maxRaw - $minRaw);
-
-        $count = count($points);
-        $coords = [];
-
-        foreach ($points as $i => $point) {
-            $x = $padLeft + ($i / max(1, $count - 1)) * $plotW;
-            $ratio = ($point['price'] - $minRaw) / $range;
-            $y = $padTop + (1 - $ratio) * $plotH;
-            $coords[] = ['x' => round($x, 2), 'y' => round($y, 2)];
-        }
-
-        $path = "M {$coords[0]['x']} {$coords[0]['y']}";
-        for ($i = 1; $i < $count; $i++) {
-            $path .= " L {$coords[$i]['x']} {$coords[$i]['y']}";
-        }
-
-        $stroke = match ($accent) {
-            'rose' => '#f43f5e',
-            'sky' => '#38bdf8',
-            default => '#10b981',
-        };
+        $prices = array_map(
+            fn (array $point): float => (float) $point['price'],
+            $points
+        );
 
         return sprintf(
-            '<svg class="h-20 w-full" viewBox="0 0 %d %d" role="img"><path d="%s" fill="none" stroke="%s" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" /></svg>',
-            $width,
-            $height,
-            $path,
-            $stroke
+            <<<'HTML'
+<div class="relative h-40 w-full sm:h-48">
+    <canvas
+        data-ph-chart="1"
+        data-ph-labels="%s"
+        data-ph-prices="%s"
+        role="img"
+        aria-label="الرسم البياني لحركة السعر"
+        class="w-full"
+    ></canvas>
+</div>
+HTML,
+            e(json_encode($labels, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)),
+            e(json_encode($prices, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES))
         );
     }
 }
