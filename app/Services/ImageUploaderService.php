@@ -24,6 +24,16 @@ class ImageUploaderService
     protected const MAX_SOURCE_BYTES = 8 * 1024 * 1024;
 
     /**
+     * Download an arbitrary external image URL, apply the AmanStream brand
+     * watermark, upload the resulting WebP to Cloudflare R2 and return the
+     * permanent public URL. Returns null on any failure (never throws).
+     */
+    public static function uploadUrlToR2(string $externalUrl, string $identifier): ?string
+    {
+        return self::upload($externalUrl, $identifier);
+    }
+
+    /**
      * Download an external image, convert it to WebP and upload it to Cloudflare R2.
      *
      * Returns the permanent public R2 URL on success, null when the source is
@@ -139,6 +149,8 @@ class ImageUploaderService
         }
 
         try {
+            self::applyAmanStreamWatermark($image);
+
             ob_start();
             imagewebp($image, null, self::WEBP_QUALITY);
             $webp = ob_get_clean();
@@ -163,6 +175,96 @@ class ImageUploaderService
         }
 
         return $webp;
+    }
+
+    /**
+     * Path to the pre-rendered AmanStream logo used as the photo watermark.
+     *
+     * GD cannot rasterize SVG, so this PNG was generated once from
+     * public/logo_dark.svg with transparency preserved. The same file is used
+     * on the VPS, so no SVG/Imagick dependency is required at runtime.
+     */
+    protected const WATERMARK_LOGO_PATH = __DIR__.'/../../public/img/logo_dark_watermark.png';
+
+    /**
+     * Overlay the Aman logo onto the source image, before WebP encoding.
+     *
+     * The banner is scaled relative to the image (max 38% of its width) and
+     * placed in the bottom-right corner with a small margin. Skipped on
+     * postage-stamp sized sources where the logo would not be legible.
+     *
+     * @param  \GdImage  $gd
+     */
+    private static function applyAmanStreamWatermark(\GdImage $gd): void
+    {
+        $width = imagesx($gd);
+        $height = imagesy($gd);
+
+        // Skip tiny thumbnail sources — a banner would dominate the photo.
+        if ($width < 300 || $height < 220) {
+            return;
+        }
+
+        $logoPath = self::WATERMARK_LOGO_PATH;
+
+        if (! is_file($logoPath)) {
+            Log::warning('ImageUploader: watermark logo file not found.', ['path' => $logoPath]);
+
+            return;
+        }
+
+        $logo = @imagecreatefrompng($logoPath);
+
+        if ($logo === false) {
+            Log::warning('ImageUploader: failed to decode watermark logo.', ['path' => $logoPath]);
+
+            return;
+        }
+
+        try {
+            $logoW = imagesx($logo);
+            $logoH = imagesy($logo);
+
+            if ($logoW < 1 || $logoH < 1) {
+                return;
+            }
+
+            // Scale so the banner fits nicely inside the thumbnail area.
+            $targetW = (int) round($height * 0.38);
+            $targetW = max(160, min($targetW, 520));
+            $targetH = (int) round($targetW * ($logoH / $logoW));
+            $targetH = max(40, $targetH);
+
+            // Keep the composition proportional if the image is very wide.
+            if ($targetW > (int) round($width * 0.85)) {
+                $targetW = (int) round($width * 0.85);
+                $targetH = (int) round($targetW * ($logoH / $logoW));
+            }
+
+            $marginX = max(10, (int) round($width * 0.02));
+            $marginY = max(10, (int) round($height * 0.02));
+
+            $destX = $width - $targetW - $marginX;
+            $destY = $height - $targetH - $marginY;
+
+            imagealphablending($gd, true);
+            imagesavealpha($gd, true);
+
+            imagecopyresampled(
+                $gd,
+                $logo,
+                $destX,
+                $destY,
+                0,
+                0,
+                $targetW,
+                $targetH,
+                $logoW,
+                $logoH
+            );
+        } finally {
+            imagedestroy($logo);
+        }
     }
 
     /**

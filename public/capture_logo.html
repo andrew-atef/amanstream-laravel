@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body>
+<img id="lg" src="logo_dark.svg" style="width:858px;height:auto">
+<script>
+  const img = document.getElementById('lg');
+  img.onload = () => {
+    const c = document.createElement('canvas');
+    c.width = img.naturalWidth * 2;
+    c.height = img.naturalHeight * 2;
+    const ctx = c.getContext('2d');
+    ctx.drawImage(img, 0, 0, c.width, c.height);
+    const url = c.toDataURL('image/png');
+    document.getElementById('out').textContent = url;
+  };
+  img.onerror = () => { document.getElementById('out').textContent = 'ERROR'; };
+</script>
+<pre id="out">wait</pre>
+</body>
+</html>
