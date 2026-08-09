@@ -15,7 +15,7 @@ class HomeController extends Controller
         $dealsOnly = $request->boolean('deals', false);
 
         $query = Article::query()
-            ->with(['category', 'product'])
+            ->with(['category', 'product', 'products'])
             ->where('is_published', true);
 
         // Live search across title, content, product title, brand and ASIN.

@@ -110,7 +110,7 @@
                         </a>
 
                         <!-- Title -->
-                        <h3 class="mt-3 line-clamp-2 h-9 text-xs font-bold leading-snug text-slate-800 transition group-hover:text-blue-600">
+                        <h3 class="mt-3 line-clamp-3 text-xs font-bold leading-snug text-slate-800 transition group-hover:text-blue-600">
                             <a href="{{ route('articles.show', $deal->slug) }}">
                                 {{ $deal->title }}
                             </a>
@@ -230,7 +230,9 @@
             <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
             @forelse ($articles as $article)
                 @php
-                    $product = $article->product;
+                    $primaryProduct = $article->product;
+                    $product = $primaryProduct ?: $article->products->first();
+                    $isComparison = ! $primaryProduct && $article->products->count() > 1;
                     $current = (float) ($product?->price ?? 0);
                     $original = (float) ($product?->original_price ?? 0);
                     $hasDiscount = $original > $current && $original > 0;
@@ -251,11 +253,15 @@
                             <span class="text-xs font-bold text-slate-400">لا توجد صورة</span>
                         @endif
 
+                        @if ($isComparison)
+                            <span class="absolute left-1 top-1 rounded-lg border border-purple-200 bg-white/95 px-2 py-0.5 text-[10px] font-extrabold text-purple-700 shadow-sm backdrop-blur">⚖️ مقارنة</span>
+                        @endif
+
                         @include('partials.merchant-badge', ['merchant' => $merchant, 'brand' => $product?->brand])
                     </a>
 
                     <!-- Title -->
-                    <h2 class="mt-3 line-clamp-2 h-10 text-xs font-bold leading-snug text-slate-800 transition group-hover:text-blue-600">
+                    <h2 class="mt-3 line-clamp-2 text-xs font-bold leading-snug text-slate-800 transition group-hover:text-blue-600">
                         <a href="{{ route('articles.show', $article->slug) }}">
                             {{ $article->title }}
                         </a>

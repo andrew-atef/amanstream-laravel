@@ -160,7 +160,8 @@ class Phase2AutomationTest extends TestCase
             ->filter(fn (array $log): bool => str_contains($log['query'], 'from "products"'))
             ->count();
 
-        $this->assertLessThanOrEqual(2, $productsQueries);
+        // Bounded eager loads only (single-product + comparison products join) — never N+1 per article.
+        $this->assertLessThanOrEqual(3, $productsQueries);
     }
 
     public function test_home_search_filters_articles_by_title_brand_and_category(): void
