@@ -1,6 +1,24 @@
 import './bootstrap';
 import Chart from 'chart.js/auto';
 
+// منيو الموبايل: تبديل فتح/إغلاق وتحديث الأيقونة وحالة aria.
+const menuToggle = document.querySelector('[data-mobile-menu-toggle]');
+const mobileNav = document.getElementById('mobile-nav');
+
+if (menuToggle && mobileNav) {
+    const openIcon = menuToggle.querySelector('[data-mobile-menu-icon="open"]');
+    const closeIcon = menuToggle.querySelector('[data-mobile-menu-icon="close"]');
+
+    menuToggle.addEventListener('click', () => {
+        const isOpen = ! mobileNav.classList.contains('hidden');
+
+        mobileNav.classList.toggle('hidden', isOpen);
+        openIcon.classList.toggle('hidden', ! isOpen);
+        closeIcon.classList.toggle('hidden', isOpen);
+        menuToggle.setAttribute('aria-expanded', String(! isOpen));
+    });
+}
+
 // ربط الرسم البياني لـ [price_history] — يعمل لكل canvas يحمل data-ph-label/data-ph-price.
 const renderedCharts = new WeakSet();
 
@@ -22,12 +40,12 @@ function renderPriceHistoryCharts() {
                 datasets: [{
                     label: 'السعر',
                     data: prices,
-                    borderColor: '#2563eb',
-                    backgroundColor: 'rgba(37, 99, 235, 0.10)',
+                    borderColor: '#155dfc',
+                    backgroundColor: 'rgba(21, 93, 252, 0.10)',
                     fill: true,
                     tension: 0.35,
                     borderWidth: 2.5,
-                    pointBackgroundColor: '#1d4ed8',
+                    pointBackgroundColor: '#1247c9',
                     pointBorderColor: '#ffffff',
                     pointBorderWidth: 1.5,
                     pointRadius: 4,

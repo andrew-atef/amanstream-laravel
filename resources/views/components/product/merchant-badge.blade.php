@@ -7,8 +7,8 @@
     @if ($merchant === 'amazon')
         <img src="/icons/amazon.png" alt="Amazon" width="72" height="24" loading="lazy" class="h-6 w-auto object-contain">
     @elseif ($merchant === 'noon')
-        <span class="px-1 text-xs font-black text-amber-500">noon</span>
+        <span class="px-1 text-xs font-black text-primary-600">noon</span>
     @else
-        <span class="px-1 text-xs font-bold text-slate-700">{{ $brand ?: 'أمازون' }}</span>
+        <span class="px-1 text-xs font-bold text-ink/80">{{ $brand ?: 'أمازون' }}</span>
     @endif
 </div>

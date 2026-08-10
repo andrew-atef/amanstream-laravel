@@ -8,6 +8,21 @@
 @theme {
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
+
+    --color-primary-50: #eef3ff;
+    --color-primary-100: #dce7ff;
+    --color-primary-200: #c0d4ff;
+    --color-primary-300: #94b7ff;
+    --color-primary-400: #5d92fd;
+    --color-primary-500: #2f6dfb;
+    --color-primary-600: #155dfc;
+    --color-primary-700: #1247c9;
+    --color-primary-800: #11409f;
+    --color-primary-900: #0f2b6e;
+    --color-primary-950: #0a1a44;
+
+    --color-ink: #0f172a;
+    --color-mist: #cad5e2;
 }
 
 .article-content h2 {
@@ -45,7 +60,7 @@
 }
 
 .article-content a:not([href*="amazon"]) {
-    color: rgb(234 88 12);
+    color: var(--color-primary-700);
     text-decoration-line: underline;
 }
 
@@ -65,7 +80,7 @@
     border-bottom: 1px solid rgb(226 232 240);
     font-size: 0.8125rem;
     line-height: 1.5;
-    color: rgb(30 41 59);
+    color: #0f172a;
     font-weight: 700;
 }
 
@@ -75,7 +90,7 @@
 
 .specs-md li strong {
     font-weight: 600;
-    color: rgb(100 116 139);
+    color: #64748b;
     white-space: nowrap;
     flex-shrink: 0;
 }

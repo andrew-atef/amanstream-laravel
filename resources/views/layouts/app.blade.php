@@ -89,7 +89,7 @@
 
     @stack('schema')
 </head>
-<body class="min-h-screen bg-[#f8fafc] text-slate-900 antialiased selection:bg-sky-500 selection:text-white">
+<body class="min-h-screen bg-white text-ink antialiased selection:bg-primary-600 selection:text-white">
 
     <!-- Rich AmanStream Header -->
     <x-layouts.header :categories="$headerCategories ?? collect()" />

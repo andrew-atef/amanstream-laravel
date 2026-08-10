@@ -174,25 +174,25 @@
     @endpush
 
     <article class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-10">
-        <nav class="mb-6 text-sm text-slate-500" aria-label="Breadcrumb">
+        <nav class="mb-6 text-sm text-mist" aria-label="Breadcrumb">
             <ol class="flex flex-wrap items-center gap-1">
-                <li><a href="/" class="hover:text-blue-600">الرئيسية</a></li>
+                <li><a href="/" class="hover:text-primary-600">الرئيسية</a></li>
                 @if ($product?->category)
-                    <li><span aria-hidden="true">/</span> <a href="{{ route('home', ['category' => $product->category->slug]) }}" class="hover:text-blue-600">{{ $product->category->name }}</a></li>
+                    <li><span aria-hidden="true">/</span> <a href="{{ route('home', ['category' => $product->category->slug]) }}" class="hover:text-primary-600">{{ $product->category->name }}</a></li>
                 @endif
-                <li aria-current="page"><span aria-hidden="true">/</span> <span class="text-slate-800">{{ $article->title }}</span></li>
+                <li aria-current="page"><span aria-hidden="true">/</span> <span class="text-ink">{{ $article->title }}</span></li>
             </ol>
         </nav>
 
         <header class="mb-8 border-b border-slate-100 pb-6">
-            <h1 class="text-3xl font-black leading-snug text-slate-900 sm:text-4xl">{{ $article->title }}</h1>
+            <h1 class="text-3xl font-black leading-snug text-ink sm:text-4xl">{{ $article->title }}</h1>
 
             <div class="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 text-xs font-medium sm:text-sm">
-                <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200 px-3 py-1 text-emerald-700">
+                <span class="inline-flex items-center gap-1.5 rounded-full bg-primary-50 border border-primary-200 px-3 py-1 text-primary-700">
                     <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                     آخر تحديث للسعر والمواصفات: {{ $article->updated_at?->format('Y/m/d') ?: now()->format('Y/m/d') }}
                 </span>
-                <span class="inline-flex items-center gap-1.5 text-slate-500">
+                <span class="inline-flex items-center gap-1.5 text-mist">
                     <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                     مراجعة: فريق أمان ستريم
                 </span>
@@ -212,8 +212,8 @@
                             >
                         @endif
                         <div>
-                            <div class="font-bold text-slate-900">{{ $product->title }}</div>
-                            <div class="mt-1 text-sm text-slate-500">
+                            <div class="font-bold text-ink">{{ $product->title }}</div>
+                            <div class="mt-1 text-sm text-mist">
                                 {{ $product->brand }} · ASIN: {{ $product->asin }}
                             </div>
                             @php
@@ -221,13 +221,13 @@
                                 $showOriginal = (float) ($product->original_price ?? 0);
                                 $hasDiscount = $showOriginal > $showPrice && $showOriginal > 0;
                             @endphp
-                            <div class="mt-2 flex flex-wrap items-center gap-2 text-2xl font-black text-blue-700">
+                            <div class="mt-2 flex flex-wrap items-center gap-2 text-2xl font-black text-primary-700">
                                 @if ($hasDiscount)
-                                    <span class="text-base font-semibold text-slate-500 line-through">{{ number_format($showOriginal, 2) }} ج.م</span>
+                                    <span class="text-base font-semibold text-mist line-through">{{ number_format($showOriginal, 2) }} ج.م</span>
                                 @endif
                                 <span>{{ number_format($showPrice, 2) }} ج.م</span>
                                 @if ($hasDiscount)
-                                    <span class="rounded-md bg-red-50 px-2 py-0.5 text-xs font-bold text-red-600">
+                                    <span class="rounded-md bg-primary-50 px-2 py-0.5 text-xs font-bold text-primary-700">
                                         خصم {{ round((($showOriginal - $showPrice) / $showOriginal) * 100) }}%
                                     </span>
                                 @endif
@@ -239,7 +239,7 @@
                             href="{{ $product->affiliate_url }}"
                             target="_blank"
                             rel="nofollow sponsored noopener"
-                            class="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-3 font-bold text-white shadow-lg shadow-blue-500/30 transition-colors hover:bg-blue-700"
+                            class="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-primary-600 px-6 py-3 font-bold text-white shadow-lg shadow-primary-600/30 transition-colors hover:bg-primary-700"
                         >
                             <span class="flex items-center justify-center rounded-md bg-white px-2 py-1">
                                 <img src="/icons/amazon.png" alt="Amazon" width="80" height="24" loading="lazy" class="h-5 w-auto object-contain">
@@ -247,7 +247,7 @@
                             اشترِ الآن
                         </a>
                     @else
-                        <span class="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-slate-100 border border-slate-200 px-6 py-3 font-bold text-slate-500 cursor-not-allowed">
+                        <span class="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-slate-100 border border-slate-200 px-6 py-3 font-bold text-mist cursor-not-allowed">
                             غير متوفر حالياً في أمازون مصر
                         </span>
                     @endif
@@ -259,7 +259,7 @@
             <div class="buy-bar-sentinel" aria-hidden="true"></div>
         @endif
 
-        <div class="article-content mx-auto max-w-none space-y-6 text-lg leading-8 text-gray-800">
+        <div class="article-content mx-auto max-w-none space-y-6 text-lg leading-8 text-ink/80">
             {!! $parsedContent !!}
         </div>
     </article>
@@ -296,13 +296,13 @@
                         >
                     @endif
                     <div class="min-w-0">
-                        <div class="truncate text-xs font-bold text-slate-900">{{ $product->title }}</div>
+                        <div class="truncate text-xs font-bold text-ink">{{ $product->title }}</div>
                         <div class="truncate">
                             @if ($hasDiscount)
-                                <span class="text-xs font-semibold text-slate-500 line-through">{{ number_format($showOriginal, 2) }} ج.م</span>
+                                <span class="text-xs font-semibold text-mist line-through">{{ number_format($showOriginal, 2) }} ج.م</span>
                                 <span class="mx-1"></span>
                             @endif
-                            <span class="text-xl font-black text-blue-700">{{ number_format($showPrice, 2) }} ج.م</span>
+                            <span class="text-xl font-black text-primary-700">{{ number_format($showPrice, 2) }} ج.م</span>
                         </div>
                     </div>
                 </div>
@@ -311,13 +311,13 @@
                         href="{{ $product->affiliate_url }}"
                         target="_blank"
                         rel="nofollow sponsored noopener"
-                        class="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-blue-500/30 transition-colors hover:bg-blue-700"
+                        class="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-primary-600 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-primary-600/30 transition-colors hover:bg-primary-700"
                     >
                         <img src="/icons/amazon.png" alt="Amazon" width="60" height="20" loading="lazy" class="h-4 w-auto object-contain">
                         اشترِ الآن
                     </a>
                 @else
-                    <span class="inline-flex shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-slate-100 px-6 py-3 text-sm font-bold text-slate-500 cursor-not-allowed">
+                    <span class="inline-flex shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-slate-100 px-6 py-3 text-sm font-bold text-mist cursor-not-allowed">
                         غير متوفر حالياً
                     </span>
                 @endif

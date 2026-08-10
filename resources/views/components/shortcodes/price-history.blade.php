@@ -26,26 +26,26 @@
 @endphp
 
 <div class="my-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm" dir="rtl">
-    <div class="border-b border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-900">
+    <div class="border-b border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-ink">
         مؤشر أمان ستريم لتاريخ السعر
     </div>
 
     <table class="w-full text-right text-sm">
         <tbody class="divide-y divide-slate-100">
             <tr>
-                <th class="px-4 py-2.5 font-semibold text-slate-500">أقل سعر سُجِّل</th>
-                <td class="px-4 py-2.5 text-left font-bold text-slate-900">{{ number_format($lowest, 2) }} <span class="text-xs font-normal text-slate-400">ج.م</span></td>
-                <td class="px-4 py-2.5 whitespace-nowrap text-left text-xs text-slate-400">{{ $lowestDate }}</td>
+                <th class="px-4 py-2.5 font-semibold text-ink/60">أقل سعر سُجِّل</th>
+                <td class="px-4 py-2.5 text-left font-bold text-ink">{{ number_format($lowest, 2) }} <span class="text-xs font-normal text-mist">ج.م</span></td>
+                <td class="px-4 py-2.5 whitespace-nowrap text-left text-xs text-mist">{{ $lowestDate }}</td>
             </tr>
-            <tr class="bg-sky-50/70">
-                <th class="px-4 py-2.5 font-bold text-slate-900">السعر الحالي اليوم</th>
-                <td class="px-4 py-2.5 text-left text-lg font-black text-sky-700">{{ number_format($current, 2) }} <span class="text-xs font-normal text-slate-400">ج.م</span></td>
-                <td class="px-4 py-2.5 whitespace-nowrap text-left text-xs font-bold text-emerald-600">{{ $discountVsMax > 0 ? "خصم {$discountVsMax}%" : '—' }}</td>
+            <tr class="bg-primary-50/70">
+                <th class="px-4 py-2.5 font-bold text-ink">السعر الحالي اليوم</th>
+                <td class="px-4 py-2.5 text-left text-lg font-black text-primary-700">{{ number_format($current, 2) }} <span class="text-xs font-normal text-mist">ج.م</span></td>
+                <td class="px-4 py-2.5 whitespace-nowrap text-left text-xs font-bold text-primary-600">{{ $discountVsMax > 0 ? "خصم {$discountVsMax}%" : '—' }}</td>
             </tr>
             <tr>
-                <th class="px-4 py-2.5 font-semibold text-slate-500">أعلى سعر سُجِّل</th>
-                <td class="px-4 py-2.5 text-left font-bold text-slate-900">{{ number_format($highest, 2) }} <span class="text-xs font-normal text-slate-400">ج.م</span></td>
-                <td class="px-4 py-2.5 whitespace-nowrap text-left text-xs text-slate-400">{{ $highestDate }}</td>
+                <th class="px-4 py-2.5 font-semibold text-ink/60">أعلى سعر سُجِّل</th>
+                <td class="px-4 py-2.5 text-left font-bold text-ink">{{ number_format($highest, 2) }} <span class="text-xs font-normal text-mist">ج.م</span></td>
+                <td class="px-4 py-2.5 whitespace-nowrap text-left text-xs text-mist">{{ $highestDate }}</td>
             </tr>
         </tbody>
     </table>
@@ -75,21 +75,21 @@
                 $barWidth = max(4, $barPercent);
             @endphp
             <div>
-                <div class="flex items-center justify-between text-[11px] font-bold text-slate-400">
+                <div class="flex items-center justify-between text-[11px] font-bold text-mist">
                     <span>أدنى سعر ({{ number_format($lowest, 0) }} ج.م)</span>
                     <span>أعلى سعر ({{ number_format($highest, 0) }} ج.م)</span>
                 </div>
                 <div class="relative mt-1 h-2 w-full overflow-hidden rounded-full bg-slate-200">
-                    <div class="absolute top-0 bottom-0 left-0 rounded-full bg-emerald-500" style="width: {{ $barWidth }}%"></div>
-                    <span class="absolute top-1/2 h-4 w-4 -translate-y-1/2 rounded-full border-2 border-white bg-slate-900 shadow" style="left: {{ $barWidth }}%"></span>
+                    <div class="absolute top-0 bottom-0 left-0 rounded-full bg-primary-600" style="width: {{ $barWidth }}%"></div>
+                    <span class="absolute top-1/2 h-4 w-4 -translate-y-1/2 rounded-full border-2 border-white bg-ink shadow" style="left: {{ $barWidth }}%"></span>
                 </div>
             </div>
         @endif
     </div>
 
     <div class="flex flex-col items-center justify-between gap-2 border-t border-slate-200 bg-slate-50 px-4 py-3 sm:flex-row">
-        <p class="text-xs text-slate-500">أمان ستريم يتابع سعر هذا الجهاز يومياً ليساعدك في الشراء بأقل سعر.</p>
-        <a href="{{ $product?->affiliate_url }}" target="_blank" rel="nofollow sponsored noopener" class="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-sky-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-sky-500">
+        <p class="text-xs text-ink/60">أمان ستريم يتابع سعر هذا الجهاز يومياً ليساعدك في الشراء بأقل سعر.</p>
+        <a href="{{ $product?->affiliate_url }}" target="_blank" rel="nofollow sponsored noopener" class="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-primary-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-primary-700">
             <span class="flex items-center justify-center rounded bg-white px-1 py-0.5"><img src="/icons/amazon.png" alt="Amazon" width="48" height="16" loading="lazy" class="h-3 w-auto object-contain"></span>
             اشترِ الآن
         </a>
