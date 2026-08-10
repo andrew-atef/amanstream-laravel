@@ -5,7 +5,7 @@
     @push('schema')
         <script type="application/ld+json">
         {
-          "@context": "https://schema.org",
+          "@@context": "https://schema.org",
           "@type": "AboutPage",
           "name": "عن أمان ستريم",
           "url": "https://amanstream.me/about",
@@ -24,7 +24,7 @@
 
         <script type="application/ld+json">
         {
-          "@context": "https://schema.org",
+          "@@context": "https://schema.org",
           "@type": "FAQPage",
           "mainEntity": [
             {
