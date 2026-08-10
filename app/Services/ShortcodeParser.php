@@ -88,7 +88,7 @@ class ShortcodeParser
      */
     protected function extractAttribute(string $args, string $name): ?string
     {
-        if (preg_match('/\s+'.preg_quote($name, '/').'\s*=\s*"([^"]*)"/u', $args, $match)) {
+        if (preg_match('/(?:^|\s)'.preg_quote($name, '/').'\s*=\s*"([^"]*)"/u', $args, $match)) {
             $value = trim($match[1]);
 
             return $value !== '' ? $value : null;
@@ -564,9 +564,9 @@ class ShortcodeParser
                 continue;
             }
 
-            if (preg_match('/\*\*([^*]+)\*\*\s*[:：]\s*(.*)$/u', $line, $match)) {
+            if (preg_match('/\*\*(.+?)\*\*\s*[:：]?\s*(.*)$/u', $line, $match)) {
                 $pairs[] = [
-                    'label' => trim($match[1]),
+                    'label' => trim($match[1], " \t\n\r\0\x0B:"),
                     'value' => trim($match[2]),
                 ];
             } else {

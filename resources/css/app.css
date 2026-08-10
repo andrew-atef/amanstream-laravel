@@ -58,6 +58,7 @@
 .specs-md li {
     list-style: none;
     display: flex;
+    align-items: flex-start;
     justify-content: space-between;
     gap: 1rem;
     padding: 0.55rem 0;
@@ -75,7 +76,8 @@
 .specs-md li strong {
     font-weight: 600;
     color: rgb(100 116 139);
-    white-space: nowrap;
+    white-space: normal;
+    flex-shrink: 0;
 }
 
 @media (min-width: 640px) {

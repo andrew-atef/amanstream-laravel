@@ -59,8 +59,8 @@
             <div class="relative h-40 w-full sm:h-48">
                 <canvas
                     data-ph-chart="1"
-                    data-ph-labels="{{ e(json_encode($labels, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) }}"
-                    data-ph-prices="{{ e(json_encode($prices, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) }}"
+                    data-ph-labels="{{ json_encode($labels, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) }}"
+                    data-ph-prices="{{ json_encode($prices, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) }}"
                     role="img"
                     aria-label="الرسم البياني لحركة السعر"
                     class="w-full"

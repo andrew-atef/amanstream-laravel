@@ -72,6 +72,25 @@ class AffiliatePlatformTest extends TestCase
         $this->assertStringContainsString('3.8', $html);
     }
 
+    public function test_summary_box_renders_custom_pros_cons_verdict_when_pros_is_first_attribute(): void
+    {
+        $article = $this->seedArticle();
+        // pros comes first — the exact shape that used to fail because the
+        // attribute regex required a leading space before the first attribute.
+        $article->update(['content' => '[summary_box pros="تبريد تربو سريع للغرف حتى 12-14 م² | سعر اقتصادي يناسب الميزانيات المتوسطة" cons="بارد فقط ولا يدعم وضع التدفئة الشتوية" verdict="خيار عملي واقتصادي ممتاز في حر الصيف."]']);
+
+        $response = $this->get('/articles/'.$article->slug)->assertOk();
+
+        $html = $response->getContent();
+        $this->assertStringContainsString('تبريد تربو سريع للغرف حتى 12-14 م²', $html);
+        $this->assertStringContainsString('سعر اقتصادي يناسب الميزانيات المتوسطة', $html);
+        $this->assertStringContainsString('بارد فقط ولا يدعم وضع التدفئة الشتوية', $html);
+        $this->assertStringContainsString('خيار عملي واقتصادي ممتاز في حر الصيف.', $html);
+        // The auto-generated fallback copy must NOT appear when custom copy is given.
+        $this->assertStringNotContainsString('علامة تجارية موثوقة داخل السوق المصري', $html);
+        $this->assertStringNotContainsString('[summary_box]', $html);
+    }
+
     public function test_unpublished_article_returns_404(): void
     {
         $article = $this->seedArticle();
@@ -115,5 +134,78 @@ class AffiliatePlatformTest extends TestCase
         $this->actingAs($user)
             ->get('/admin/articles')
             ->assertOk();
+    }
+
+    public function test_comparison_table_renders_spec_rows_for_markdown_specs(): void
+    {
+        $category = Category::create([
+            'name' => 'تكييفات',
+            'slug' => 'air-conditioners',
+            'description' => 'أجهزة التكييف',
+        ]);
+
+        $haier = Product::create([
+            'category_id' => $category->id,
+            'title' => 'تكييف سبليت HSU12KCSTOC، 1.5 حصان من هاير',
+            'asin' => 'B0CSZ1HMQL',
+            'brand' => 'Haier',
+            'price' => 19440.00,
+            'rating' => 3.8,
+            'review_count' => 46,
+            'affiliate_url' => 'https://www.amazon.eg/dp/B0CSZ1HMQL?tag=demo-21',
+            'in_stock' => true,
+        ]);
+
+        $fresh = Product::create([
+            'category_id' => $category->id,
+            'title' => 'تكييف سبليت احترافي تبريد توربو فقط من فريش',
+            'asin' => 'B01LCVQ0UY',
+            'brand' => 'Fresh',
+            'price' => 18288.00,
+            'rating' => 3.8,
+            'review_count' => 281,
+            'affiliate_url' => 'https://www.amazon.eg/dp/B01LCVQ0UY?tag=demo-21',
+            'in_stock' => true,
+        ]);
+
+        $article = Article::create([
+            'category_id' => $category->id,
+            'title' => 'مقارنة هاير ضد فريش',
+            'slug' => 'mkarn-hayr-dd-frysh',
+            'content' => "## المقارنة\n\n[comparison_table]\n\n[product_cards]",
+            'is_published' => true,
+        ]);
+
+        $md = "- **خامات المواسير والكباس:** نحاس خالص 100%\n- **نوع الشاشة:** شاشة ديجيتال رقمية\n- **مستوى الضوضاء:** هادئ (14.4 ديسيبل)";
+
+        $article->articleProducts()->create([
+            'product_id' => $haier->id,
+            'sort_order' => 1,
+            'badge_label' => 'الأقوى خامات',
+            'quick_verdict' => 'أفضل خيار للعمر الطويل',
+            'specs_markdown' => $md,
+        ]);
+
+        $article->articleProducts()->create([
+            'product_id' => $fresh->id,
+            'sort_order' => 2,
+            'badge_label' => 'الأوفر مالياً',
+            'quick_verdict' => 'أفضل قيمة مقابل السعر',
+            'specs_markdown' => "- **خامات المواسير والكباس:** نحاس معالج محلياً\n- **نوع الشاشة:** شاشة إرشادية بسيطة\n- **مستوى الضوضاء:** هادئ جداً",
+        ]);
+
+        $response = $this->get('/articles/'.$article->slug)->assertOk();
+        $html = $response->getContent();
+
+        // Comparison table must contain the spec label rows shared by both products.
+        $this->assertStringContainsString('خامات المواسير والكباس', $html);
+        $this->assertStringContainsString('نوع الشاشة', $html);
+        $this->assertStringContainsString('مستوى الضوضاء', $html);
+        $this->assertStringContainsString('نحاس خالص 100%', $html);
+        $this->assertStringContainsString('نحاس معالج محلياً', $html);
+
+        // Product cards render spec values as standalone rows, not wrapped in **.
+        $this->assertStringContainsString('شاشة ديجيتال رقمية', $html);
+        $this->assertStringNotContainsString('**خامات المواسير', $html);
     }
 }
