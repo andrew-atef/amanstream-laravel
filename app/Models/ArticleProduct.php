@@ -21,6 +21,7 @@ class ArticleProduct extends Model
         'badge_label',
         'quick_verdict',
         'specs_json',
+        'specs_markdown',
     ];
 
     protected function casts(): array

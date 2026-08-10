@@ -45,7 +45,13 @@
                         </div>
                     </div>
                 </div>
-                @if (count(array_filter($specs, fn ($spec) => filled($spec['label'] ?? null))) > 0)
+                @if (filled($card['specs_html'] ?? null))
+                    <div class="border-t border-slate-100 bg-slate-50 px-6 py-4">
+                        <div class="grid gap-x-6 sm:grid-cols-2 specs-md">
+                            {!! $card['specs_html'] !!}
+                        </div>
+                    </div>
+                @elseif (count(array_filter($specs, fn ($spec) => filled($spec['label'] ?? null))) > 0)
                     <div class="border-t border-slate-100 bg-slate-50 px-6 py-4">
                         <div class="grid gap-x-6 sm:grid-cols-2">
                             @foreach ($specs as $spec)

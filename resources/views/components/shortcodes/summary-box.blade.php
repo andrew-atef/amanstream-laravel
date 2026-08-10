@@ -1,57 +1,94 @@
 @props([
     'product' => null,
+    'custom_pros' => null,
+    'custom_cons' => null,
+    'custom_verdict' => null,
 ])
 
 @php
-    $pros = [];
-    if (filled($product?->brand)) {
-        $pros[] = 'علامة تجارية موثوقة داخل السوق المصري ('.e($product->brand).').';
+    $titleD = (string) ($product?->title ?? '');
+    $isPortable = \Illuminate\Support\Str::contains(mb_strtolower($titleD), ['محمول', 'متنقل', 'portable']);
+
+    $pros = $custom_pros;
+    if (!is_array($pros) || $pros === []) {
+        if ($isPortable) {
+            $pros = [
+                'مثالي للشقق الإيجار والسكن المؤقت بدون أي تكسير في الحوائط.',
+                'يوفر مصاريف فني التركيب وحوامل الجدار الخارجية (توفير أكثر من 700 ج).',
+                'تصميم على 4 عجلات لسهولة التحريك والتنقل بين الغرف.',
+                'جاهز للتشغيل المباشر بمجرد التوصيل بالفيشة وإخراج الخرطوم.',
+            ];
+        } else {
+            $pros = [];
+            if (filled($product?->brand)) {
+                $pros[] = 'علامة تجارية موثوقة داخل السوق المصري ('.e($product->brand).').';
+            }
+
+            $priceS = (float) ($product?->price ?? 0);
+            $originalS = (float) ($product?->original_price ?? 0);
+
+            if ($originalS > $priceS && $originalS > 0) {
+                $discountPct = round((($originalS - $priceS) / $originalS) * 100);
+                $pros[] = "يتوفر عليه خصم حالياً بقيمة {$discountPct}% عن السعر الأصلي.";
+            }
+
+            if ((float) ($product?->rating ?? 0) >= 4.0) {
+                $pros[] = 'تقييم مرتفع ('.number_format((float) $product->rating, 1).'/5) وإشادات إيجابية من المشتريين.';
+            }
+
+            if ($product?->supports_installment) {
+                $pros[] = 'خيارات تقسيط مريحة بدون فوائد على 12 شهر مع البنوك المصرية.';
+            }
+
+            $pros[] = 'متاح مع خدمة الشحن المباشر والسريع عبر أمازون مصر.';
+        }
     }
 
-    $priceS = (float) ($product?->price ?? 0);
-    $originalS = (float) ($product?->original_price ?? 0);
+    $cons = $custom_cons;
+    if (!is_array($cons) || $cons === []) {
+        if ($isPortable) {
+            $cons = [
+                'يتطلب تثبيت خرطوم طرد الهواء الساخن المرفق في الشباك أو النافذة.',
+                'مستوى الصوت أعلى قليلاً من الاسبليت بسبب وجود الكباس داخل الغرفة (54dB).',
+                'يتطلب تفريغ وعاء مياه التكثيف (حوالي 2-3 لتر طوال الليل).',
+                'مناسب للغرف المغلقة الصغرى حتى 12-14 متر مربع.',
+            ];
+        } else {
+            $cons = [];
+            if ((float) ($product?->price ?? 0) >= 15000) {
+                $cons[] = 'سعر الجهاز ينتمي للفئة المتوسطة/العالية ويستلزم ميزانية مخصصة أو تقسيط.';
+            }
 
-    if ($originalS > $priceS && $originalS > 0) {
-        $discountPct = round((($originalS - $priceS) / $originalS) * 100);
-        $pros[] = "يتوفر عليه خصم حالياً بقيمة {$discountPct}% عن السعر الأصلي.";
+            if ((float) ($product?->rating ?? 0) < 4.0) {
+                $cons[] = 'تقييم المستخدمين متوسط ('.number_format((float) $product->rating, 1).'/5) مما يستدعي مراجعة تفاصيل الاستخدام.';
+            }
+
+            $cons[] = 'يتطلب التركيب عبر فنيين معتمدين لضمان سريان الضمان المحلي.';
+            $cons[] = 'تتفاوت الأسعار وتتغير العروض دورياً حسب توفر المخزون.';
+        }
     }
 
-    if ((float) ($product?->rating ?? 0) >= 4.0) {
-        $pros[] = 'تقييم مرتفع ('.number_format((float) $product->rating, 1).'/5) وإشادات إيجابية من المشتريين.';
+    $verdict = $custom_verdict;
+    if (!is_string($verdict) || trim($verdict) === '') {
+        if ($isPortable) {
+            $verdict = 'اختيار مثالي لمن يعيشون في شقق بالإيجار أو سكن مؤقت ويريدون تبريداً فورياً بدون تكاليف تركيب أو تكسير في الحوائط.';
+        } else {
+            $ratingV = (float) ($product?->rating ?? 0);
+            if ($ratingV >= 4.3) {
+                $baseS = 'خيار ممتاز يستحق الشراء اعتماداً على أداء الجهاز المرتفع';
+            } elseif ($ratingV >= 3.8) {
+                $baseS = 'خيار جيد ومتوازن ضمن فئته السعرية';
+            } else {
+                $baseS = 'اختيار اقتصادي يلبي الاحتياجات الأساسية اليومية';
+            }
+            $verdict = sprintf(
+                '%s (%s بتقييم %s/5). يوفر موازنة ملموسة بين الثمن والجودة.',
+                $baseS,
+                e($titleD),
+                number_format($ratingV, 1)
+            );
+        }
     }
-
-    if ($product?->supports_installment) {
-        $pros[] = 'خيارات تقسيط مريحة بدون فوائد على 12 شهر مع البنوك المصرية.';
-    }
-
-    $pros[] = 'متاح مع خدمة الشحن المباشر والسريع عبر أمازون مصر.';
-
-    $cons = [];
-    if ($priceS >= 15000) {
-        $cons[] = 'سعر الجهاز ينتمي للفئة المتوسطة/العالية ويستلزم ميزانية مخصصة أو تقسيط.';
-    }
-
-    if ((float) ($product?->rating ?? 0) < 4.0) {
-        $cons[] = 'تقييم المستخدمين متوسط ('.number_format((float) $product->rating, 1).'/5) مما يستدعي مراجعة تفاصيل الاستخدام.';
-    }
-
-    $cons[] = 'يتطلب التركيب عبر فنيين معتمدين لضمان سريان الضمان المحلي.';
-    $cons[] = 'تتفاوت الأسعار وتتغير العروض دورياً حسب توفر المخزون.';
-
-    $ratingV = (float) ($product?->rating ?? 0);
-    if ($ratingV >= 4.3) {
-        $base = 'خيار ممتاز يستحق الشراء اعتماداً على أداء الجهاز المرتفع';
-    } elseif ($ratingV >= 3.8) {
-        $base = 'خيار جيد ومتوازن ضمن فئته السعرية';
-    } else {
-        $base = 'اختيار اقتصادي يلبي الاحتياجات الأساسية اليومية';
-    }
-    $verdict = sprintf(
-        '%s (%s بتقييم %s/5). يوفر موازنة ملموسة بين الثمن والجودة.',
-        $base,
-        e($product?->title ?? ''),
-        number_format($ratingV, 1)
-    );
 @endphp
 
 <div class="my-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">

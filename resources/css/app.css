@@ -49,6 +49,41 @@
     text-decoration-line: underline;
 }
 
+.specs-md ul {
+    display: grid;
+    grid-template-columns: repeat(1, minmax(0, 1fr));
+    gap: 0 1.5rem;
+}
+
+.specs-md li {
+    list-style: none;
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.55rem 0;
+    border-bottom: 1px solid rgb(226 232 240);
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    color: rgb(30 41 59);
+    font-weight: 700;
+}
+
+.specs-md li:last-child {
+    border-bottom: 0;
+}
+
+.specs-md li strong {
+    font-weight: 600;
+    color: rgb(100 116 139);
+    white-space: nowrap;
+}
+
+@media (min-width: 640px) {
+    .specs-md ul {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
 @utility no-scrollbar {
     -ms-overflow-style: none;
     scrollbar-width: none;

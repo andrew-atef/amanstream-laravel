@@ -123,22 +123,10 @@ class ArticleResource extends Resource
                                     ->placeholder('مثال: أفضل خيار لو هتشتغل تطوير ألعاب وتطبيقات AI')
                                     ->rows(2)
                                     ->columnSpanFull(),
-                                Repeater::make('specs_json')
-                                    ->label('المواصفات')
-                                    ->schema([
-                                        TextInput::make('label')
-                                            ->label('الميزة')
-                                            ->placeholder('مثال: الرامات')
-                                            ->required(),
-                                        TextInput::make('value')
-                                            ->label('القيمة')
-                                            ->placeholder('مثال: 16GB DDR5')
-                                            ->required(),
-                                    ])
-                                    ->columns(2)
-                                    ->defaultItems(0)
-                                    ->reorderable()
-                                    ->collapsible()
+                                MarkdownEditor::make('specs_markdown')
+                                    ->label('المواصفات الرئيسية (صيغة Markdown)')
+                                    ->placeholder("- **خامات المواسير والكباس:** نحاس خالص 100%\n- **نوع الشاشة:** ديجيتال رقمية\n- **نوع الكباس:** Rotary Scroll")
+                                    ->helperText('اكتب المواصفات على شكل نقاط Markdown سريعة باستخدام (- **اسم الميزة:** القيمة)')
                                     ->columnSpanFull(),
                             ])
                             ->columns(2)

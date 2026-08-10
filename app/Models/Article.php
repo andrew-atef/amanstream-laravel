@@ -55,7 +55,7 @@ class Article extends Model
     public function products(): BelongsToMany
     {
         return $this->belongsToMany(Product::class, 'article_product')
-            ->withPivot(['sort_order', 'badge_label', 'quick_verdict', 'specs_json'])
+            ->withPivot(['sort_order', 'badge_label', 'quick_verdict', 'specs_json', 'specs_markdown'])
             ->orderBy('article_product.sort_order');
     }
 }

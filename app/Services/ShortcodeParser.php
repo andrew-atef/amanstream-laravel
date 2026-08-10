@@ -14,9 +14,11 @@ class ShortcodeParser
 {
     public function parse(Article $article): HtmlString
     {
-        // [buy_button position="N"] resolved BEFORE markdown: the CommonMark
-        // converter HTML-encodes the inner quotes, which would break the regex.
+        // [buy_button position="N"] and [summary_box pros=".." cons=".." verdict=".."]
+        // resolved BEFORE markdown for the same reason: CommonMark HTML-encodes
+        // the inner quotes, which would break the attribute parsing.
         $content = $this->replacePositionalBuyButtons($article->content, $article);
+        $content = $this->replaceCustomSummaryBoxes($content, $article);
 
         $content = $this->markdownToHtml($content);
 
@@ -42,6 +44,57 @@ class ShortcodeParser
             },
             $content
         ) ?? $content;
+    }
+
+    /**
+     * [summary_box pros="a|b" cons="x|y" verdict="z"] — custom copy per product.
+     * Runs BEFORE markdown (quotes in attr values would be HTML-encoded).
+     * Tokens without recognized attributes are left untouched for the adaptive
+     * single/multi logic in replaceAdaptiveShortcodes().
+     */
+    protected function replaceCustomSummaryBoxes(string $content, Article $article): string
+    {
+        $single = $article->product;
+        $compared = $this->comparedProducts($article);
+
+        return preg_replace_callback('/\[summary_box([^\]]*)\]/u', function (array $matches) use ($single, $compared): string {
+            $args = trim($matches[1]);
+
+            if ($args === '') {
+                return $matches[0];
+            }
+
+            $pros = $this->extractAttribute($args, 'pros');
+            $cons = $this->extractAttribute($args, 'cons');
+            $verdict = $this->extractAttribute($args, 'verdict');
+
+            if ($pros === null && $cons === null && $verdict === null) {
+                return $matches[0];
+            }
+
+            $prosArray = $pros !== null ? array_values(array_filter(array_map('trim', explode('|', $pros)))) : null;
+            $consArray = $cons !== null ? array_values(array_filter(array_map('trim', explode('|', $cons)))) : null;
+
+            if ($single !== null) {
+                return $this->summaryBox($single, $prosArray, $consArray, $verdict);
+            }
+
+            return $this->summaryBoxes($compared, $prosArray, $consArray, $verdict);
+        }, $content) ?? $content;
+    }
+
+    /**
+     * Pull a single "name=\"value\"" attribute out of a shortcode arg string.
+     */
+    protected function extractAttribute(string $args, string $name): ?string
+    {
+        if (preg_match('/\s+'.preg_quote($name, '/').'\s*=\s*"([^"]*)"/u', $args, $match)) {
+            $value = trim($match[1]);
+
+            return $value !== '' ? $value : null;
+        }
+
+        return null;
     }
 
     /**
@@ -182,8 +235,10 @@ class ShortcodeParser
      * Stacked [summary_box] panels, one per compared product.
      *
      * @param  Collection<int, Product>  $products
+     * @param  array<int, string>|null  $customPros
+     * @param  array<int, string>|null  $customCons
      */
-    protected function summaryBoxes(Collection $products): string
+    protected function summaryBoxes(Collection $products, ?array $customPros = null, ?array $customCons = null, ?string $customVerdict = null): string
     {
         if ($products->isEmpty()) {
             return '';
@@ -192,7 +247,7 @@ class ShortcodeParser
         $html = '';
 
         foreach ($products as $product) {
-            $html .= $this->summaryBoxWithTitle($product);
+            $html .= $this->summaryBoxWithTitle($product, $customPros, $customCons, $customVerdict);
         }
 
         return '<div class="my-8 space-y-6" dir="rtl">'.$html.'</div>';
@@ -200,12 +255,15 @@ class ShortcodeParser
 
     /**
      * [summary_box] + a bold product heading so readers know which device.
+     *
+     * @param  array<int, string>|null  $customPros
+     * @param  array<int, string>|null  $customCons
      */
-    protected function summaryBoxWithTitle(Product $product): string
+    protected function summaryBoxWithTitle(Product $product, ?array $customPros = null, ?array $customCons = null, ?string $customVerdict = null): string
     {
         return '<div>'
             .'<h4 class="mb-1 text-base font-black text-slate-900">'.e($product->title).'</h4>'
-            .$this->summaryBox($product)
+            .$this->summaryBox($product, $customPros, $customCons, $customVerdict)
             .'</div>';
     }
 
@@ -374,7 +432,7 @@ class ShortcodeParser
         $items = $rows
             ->map(fn (ArticleProduct $row): array => [
                 'product' => $row->product,
-                'specs' => $this->normalizeSpecs($row->specs_json),
+                'specs' => $this->specPairs($row),
             ])
             ->filter(fn (array $item): bool => $item['product'] !== null)
             ->values();
@@ -412,7 +470,10 @@ class ShortcodeParser
                 'product' => $row->product,
                 'badge' => $row->badge_label,
                 'verdict' => $row->quick_verdict,
-                'specs' => $this->normalizeSpecs($row->specs_json),
+                'specs' => $this->specPairs($row),
+                'specs_html' => filled($row->specs_markdown)
+                    ? $this->markdownToHtml((string) $row->specs_markdown)
+                    : '',
             ])
             ->filter(fn (array $card): bool => $card['product'] !== null)
             ->values();
@@ -478,9 +539,48 @@ class ShortcodeParser
             ->all();
     }
 
+    /**
+     * Resolve a comparison product's specs: prefer the free-form Markdown
+     * bullets (each "- **Label:** value"), falling back to the legacy JSON
+     * repeater stored for older articles.
+     *
+     * @return array<int, array{label: ?string, value: ?string}>
+     */
+    protected function specPairs(ArticleProduct $row): array
+    {
+        $markdown = trim((string) $row->specs_markdown);
+
+        if ($markdown === '') {
+            return $this->normalizeSpecs($row->specs_json);
+        }
+
+        $pairs = [];
+
+        foreach (preg_split('/\R/u', $markdown) as $line) {
+            $line = trim($line);
+            $line = preg_replace('/^[-*•]\s+/u', '', $line);
+
+            if ($line === '') {
+                continue;
+            }
+
+            if (preg_match('/\*\*([^*]+)\*\*\s*[:：]\s*(.*)$/u', $line, $match)) {
+                $pairs[] = [
+                    'label' => trim($match[1]),
+                    'value' => trim($match[2]),
+                ];
+            } else {
+                $pairs[] = ['label' => null, 'value' => $line];
+            }
+        }
+
+        return $pairs;
+    }
+
     public static function stripShortcodes(string $content): string
     {
         $content = preg_replace('/\[buy_button\s+position\s*=\s*["\']?(\d+)["\']?\]/i', '', $content) ?? $content;
+        $content = preg_replace('/\[summary_box[^\]]*\]/u', '', $content) ?? $content;
 
         return str_replace(
             ['[price]', '[rating]', '[installment]', '[buy_button]', '[summary_box]', '[interactive_installment]', '[price_history]', '[comparison_table]', '[product_cards]'],
@@ -519,12 +619,19 @@ class ShortcodeParser
     }
 
     /**
-     * [summary_box] — Coherent, non-contradictory Pros & Cons.
+     * [summary_box] — Pros/Cons/verdict prefer author-supplied copy, fall back
+     * to the component's data-driven + product-type-aware defaults.
+     *
+     * @param  array<int, string>|null  $customPros
+     * @param  array<int, string>|null  $customCons
      */
-    protected function summaryBox(Product $product): string
+    protected function summaryBox(Product $product, ?array $customPros = null, ?array $customCons = null, ?string $customVerdict = null): string
     {
         return view('components.shortcodes.summary-box', [
             'product' => $product,
+            'custom_pros' => $customPros,
+            'custom_cons' => $customCons,
+            'custom_verdict' => $customVerdict,
         ])->render();
     }
 
