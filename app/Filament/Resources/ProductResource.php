@@ -109,11 +109,11 @@ class ProductResource extends Resource
 
                                     $set('image_url', $uploadedUrl ?? $imageUrl);
                                 }
-                                if ($rating = $data['rating']) {
-                                    $set('rating', $rating);
+                                if (array_key_exists('rating', $data) && $data['rating'] !== null) {
+                                    $set('rating', $data['rating']);
                                 }
-                                if ($reviewCount = $data['review_count']) {
-                                    $set('review_count', $reviewCount);
+                                if (array_key_exists('review_count', $data) && $data['review_count'] !== null) {
+                                    $set('review_count', $data['review_count']);
                                 }
                                 if ($asin === null) {
                                     Notification::make()

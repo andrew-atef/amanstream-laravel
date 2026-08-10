@@ -65,6 +65,40 @@ final class AmazonUrlDataFetcherTest extends TestCase
     }
 
     #[Test]
+    public function it_preserves_zero_rating_and_review_count_for_reviewless_products(): void
+    {
+        Http::fake([
+            '*' => Http::response([
+                'title' => 'منتج بلا مراجعات',
+                'live_price' => '100.00',
+                'rating' => 0,
+                'review_count' => 0,
+            ]),
+        ]);
+
+        $data = app(AmazonUrlDataFetcher::class)->fetch(self::URL);
+
+        $this->assertSame(0.0, $data['rating']);
+        $this->assertSame(0, $data['review_count']);
+    }
+
+    #[Test]
+    public function it_keeps_rating_and_review_count_null_when_worker_omits_them(): void
+    {
+        Http::fake([
+            '*' => Http::response([
+                'title' => 'منتج',
+                'live_price' => '100.00',
+            ]),
+        ]);
+
+        $data = app(AmazonUrlDataFetcher::class)->fetch(self::URL);
+
+        $this->assertNull($data['rating']);
+        $this->assertNull($data['review_count']);
+    }
+
+    #[Test]
     public function it_throws_when_the_worker_returns_an_error(): void
     {
         Http::fake([

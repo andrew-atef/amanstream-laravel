@@ -343,6 +343,44 @@ class Phase2AutomationTest extends TestCase
         $this->assertNotNull($product->last_synced_at);
     }
 
+    public function test_sync_command_clears_rating_and_review_count_when_fetcher_reports_zero(): void
+    {
+        $category = Category::create(['name' => 'تكييفات', 'slug' => 'air-conditioners', 'description' => '']);
+
+        $product = Product::create([
+            'category_id' => $category->id,
+            'title' => 'منتج بلا مراجعات',
+            'asin' => 'B0ZEROR8',
+            'price' => 1000.00,
+            'rating' => 4.1,
+            'review_count' => 149,
+            'affiliate_url' => 'https://www.amazon.eg/dp/B0ZEROR8',
+            'in_stock' => true,
+            'is_active' => true,
+            'platform' => 'amazon',
+            'sync_status' => Product::SYNC_STATUS_PENDING,
+        ]);
+
+        $this->app->instance(AmazonProductDataFetcher::class, new class implements AmazonProductDataFetcher
+        {
+            public function fetch(Product $product): array
+            {
+                return [
+                    'price' => 1000.00,
+                    'in_stock' => true,
+                    'rating' => 0,
+                    'review_count' => 0,
+                ];
+            }
+        });
+
+        $this->artisan('amazon:sync-prices')->assertSuccessful();
+
+        $product->refresh();
+        $this->assertEquals(0.0, (float) $product->rating);
+        $this->assertEquals(0, (int) $product->review_count);
+    }
+
     public function test_sync_command_revives_out_of_stock_products(): void
     {
         $category = Category::create(['name' => 'تكييفات', 'slug' => 'air-conditioners', 'description' => '']);

@@ -46,8 +46,10 @@ class AmazonUrlDataFetcher
                 ? $wasPrice
                 : null,
             'image_url' => $data['image_url'] ?? null,
-            'rating' => ($data['rating'] ?? 0) > 0 ? $data['rating'] : null,
-            'review_count' => ($data['review_count'] ?? 0) > 0 ? $data['review_count'] : null,
+            // 0 is meaningful: a product with no reviews must return 0 (not null),
+            // otherwise applyMarketData keeps the stale stored rating forever.
+            'rating' => array_key_exists('rating', $data) && $data['rating'] !== null ? (float) $data['rating'] : null,
+            'review_count' => array_key_exists('review_count', $data) && $data['review_count'] !== null ? (int) $data['review_count'] : null,
             'raw_reviews_text' => $data['raw_reviews_text'] ?? null,
             'in_stock' => (bool) ($data['in_stock'] ?? true),
         ];
