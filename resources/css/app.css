@@ -76,14 +76,8 @@
 .specs-md li strong {
     font-weight: 600;
     color: rgb(100 116 139);
-    white-space: normal;
+    white-space: nowrap;
     flex-shrink: 0;
-}
-
-@media (min-width: 640px) {
-    .specs-md ul {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
 }
 
 @utility no-scrollbar {

@@ -47,7 +47,7 @@
                 </div>
                 @if (filled($card['specs_html'] ?? null))
                     <div class="border-t border-slate-100 bg-slate-50 px-6 py-4">
-                        <div class="grid gap-x-6 sm:grid-cols-2 specs-md">
+                        <div class="specs-md">
                             {!! $card['specs_html'] !!}
                         </div>
                     </div>
