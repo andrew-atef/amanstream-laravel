@@ -33,13 +33,19 @@ class CatalogSyncApiController extends Controller
             ->limit($limit)
             ->get(['id', 'asin', 'platform', 'affiliate_url', 'raw_reviews_text']);
 
-        return response()->json($products->map(fn (Product $product): array => [
-            'id' => $product->id,
-            'asin_or_sku' => $product->asin,
-            'platform' => $product->platform,
-            'url' => $product->affiliate_url,
-            'scrape_reviews' => blank($product->raw_reviews_text),
-        ]));
+        // Never let a CDN (Cloudflare) or browser cache this queue snapshot: a
+        // stale copy makes workers obsess over the same products forever.
+        return response()
+            ->json($products->map(fn (Product $product): array => [
+                'id' => $product->id,
+                'asin_or_sku' => $product->asin,
+                'platform' => $product->platform,
+                'url' => $product->affiliate_url,
+                'scrape_reviews' => blank($product->raw_reviews_text),
+            ]))
+            ->header('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0')
+            ->header('CDN-Cache-Control', 'no-store')
+            ->header('Pragma', 'no-cache');
     }
 
     /**
@@ -107,11 +113,15 @@ class CatalogSyncApiController extends Controller
             UploadProductImageToR2Job::dispatch($product->id, $product->image_url);
         }
 
-        return response()->json([
-            'processed' => $processed,
-            'price_updates' => $updatedPrices,
-            'articles_refreshed' => $refreshedArticles,
-        ]);
+        return response()
+            ->json([
+                'processed' => $processed,
+                'price_updates' => $updatedPrices,
+                'articles_refreshed' => $refreshedArticles,
+            ])
+            ->header('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0')
+            ->header('CDN-Cache-Control', 'no-store')
+            ->header('Pragma', 'no-cache');
     }
 
     /**

@@ -20,7 +20,10 @@ class VerifyCatalogSyncToken
         if (blank($providedString) || blank($expected) || ! hash_equals($expected, $providedString)) {
             return response()->json([
                 'message' => 'Unauthorized. Missing or invalid x-sync-token header.',
-            ], 401);
+            ], 401)
+                ->header('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0')
+                ->header('CDN-Cache-Control', 'no-store')
+                ->header('Pragma', 'no-cache');
         }
 
         return $next($request);
