@@ -4,7 +4,9 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\ArticleResource\Pages;
 use App\Models\Article;
+use App\Models\Product;
 use Filament\Forms\Components\MarkdownEditor;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
@@ -12,6 +14,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Form;
+use Filament\Forms\Get;
 use Filament\Forms\Set;
 use Filament\Resources\Resource;
 use Filament\Tables;
@@ -55,6 +58,7 @@ class ArticleResource extends Resource
                             ->required()
                             ->maxLength(255)
                             ->unique(ignoreRecord: true)
+                            ->reactive()
                             ->helperText('يُستخدم في رابط المقال مثل /articles/اسم-المقال'),
                         Select::make('product_id')
                             ->label('المنتج المرتبط (للمقالات الفردية فقط)')
@@ -62,7 +66,27 @@ class ArticleResource extends Resource
                             ->preload()
                             ->searchable()
                             ->nullable()
+                            ->reactive()
                             ->helperText('اختر منتجاً في حالة المقال الفردي (مراجعة منتج واحد). اتركه فارغاً إذا كان هذا مقال مقارنة أو تجميعة وتستخدم [comparison_table] أو [product_cards].'),
+                        Placeholder::make('product_links')
+                            ->label('روابط المنتج')
+                            ->reactive()
+                            ->content(function (Get $get, ?Article $record): string {
+                                $product = Product::query()->find($get('product_id'));
+
+                                $slug = $get('slug');
+
+                                return view('filament.product-links', [
+                                    'product' => $product,
+                                    'productEditUrl' => $product
+                                        ? ProductResource::getUrl('edit', ['record' => $product])
+                                        : null,
+                                    'articleUrl' => filled($slug)
+                                        ? route('articles.show', ['slug' => $slug])
+                                        : null,
+                                ])->render();
+                            })
+                            ->columnSpanFull(),
                         Select::make('category_id')
                             ->label('التصنيف')
                             ->relationship('category', 'name')
@@ -108,7 +132,23 @@ class ArticleResource extends Resource
                                     ->relationship('product', 'title')
                                     ->preload()
                                     ->searchable()
-                                    ->required(),
+                                    ->required()
+                                    ->reactive(),
+                                Placeholder::make('product_links')
+                                    ->label('روابط المنتج')
+                                    ->reactive()
+                                    ->content(function (Get $get) {
+                                        $product = Product::query()->find($get('product_id'));
+
+                                        return view('filament.product-links', [
+                                            'product' => $product,
+                                            'productEditUrl' => $product
+                                                ? ProductResource::getUrl('edit', ['record' => $product])
+                                                : null,
+                                            'articleUrl' => null,
+                                        ])->render();
+                                    })
+                                    ->columnSpanFull(),
                                 TextInput::make('sort_order')
                                     ->label('الترتيب')
                                     ->numeric()
