@@ -416,6 +416,18 @@ class Phase2AutomationTest extends TestCase
 
         $this->assertContains('OOS-PENDING', $pending);
         $this->assertContains('INSTOCK-PENDING', $pending);
+        $this->assertNotContains('OOS-STALE', $pending);
+        $this->assertNotContains('OOS-INACTIVE', $pending);
+
+        // The 6-hour reset cron is what pushes synced products back into the queue.
+        $this->artisan('catalog:reset-sync-queue')->assertSuccessful();
+
+        $pending = Product::query()
+            ->pendingForCatalogSync()
+            ->get()
+            ->pluck('asin')
+            ->all();
+
         $this->assertContains('OOS-STALE', $pending);
         $this->assertNotContains('OOS-INACTIVE', $pending);
     }

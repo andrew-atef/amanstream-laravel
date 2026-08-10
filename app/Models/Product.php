@@ -90,22 +90,20 @@ class Product extends Model
     }
 
     /**
-     * Products awaiting ingestion by the catalog scraper: active products that
-     * are either still pending, have never synced, or last synced more than
-     * SYNC_RECYCLE_HOURS ago (so synced items eventually return to the queue).
-     * Never-synced first (NULLS FIRST), then oldest-to-newest.
+     * Products awaiting ingestion by the catalog scraper.
+     *
+     * The 6-hour cron (catalog:reset-sync-queue) is the single source of truth
+     * for requeueing: it flips synced/failed products back to pending. So this
+     * scope serves ONLY active products whose status is pending — no extra
+     * NULL/stale fallbacks (they'd duplicate the cron's job and pin the same
+     * stuck items at the front forever). Never-synced first (NULLS FIRST),
+     * then oldest-to-newest.
      */
     public function scopePendingForCatalogSync($query)
     {
-        $cutoff = now()->subHours(self::SYNC_RECYCLE_HOURS);
-
         return $query
             ->where('is_active', true)
-            ->where(function ($query) use ($cutoff) {
-                $query->where('sync_status', self::SYNC_STATUS_PENDING)
-                    ->orWhereNull('last_synced_at')
-                    ->orWhere('last_synced_at', '<', $cutoff);
-            })
+            ->where('sync_status', self::SYNC_STATUS_PENDING)
             ->orderByRaw('last_synced_at IS NULL DESC')
             ->orderBy('last_synced_at');
     }

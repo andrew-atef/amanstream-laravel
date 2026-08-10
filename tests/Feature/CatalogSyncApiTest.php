@@ -60,9 +60,19 @@ class CatalogSyncApiTest extends TestCase
         $this->assertArrayHasKey('url', $response->json()[0]);
     }
 
-    public function test_synced_products_older_than_six_hours_return_to_the_queue(): void
+    public function test_synced_products_are_only_requeued_by_the_reset_cron(): void
     {
         $this->makeProduct(['asin' => 'STALE-SYNCED', 'sync_status' => Product::SYNC_STATUS_SYNCED, 'last_synced_at' => now()->subHours(7)]);
+
+        // A synced product must NOT come back through pending-sync directly — the
+        // 6-hour cron (catalog:reset-sync-queue) owns requeueing.
+        $response = $this->getJson('/api/v1/catalog/pending-sync?limit=10', ['x-sync-token' => self::TOKEN])
+            ->assertOk();
+
+        $this->assertSame([], $response->json());
+
+        // Run the reset cron -> product flips to pending and enters the queue.
+        $this->artisan('catalog:reset-sync-queue')->assertSuccessful();
 
         $response = $this->getJson('/api/v1/catalog/pending-sync?limit=10', ['x-sync-token' => self::TOKEN])
             ->assertOk();
