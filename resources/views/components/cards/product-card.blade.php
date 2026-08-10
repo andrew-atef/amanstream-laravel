@@ -23,9 +23,9 @@
     <a href="{{ route('articles.show', $article->slug) }}" class="relative flex h-40 w-full items-center justify-center rounded-xl bg-white p-2">
         @if ($product?->image_url)
             @if ($eager)
-                <img src="{{ $product->image_url }}" alt="{{ $product->title ?: $article->title }}" width="240" height="160" fetchpriority="high" decoding="async" class="max-h-full max-w-full object-contain transition duration-300 group-hover:scale-105">
+                <img src="{{ $product->image_url }}" alt="{{ $product->title ?: $article->title }}" width="224" height="144" fetchpriority="high" decoding="async" class="aspect-[14/9] h-full w-full object-contain transition duration-300 group-hover:scale-105">
             @else
-                <img src="{{ $product->image_url }}" alt="{{ $product->title ?: $article->title }}" width="240" height="160" loading="lazy" decoding="async" class="max-h-full max-w-full object-contain transition duration-300 group-hover:scale-105">
+                <img src="{{ $product->image_url }}" alt="{{ $product->title ?: $article->title }}" width="224" height="144" loading="lazy" decoding="async" class="aspect-[14/9] h-full w-full object-contain transition duration-300 group-hover:scale-105">
             @endif
         @else
             <span class="text-xs font-bold text-slate-500">لا توجد صورة</span>
