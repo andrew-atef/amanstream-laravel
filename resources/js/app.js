@@ -1,5 +1,4 @@
 import './bootstrap';
-import Chart from 'chart.js/auto';
 
 // منيو الموبايل: تبديل فتح/إغلاق وتحديث الأيقونة وحالة aria.
 const menuToggle = document.querySelector('[data-mobile-menu-toggle]');
@@ -19,15 +18,30 @@ if (menuToggle && mobileNav) {
     });
 }
 
-// ربط الرسم البياني لـ [price_history] — يعمل لكل canvas يحمل data-ph-label/data-ph-price.
+// ربط الرسم البياني لـ [price_history] — يُحمَّل chart.js عند الطلب فقط، حتى لا
+// نُحمّل ~70KB على صفحات لا تحتوي على رسم بياني.
 const renderedCharts = new WeakSet();
 
-function renderPriceHistoryCharts() {
-    document.querySelectorAll('canvas[data-ph-chart]').forEach((el) => {
+async function renderPriceHistoryCharts() {
+    const canvases = Array.from(document.querySelectorAll('canvas[data-ph-chart]'));
+    const pending = canvases.filter((el) => {
         const labels = JSON.parse(el.dataset.phLabels || '[]');
         const prices = JSON.parse(el.dataset.phPrices || '[]');
 
-        if (!labels.length || renderedCharts.has(el)) {
+        return labels.length && prices.length && ! renderedCharts.has(el);
+    });
+
+    if (! pending.length) {
+        return;
+    }
+
+    const { default: Chart } = await import('chart.js/auto');
+
+    pending.forEach((el) => {
+        const labels = JSON.parse(el.dataset.phLabels || '[]');
+        const prices = JSON.parse(el.dataset.phPrices || '[]');
+
+        if (renderedCharts.has(el)) {
             return;
         }
 

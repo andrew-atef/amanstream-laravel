@@ -34,18 +34,18 @@
         <tbody class="divide-y divide-slate-100">
             <tr>
                 <th class="px-4 py-2.5 font-semibold text-ink/60">أقل سعر سُجِّل</th>
-                <td class="px-4 py-2.5 text-left font-bold text-ink">{{ number_format($lowest, 2) }} <span class="text-xs font-normal text-mist">ج.م</span></td>
-                <td class="px-4 py-2.5 whitespace-nowrap text-left text-xs text-mist">{{ $lowestDate }}</td>
+                <td class="px-4 py-2.5 text-left font-bold text-ink">{{ number_format($lowest, 2) }} <span class="text-xs font-normal text-slate-500">ج.م</span></td>
+                <td class="px-4 py-2.5 whitespace-nowrap text-left text-xs text-slate-500">{{ $lowestDate }}</td>
             </tr>
             <tr class="bg-primary-50/70">
                 <th class="px-4 py-2.5 font-bold text-ink">السعر الحالي اليوم</th>
-                <td class="px-4 py-2.5 text-left text-lg font-black text-primary-700">{{ number_format($current, 2) }} <span class="text-xs font-normal text-mist">ج.م</span></td>
+                <td class="px-4 py-2.5 text-left text-lg font-black text-primary-700">{{ number_format($current, 2) }} <span class="text-xs font-normal text-slate-500">ج.م</span></td>
                 <td class="px-4 py-2.5 whitespace-nowrap text-left text-xs font-bold text-primary-600">{{ $discountVsMax > 0 ? "خصم {$discountVsMax}%" : '—' }}</td>
             </tr>
             <tr>
                 <th class="px-4 py-2.5 font-semibold text-ink/60">أعلى سعر سُجِّل</th>
-                <td class="px-4 py-2.5 text-left font-bold text-ink">{{ number_format($highest, 2) }} <span class="text-xs font-normal text-mist">ج.م</span></td>
-                <td class="px-4 py-2.5 whitespace-nowrap text-left text-xs text-mist">{{ $highestDate }}</td>
+                <td class="px-4 py-2.5 text-left font-bold text-ink">{{ number_format($highest, 2) }} <span class="text-xs font-normal text-slate-500">ج.م</span></td>
+                <td class="px-4 py-2.5 whitespace-nowrap text-left text-xs text-slate-500">{{ $highestDate }}</td>
             </tr>
         </tbody>
     </table>
@@ -75,7 +75,7 @@
                 $barWidth = max(4, $barPercent);
             @endphp
             <div>
-                <div class="flex items-center justify-between text-[11px] font-bold text-mist">
+                <div class="flex items-center justify-between text-[11px] font-bold text-slate-500">
                     <span>أدنى سعر ({{ number_format($lowest, 0) }} ج.م)</span>
                     <span>أعلى سعر ({{ number_format($highest, 0) }} ج.م)</span>
                 </div>

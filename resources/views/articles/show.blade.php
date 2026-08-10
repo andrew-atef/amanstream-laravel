@@ -174,7 +174,7 @@
     @endpush
 
     <article class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-10">
-        <nav class="mb-6 text-sm text-mist" aria-label="Breadcrumb">
+        <nav class="mb-6 text-sm text-slate-500" aria-label="Breadcrumb">
             <ol class="flex flex-wrap items-center gap-1">
                 <li><a href="/" class="hover:text-primary-600">الرئيسية</a></li>
                 @if ($product?->category)
@@ -192,7 +192,7 @@
                     <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                     آخر تحديث للسعر والمواصفات: {{ $article->updated_at?->format('Y/m/d') ?: now()->format('Y/m/d') }}
                 </span>
-                <span class="inline-flex items-center gap-1.5 text-mist">
+                <span class="inline-flex items-center gap-1.5 text-slate-500">
                     <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                     مراجعة: فريق أمان ستريم
                 </span>
@@ -207,13 +207,14 @@
                                 alt="{{ $product->title }}"
                                 width="80"
                                 height="80"
-                                loading="lazy"
+                                fetchpriority="high"
+                                decoding="async"
                                 class="h-20 w-20 shrink-0 rounded-xl border border-slate-100 bg-white object-contain p-1"
                             >
                         @endif
                         <div class="min-w-0 flex-1">
                             <div class="font-bold text-ink">{{ $product->title }}</div>
-                            <div class="mt-1 text-sm text-mist">
+                            <div class="mt-1 text-sm text-slate-500">
                                 {{ $product->brand }} · ASIN: {{ $product->asin }}
                             </div>
                             @php
@@ -223,7 +224,7 @@
                             @endphp
                             <div class="mt-2 flex flex-wrap items-center gap-2 text-2xl font-black text-primary-700">
                                 @if ($hasDiscount)
-                                    <span class="text-base font-semibold text-mist line-through">{{ number_format($showOriginal, 2) }} ج.م</span>
+                                    <span class="text-base font-semibold text-slate-500 line-through">{{ number_format($showOriginal, 2) }} ج.م</span>
                                 @endif
                                 <span>{{ number_format($showPrice, 2) }} ج.م</span>
                                 @if ($hasDiscount)
@@ -247,7 +248,7 @@
                             اشترِ الآن
                         </a>
                     @else
-                        <span class="inline-flex w-full shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-slate-100 border border-slate-200 px-6 py-3.5 font-bold text-mist cursor-not-allowed sm:w-auto">
+                        <span class="inline-flex w-full shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-slate-100 border border-slate-200 px-6 py-3.5 font-bold text-slate-500 cursor-not-allowed sm:w-auto">
                             غير متوفر حالياً في أمازون مصر
                         </span>
                     @endif
@@ -299,7 +300,7 @@
                         <div class="truncate text-xs font-bold text-ink">{{ $product->title }}</div>
                         <div class="truncate">
                             @if ($hasDiscount)
-                                <span class="text-xs font-semibold text-mist line-through">{{ number_format($showOriginal, 2) }} ج.م</span>
+                                <span class="text-xs font-semibold text-slate-500 line-through">{{ number_format($showOriginal, 2) }} ج.م</span>
                                 <span class="mx-1"></span>
                             @endif
                             <span class="text-xl font-black text-primary-700">{{ number_format($showPrice, 2) }} ج.م</span>
@@ -317,7 +318,7 @@
                         اشترِ الآن
                     </a>
                 @else
-                    <span class="inline-flex shrink-0 items-center justify-center whitespace-nowrap rounded-xl border border-slate-200 bg-slate-100 px-5 py-3 text-sm font-bold text-mist cursor-not-allowed">
+                    <span class="inline-flex shrink-0 items-center justify-center whitespace-nowrap rounded-xl border border-slate-200 bg-slate-100 px-5 py-3 text-sm font-bold text-slate-500 cursor-not-allowed">
                         غير متوفر حالياً
                     </span>
                 @endif

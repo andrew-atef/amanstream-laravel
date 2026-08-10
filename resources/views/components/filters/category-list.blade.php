@@ -6,7 +6,7 @@
 <div class="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm">
     <h2 class="mb-4 flex items-center justify-between border-b border-slate-100 pb-3 text-xs font-bold text-ink">
         <span>الفئات المتاحة</span>
-        <span class="text-[11px] font-semibold text-mist">تصفية تلقائية</span>
+        <span class="text-[11px] font-semibold text-slate-500">تصفية تلقائية</span>
     </h2>
 
     <ul class="space-y-1.5 text-xs font-medium">

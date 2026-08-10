@@ -24,7 +24,7 @@
                     <div class="min-w-0 flex-1">
                         <x-shortcodes.rank-badge :rank="$rank" :label="$badgeLabel" />
                         <h3 class="text-lg font-black text-ink">{{ $rank }}. {{ $product->title }}</h3>
-                        <div class="mt-1 text-xs font-medium text-mist">{{ $product->brand ?: 'معلوم' }} · ASIN: {{ $product->asin ?: 'N/A' }}</div>
+                        <div class="mt-1 text-xs font-medium text-slate-500">{{ $product->brand ?: 'معلوم' }} · ASIN: {{ $product->asin ?: 'N/A' }}</div>
                         @if (filled($card['verdict'] ?? null))
                             <p class="mt-2 text-sm leading-relaxed text-ink/70">{{ $card['verdict'] }}</p>
                         @endif
@@ -38,7 +38,7 @@
                         </div>
                         <div class="mt-3 flex flex-wrap items-center gap-2">
                             @if ($hasDiscount)
-                                <span class="text-sm font-semibold text-mist line-through">{{ number_format((float) $product->original_price, 0) }} ج.م</span>
+                                <span class="text-sm font-semibold text-slate-500 line-through">{{ number_format((float) $product->original_price, 0) }} ج.م</span>
                             @endif
                             <span class="text-3xl font-black text-primary-700">{{ number_format((float) $product->price, 0) }} ج.م</span>
                             <x-shortcodes.buy-button :product="$product" compact />
@@ -59,7 +59,7 @@
                                     @continue
                                 @endif
                                 <div class="flex justify-between gap-3 border-b border-slate-100 py-2 text-xs">
-                                    <span class="font-medium text-mist">{{ $spec['label'] }}</span>
+                                    <span class="font-medium text-slate-500">{{ $spec['label'] }}</span>
                                     <span class="text-left font-bold text-ink">{{ $spec['value'] ?? '—' }}</span>
                                 </div>
                             @endforeach

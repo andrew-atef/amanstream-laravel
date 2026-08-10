@@ -81,7 +81,7 @@
             <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200/80 bg-white px-4 py-3 text-xs font-semibold text-ink/70 shadow-sm">
                 <div class="flex flex-wrap items-center gap-2">
                     <span>تم العثور على <strong>{{ $articles->total() }}</strong> مراجعة محدثة</span>
-                    <span class="text-mist">|</span>
+                    <span class="text-slate-500">|</span>
                     <a href="{{ $dealsOnly ? route('home', array_filter(request()->except(['deals']))) : route('home', array_merge(array_filter(request()->only(['q', 'category'])), ['deals' => 1])) }}"
                        class="inline-flex items-center gap-1 rounded-lg px-2.5 py-1 font-bold transition {{ $dealsOnly ? 'bg-primary-600 text-white shadow-sm' : 'border border-primary-200 bg-primary-50 text-primary-600 hover:bg-primary-100' }}">
                         العروض فقط
@@ -100,7 +100,7 @@
             @empty
                 <div class="col-span-full rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center text-sm text-ink/60">
                     <p class="mb-1 text-base font-bold text-ink">لم نجد أي مراجعات مطابقة لبحثك!</p>
-                    <p class="mb-4 text-xs text-mist">جرب البحث بكلمات أخرى أو اختر فئة مختلفة من القائمة الجانبية.</p>
+                    <p class="mb-4 text-xs text-slate-500">جرب البحث بكلمات أخرى أو اختر فئة مختلفة من القائمة الجانبية.</p>
                     <a href="{{ route('home') }}" class="inline-block rounded-xl bg-primary-600 px-5 py-2.5 text-xs font-bold text-white hover:bg-primary-700">عرض جميع المراجعات المتاحة</a>
                 </div>
             @endforelse

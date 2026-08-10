@@ -1,6 +1,7 @@
 @props([
     'article',
     'accent' => 'blue',
+    'eager' => false,
 ])
 
 @php
@@ -23,9 +24,13 @@
     <!-- Image & Merchant Badge -->
     <a href="{{ route('articles.show', $article->slug) }}" class="relative flex h-44 w-full items-center justify-center rounded-xl bg-white p-2">
         @if ($product?->image_url)
-            <img src="{{ $product->image_url }}" alt="{{ $product->title ?: $article->title }}" loading="lazy" class="max-h-full max-w-full object-contain transition duration-300 group-hover:scale-105">
+            @if ($eager)
+                <img src="{{ $product->image_url }}" alt="{{ $product->title ?: $article->title }}" width="240" height="176" fetchpriority="high" decoding="async" class="max-h-full max-w-full object-contain transition duration-300 group-hover:scale-105">
+            @else
+                <img src="{{ $product->image_url }}" alt="{{ $product->title ?: $article->title }}" width="240" height="176" loading="lazy" decoding="async" class="max-h-full max-w-full object-contain transition duration-300 group-hover:scale-105">
+            @endif
         @else
-            <span class="text-xs font-bold text-mist">لا توجد صورة</span>
+            <span class="text-xs font-bold text-slate-500">لا توجد صورة</span>
         @endif
 
         @if ($isComparison)
@@ -49,7 +54,7 @@
                 {{ number_format($current, 0) }} <span class="text-[10px] font-semibold text-ink/60">ج.م</span>
             </div>
             @if ($discount > 0)
-                <div class="text-[11px] font-semibold text-mist line-through">
+                <div class="text-[11px] font-semibold text-slate-500 line-through">
                     {{ number_format($original, 0) }}
                 </div>
             @endif

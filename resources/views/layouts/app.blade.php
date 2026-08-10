@@ -39,6 +39,15 @@
     <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Readex+Pro:wght@300;400;500;600;700;800&display=swap">
     <link href="https://fonts.googleapis.com/css2?family=Readex+Pro:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 
+    @php
+        $r2Url = (string) config('filesystems.disks.r2.url');
+        $r2Host = parse_url($r2Url, PHP_URL_HOST);
+    @endphp
+    @if ($r2Host)
+        <link rel="preconnect" href="{{ $r2Url }}" crossorigin>
+        <link rel="dns-prefetch" href="{{ $r2Url }}">
+    @endif
+
     <!-- OpenGraph Tagging -->
     <meta property="og:type" content="{{ $ogType ?? 'website' }}">
     <meta property="og:site_name" content="{{ config('app.name') }}">

@@ -100,7 +100,14 @@ class ImageUploaderService
 
             $contents = self::convertToWebP($source) ?: $source;
 
-            Storage::disk('r2')->put("products/{$filename}.webp", $contents, 'public');
+            Storage::disk('r2')->put(
+                "products/{$filename}.webp",
+                $contents,
+                [
+                    'visibility' => 'public',
+                    'CacheControl' => 'public, max-age=31536000, immutable',
+                ]
+            );
 
             $r2Url = rtrim($publicUrl, '/')."/products/{$filename}.webp";
 

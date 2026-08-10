@@ -20,7 +20,7 @@
         <div class="rounded-xl bg-white shadow-sm border border-primary-100 px-6 py-4 text-center">
             <div class="text-xs text-primary-600 font-medium">الشهرية التقريبية</div>
             <div class="text-2xl font-black text-primary-700">{{ number_format($monthly, 2) }} ج.م</div>
-            <div class="text-xs text-mist">على 12 شهر</div>
+            <div class="text-xs text-slate-500">على 12 شهر</div>
         </div>
         <div class="text-sm text-ink/80 leading-relaxed max-w-xl">
             <strong>تقسيط 0% فائدة</strong> متاح عبر البنك الأهلي المصري (NBE)،
