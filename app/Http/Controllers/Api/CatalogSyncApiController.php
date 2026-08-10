@@ -172,10 +172,13 @@ class CatalogSyncApiController extends Controller
             $update['title'] = $result['title'];
         }
 
+        // SMART R2 GUARD: only set and upload the external image if the
+        // product does NOT already have an R2 image. Otherwise each sync
+        // would overwrite the stored R2 URL with the Amazon URL and re-queue
+        // the download → watermark → upload cycle every 6 hours.
         if (filled($result['image_url'] ?? null)) {
-            $update['image_url'] = $result['image_url'];
-
-            if ($this->isExternalImageUrl($result['image_url'])) {
+            if ($this->isExternalImageUrl((string) $product->image_url)) {
+                $update['image_url'] = $result['image_url'];
                 $imagesToUpload[] = $product;
             }
         }

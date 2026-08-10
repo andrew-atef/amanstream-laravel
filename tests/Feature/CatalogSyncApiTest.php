@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Jobs\PurgeCloudflareCacheJob;
+use App\Jobs\UploadProductImageToR2Job;
 use App\Models\Article;
 use App\Models\Category;
 use App\Models\Product;
@@ -211,6 +212,64 @@ class CatalogSyncApiTest extends TestCase
 
         Queue::assertPushed(PurgeCloudflareCacheJob::class, function (PurgeCloudflareCacheJob $job) use ($article) {
             return collect($job->urls)->contains(fn (string $url) => str_contains($url, $article->slug));
+        });
+    }
+
+    public function test_sync_results_keeps_existing_r2_image_and_skips_reupload(): void
+    {
+        Queue::fake();
+
+        $r2Url = 'https://pub-749a9324c4ca4614a48ba20c65c376c1.r2.dev/products/b01lcvq0uy.webp';
+        $product = $this->makeProduct([
+            'price' => 1000.00,
+            'image_url' => $r2Url,
+        ]);
+
+        $this->postJson('/api/v1/catalog/sync-results', [
+            'results' => [[
+                'id' => $product->id,
+                'live_price' => 1000.00,
+                'in_stock' => true,
+                'image_url' => 'https://m.media-amazon.com/images/I/31g1yQGZcsL.jpg',
+                'sync_status' => 'success',
+            ]],
+        ], ['x-sync-token' => self::TOKEN])->assertOk();
+
+        $product->refresh();
+
+        // The stored R2 URL must be retained, not overwritten by the Amazon URL.
+        $this->assertSame($r2Url, $product->image_url);
+
+        // No re-download / watermark / upload must be queued for an R2 product.
+        Queue::assertNotPushed(UploadProductImageToR2Job::class);
+    }
+
+    public function test_sync_results_migrates_external_image_to_r2_once(): void
+    {
+        Queue::fake();
+
+        $amazonUrl = 'https://m.media-amazon.com/images/I/31g1yQGZcsL.jpg';
+        $product = $this->makeProduct([
+            'price' => 1000.00,
+            'image_url' => $amazonUrl,
+        ]);
+
+        $this->postJson('/api/v1/catalog/sync-results', [
+            'results' => [[
+                'id' => $product->id,
+                'live_price' => 1000.00,
+                'in_stock' => true,
+                'image_url' => $amazonUrl,
+                'sync_status' => 'success',
+            ]],
+        ], ['x-sync-token' => self::TOKEN])->assertOk();
+
+        $product->refresh();
+
+        // External image is kept so the upload job mirrors it to R2 exactly once.
+        $this->assertSame($amazonUrl, $product->image_url);
+        Queue::assertPushed(UploadProductImageToR2Job::class, function (UploadProductImageToR2Job $job) use ($product, $amazonUrl) {
+            return $job->productId === $product->id && $job->imageUrl === $amazonUrl;
         });
     }
 
