@@ -35,21 +35,23 @@ class SyncAmazonPrices extends Command
      */
     public function handle(): int
     {
-        $total = Product::where('in_stock', true)->count();
+        $total = Product::count();
 
         if ($total === 0) {
-            $this->warn('No active products to sync.');
+            $this->warn('No products to sync.');
 
             return self::SUCCESS;
         }
 
-        $this->info("Syncing {$total} active product(s)...");
+        $this->info("Syncing {$total} product(s)...");
 
         $synced = 0;
         $refreshed = 0;
         $dryRun = (bool) $this->option('dry-run');
 
-        Product::where('in_stock', true)
+        // Sync every product regardless of stock: an out-of-stock item can come
+        // back in stock on Amazon, and only a fresh fetch can revive it.
+        Product::query()
             ->with('articles')
             ->chunk(100, function ($products) use ($dryRun, &$synced, &$refreshed) {
                 foreach ($products as $product) {
