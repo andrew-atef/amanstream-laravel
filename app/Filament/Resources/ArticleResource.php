@@ -116,7 +116,7 @@ class ArticleResource extends Resource
                                     ->required(),
                                 TextInput::make('badge_label')
                                     ->label('الشارة المميزة')
-                                    ->placeholder('مثال: الخيار الأفضل بصفة عامة 🔥')
+                                    ->placeholder('مثال: الخيار الأفضل بصفة عامة')
                                     ->maxLength(120),
                                 Textarea::make('quick_verdict')
                                     ->label('الحكم السريع')

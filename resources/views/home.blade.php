@@ -33,7 +33,6 @@
         <x-sliders.deals-slider
             :articles="$topDeals"
             title="أكبر التخفيضات اليوم"
-            icon="🔥"
             accent="blue"
             leading
         />
@@ -71,7 +70,7 @@
                             <span class="rounded-lg bg-blue-200/70 px-2.5 py-1 font-extrabold text-blue-900">البحث: "{{ $searchQuery }}"</span>
                         @endif
                         @if ($dealsOnly)
-                            <span class="rounded-lg bg-red-100 px-2.5 py-1 font-extrabold text-red-700">العروض فقط 🔥</span>
+                            <span class="rounded-lg bg-red-100 px-2.5 py-1 font-extrabold text-red-700">العروض فقط</span>
                         @endif
                     </div>
                     <a href="{{ route('home') }}" class="shrink-0 font-bold text-blue-700 underline hover:text-blue-900">إلغاء التصفية ✕</a>
@@ -85,7 +84,7 @@
                     <span class="text-slate-400">|</span>
                     <a href="{{ $dealsOnly ? route('home', array_filter(request()->except(['deals']))) : route('home', array_merge(array_filter(request()->only(['q', 'category'])), ['deals' => 1])) }}"
                        class="inline-flex items-center gap-1 rounded-lg px-2.5 py-1 font-bold transition {{ $dealsOnly ? 'bg-red-600 text-white shadow-sm' : 'border border-red-200 bg-red-50 text-red-600 hover:bg-red-100' }}">
-                        🔥 العروض فقط
+                        العروض فقط
                         @if ($dealsOnly)
                             <span class="mr-0.5">✕</span>
                         @endif

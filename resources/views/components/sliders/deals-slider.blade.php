@@ -1,7 +1,6 @@
 @props([
     'articles' => [],
     'title' => null,
-    'icon' => '🔥',
     'accent' => 'red',
     'leading' => false,
 ])
@@ -12,9 +11,6 @@
     <section class="{{ $leading ? 'mb-10' : 'mt-10' }}">
         <div class="mb-4 flex items-center justify-between">
             <h2 class="flex items-center gap-2 text-lg font-black text-slate-900">
-                @if ($icon)
-                    <span class="text-xl">{{ $icon }}</span>
-                @endif
                 {{ $title }}
             </h2>
             <span class="text-xs font-bold text-slate-500">اسحب للمزيد ←</span>

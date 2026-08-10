@@ -25,7 +25,7 @@ class ArticleController extends Controller
 
         // مقالات من نفس القسم (مع استبعاد المقال الحالي) — للـ Dwell Time وعدم الارتداد
         $relatedArticles = Article::query()
-            ->with(['product', 'category'])
+            ->with(['product', 'products', 'category'])
             ->where('category_id', $article->category_id)
             ->where('id', '!=', $article->id)
             ->where('is_published', true)
@@ -35,7 +35,7 @@ class ArticleController extends Controller
 
         // أقوى العروض الجارية (منتجات لها خصم حقيقي) — لتقوية lid Search Intent
         $topDeals = Article::query()
-            ->with(['product', 'category'])
+            ->with(['product', 'products', 'category'])
             ->where('is_published', true)
             ->where('id', '!=', $article->id)
             ->whereHas('product', function ($q) {

@@ -229,7 +229,7 @@ class Product extends Model
         if ($current <= 0) {
             return [
                 'status' => 'fair',
-                'label' => 'السعر قيد التحديث ⏳',
+                'label' => 'السعر قيد التحديث',
                 'color' => 'sky',
             ];
         }
@@ -237,7 +237,7 @@ class Product extends Model
         if (abs($current - $lowest) < 0.01) {
             return [
                 'status' => 'excellent',
-                'label' => 'أفضل سعر سُجِّل حتى الآن 🔥',
+                'label' => 'أفضل سعر سُجِّل حتى الآن',
                 'color' => 'emerald',
             ];
         }
@@ -245,14 +245,14 @@ class Product extends Model
         if ($current >= $highest * 0.95) {
             return [
                 'status' => 'high',
-                'label' => 'سعر مرتفع نسبياً ⚠️',
+                'label' => 'سعر مرتفع نسبياً',
                 'color' => 'rose',
             ];
         }
 
         return [
             'status' => 'fair',
-            'label' => 'سعر متوازن للشراء ⚖️',
+            'label' => 'سعر متوازن للشراء',
             'color' => 'sky',
         ];
     }

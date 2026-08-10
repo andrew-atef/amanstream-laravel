@@ -59,7 +59,7 @@ class HomeController extends Controller
 
         // Top 8 deals: published + in-stock discounts, strongest % first.
         $topDeals = Article::query()
-            ->with(['category', 'product'])
+            ->with(['category', 'product', 'products'])
             ->where('is_published', true)
             ->whereHas('product', function ($query) {
                 $query->where('in_stock', true)

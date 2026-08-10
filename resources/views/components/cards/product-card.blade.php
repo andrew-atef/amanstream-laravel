@@ -27,7 +27,7 @@
         @endif
 
         @if ($isComparison)
-            <span class="absolute left-1 top-1 rounded-lg border border-purple-200 bg-white/95 px-2 py-0.5 text-[10px] font-extrabold text-purple-700 shadow-sm backdrop-blur">⚖️ مقارنة</span>
+            <span class="absolute left-1 top-1 rounded-lg border border-purple-200 bg-white/95 px-2 py-0.5 text-[10px] font-extrabold text-purple-700 shadow-sm backdrop-blur">مقارنة</span>
         @endif
 
         <x-product.merchant-badge :merchant="$merchant" :brand="$product?->brand" />
@@ -43,7 +43,10 @@
     <!-- Specs Pills -->
     <div class="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] font-medium text-slate-500">
         @if ($product)
-            <span class="rounded bg-slate-100 px-2 py-0.5 text-slate-700">⭐ {{ number_format((float) $product->rating, 1) }}</span>
+            <span class="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-slate-700">
+                <svg class="h-3 w-3 text-amber-400" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l2.9 6.3 6.9.9-5 4.8 1.2 6.9-6-3.2-6 3.2 1.2-6.9-5-4.8 6.9-.9L12 2z"/></svg>
+                {{ number_format((float) $product->rating, 1) }}
+            </span>
             <span class="rounded border border-blue-100 bg-blue-50 px-2 py-0.5 font-bold text-blue-700">تقسيط 0%</span>
         @endif
     </div>

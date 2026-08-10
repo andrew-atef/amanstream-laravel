@@ -4,7 +4,9 @@
 ])
 
 @php
-    $product = $article->product;
+    $primaryProduct = $article->product;
+    $product = $primaryProduct ?: $article->products->first();
+    $isComparison = ! $primaryProduct && $article->products->count() > 1;
     $current = (float) ($product?->price ?? 0);
     $original = (float) ($product?->original_price ?? 0);
     $discount = $original > $current && $original > 0
@@ -21,9 +23,13 @@
     <!-- Image & Merchant Badge -->
     <a href="{{ route('articles.show', $article->slug) }}" class="relative flex h-44 w-full items-center justify-center rounded-xl bg-white p-2">
         @if ($product?->image_url)
-            <img src="{{ $product->image_url }}" alt="{{ $product->title }}" loading="lazy" class="max-h-full max-w-full object-contain transition duration-300 group-hover:scale-105">
+            <img src="{{ $product->image_url }}" alt="{{ $product->title ?: $article->title }}" loading="lazy" class="max-h-full max-w-full object-contain transition duration-300 group-hover:scale-105">
         @else
             <span class="text-xs font-bold text-slate-400">لا توجد صورة</span>
+        @endif
+
+        @if ($isComparison)
+            <span class="absolute left-1 top-1 rounded-lg border border-purple-200 bg-white/95 px-2 py-0.5 text-[10px] font-extrabold text-purple-700 shadow-sm backdrop-blur">مقارنة</span>
         @endif
 
         <x-product.merchant-badge :merchant="$merchant" :brand="$product?->brand" />

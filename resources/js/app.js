@@ -2,18 +2,18 @@ import './bootstrap';
 import Chart from 'chart.js/auto';
 
 // ربط الرسم البياني لـ [price_history] — يعمل لكل canvas يحمل data-ph-label/data-ph-price.
+const renderedCharts = new WeakSet();
+
 function renderPriceHistoryCharts() {
     document.querySelectorAll('canvas[data-ph-chart]').forEach((el) => {
-        const chartId = el.dataset.phChart;
         const labels = JSON.parse(el.dataset.phLabels || '[]');
         const prices = JSON.parse(el.dataset.phPrices || '[]');
 
-        if (!labels.length || window.__phChartInit?.[chartId]) {
+        if (!labels.length || renderedCharts.has(el)) {
             return;
         }
 
-        window.__phChartInit = window.__phChartInit || {};
-        window.__phChartInit[chartId] = true;
+        renderedCharts.add(el);
 
         new Chart(el, {
             type: 'line',

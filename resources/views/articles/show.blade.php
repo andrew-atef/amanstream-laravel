@@ -248,7 +248,7 @@
                         </a>
                     @else
                         <span class="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-slate-100 border border-slate-200 px-6 py-3 font-bold text-slate-500 cursor-not-allowed">
-                            ⚠️ غير متوفر حالياً في أمازون مصر
+                            غير متوفر حالياً في أمازون مصر
                         </span>
                     @endif
                 </div>
@@ -268,15 +268,13 @@
     <x-sliders.deals-slider
         :articles="$relatedArticles"
         title="منتجات ومراجعات من نفس القسم ({{ $article->category?->name ?: 'التصنيف' }})"
-        icon="📦"
         accent="blue"
     />
 
-    <!-- SLIDER 2: 🔥 أقوى عروض وتخفيضات اليوم في مصر -->
+    <!-- SLIDER 2: أقوى عروض وتخفيضات اليوم في مصر -->
     <x-sliders.deals-slider
         :articles="$topDeals"
         title="أقوى عروض وتخفيضات اليوم على أمازون مصر"
-        icon="🔥"
         accent="red"
     />
 
