@@ -200,7 +200,7 @@
 
             @if ($product)
                 <div class="mt-6 flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-                    <div class="flex items-center gap-4">
+                    <div class="flex min-w-0 flex-1 items-center gap-4">
                         @if ($product->image_url)
                             <img
                                 src="{{ $product->image_url }}"
@@ -211,7 +211,7 @@
                                 class="h-20 w-20 shrink-0 rounded-xl border border-slate-100 bg-white object-contain p-1"
                             >
                         @endif
-                        <div>
+                        <div class="min-w-0 flex-1">
                             <div class="font-bold text-ink">{{ $product->title }}</div>
                             <div class="mt-1 text-sm text-mist">
                                 {{ $product->brand }} · ASIN: {{ $product->asin }}
@@ -239,7 +239,7 @@
                             href="{{ $product->affiliate_url }}"
                             target="_blank"
                             rel="nofollow sponsored noopener"
-                            class="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-primary-600 px-6 py-3 font-bold text-white shadow-lg shadow-primary-600/30 transition-colors hover:bg-primary-700"
+                            class="inline-flex w-full shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-primary-600 px-6 py-3.5 font-bold text-white shadow-lg shadow-primary-600/30 transition-colors hover:bg-primary-700 sm:w-auto"
                         >
                             <span class="flex items-center justify-center rounded-md bg-white px-2 py-1">
                                 <img src="/icons/amazon.png" alt="Amazon" width="80" height="24" loading="lazy" class="h-5 w-auto object-contain">
@@ -247,7 +247,7 @@
                             اشترِ الآن
                         </a>
                     @else
-                        <span class="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-slate-100 border border-slate-200 px-6 py-3 font-bold text-mist cursor-not-allowed">
+                        <span class="inline-flex w-full shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-slate-100 border border-slate-200 px-6 py-3.5 font-bold text-mist cursor-not-allowed sm:w-auto">
                             غير متوفر حالياً في أمازون مصر
                         </span>
                     @endif
@@ -283,8 +283,8 @@
             id="sticky-buy-bar"
             class="fixed inset-x-0 bottom-0 z-40 hidden border-t border-slate-200 bg-white/95 px-4 pb-4 pt-3 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] backdrop-blur lg:hidden"
         >
-            <div class="mx-auto flex max-w-5xl items-center justify-between gap-3">
-                <div class="flex min-w-0 items-center gap-2.5">
+            <div class="mx-auto flex max-w-5xl items-center gap-3">
+                <div class="flex min-w-0 flex-1 items-center gap-2.5">
                     @if ($product->image_url)
                         <img
                             src="{{ $product->image_url }}"
@@ -295,7 +295,7 @@
                             class="h-10 w-10 shrink-0 rounded-lg border border-slate-100 bg-white object-contain p-0.5"
                         >
                     @endif
-                    <div class="min-w-0">
+                    <div class="min-w-0 flex-1">
                         <div class="truncate text-xs font-bold text-ink">{{ $product->title }}</div>
                         <div class="truncate">
                             @if ($hasDiscount)
@@ -311,13 +311,13 @@
                         href="{{ $product->affiliate_url }}"
                         target="_blank"
                         rel="nofollow sponsored noopener"
-                        class="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-primary-600 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-primary-600/30 transition-colors hover:bg-primary-700"
+                        class="inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-primary-600 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-primary-600/30 transition-colors hover:bg-primary-700"
                     >
                         <img src="/icons/amazon.png" alt="Amazon" width="60" height="20" loading="lazy" class="h-4 w-auto object-contain">
                         اشترِ الآن
                     </a>
                 @else
-                    <span class="inline-flex shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-slate-100 px-6 py-3 text-sm font-bold text-mist cursor-not-allowed">
+                    <span class="inline-flex shrink-0 items-center justify-center whitespace-nowrap rounded-xl border border-slate-200 bg-slate-100 px-5 py-3 text-sm font-bold text-mist cursor-not-allowed">
                         غير متوفر حالياً
                     </span>
                 @endif
