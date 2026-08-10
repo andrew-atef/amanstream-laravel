@@ -49,6 +49,8 @@ class ArticleResourceLinksRenderTest extends TestCase
         $this->assertStringContainsString('تعديل المنتج هنا', $html);
         $this->assertStringContainsString('معاينة المقال', $html);
         $this->assertStringContainsString('https://www.amazon.eg/dp/TESTASIN1?tag=demo', $html);
+        $this->assertMatchesRegularExpression('/<a\s+href="https:\/\/www\.amazon\.eg\/dp\/TESTASIN1\?tag=demo"/', $html);
+        $this->assertMatchesRegularExpression('/<a\s+href="[^"]*\/admin\/products\/[0-9]+\/edit"/', $html);
     }
 
     public function test_create_form_renders_without_links_when_no_product_selected(): void

@@ -71,7 +71,7 @@ class ArticleResource extends Resource
                         Placeholder::make('product_links')
                             ->label('روابط المنتج')
                             ->reactive()
-                            ->content(function (Get $get, ?Article $record): string {
+                            ->content(function (Get $get, ?Article $record) {
                                 $product = Product::query()->find($get('product_id'));
 
                                 $slug = $get('slug');
@@ -84,7 +84,7 @@ class ArticleResource extends Resource
                                     'articleUrl' => filled($slug)
                                         ? route('articles.show', ['slug' => $slug])
                                         : null,
-                                ])->render();
+                                ]);
                             })
                             ->columnSpanFull(),
                         Select::make('category_id')
@@ -146,7 +146,7 @@ class ArticleResource extends Resource
                                                 ? ProductResource::getUrl('edit', ['record' => $product])
                                                 : null,
                                             'articleUrl' => null,
-                                        ])->render();
+                                        ]);
                                     })
                                     ->columnSpanFull(),
                                 TextInput::make('sort_order')
