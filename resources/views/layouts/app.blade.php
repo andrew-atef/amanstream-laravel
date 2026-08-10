@@ -33,11 +33,11 @@
     <meta name="description" content="{{ $metaDescription ?? 'أمان ستريم — بوابتك المباشرة لمراجعة أسعار الأجهزة المنزلية والتكنولوجيا على أمازون مصر مع حاسبة التقسيط والأمان في الشراء.' }}">
     <meta name="robots" content="index, follow">
 
-    <!-- Google Fonts: Readex Pro (Optimized with Preload and Display Swap) -->
+    <!-- Google Fonts: Readex Pro (preloaded; font-display=optional kills swap-CLS) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Readex+Pro:wght@300;400;500;600;700;800&display=swap">
-    <link href="https://fonts.googleapis.com/css2?family=Readex+Pro:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Readex+Pro:wght@300;400;500;600;700;800&display=optional">
+    <link href="https://fonts.googleapis.com/css2?family=Readex+Pro:wght@300;400;500;600;700;800&display=optional" rel="stylesheet" media="print" onload="this.media='all'">
 
     @php
         $r2Url = (string) config('filesystems.disks.r2.url');
