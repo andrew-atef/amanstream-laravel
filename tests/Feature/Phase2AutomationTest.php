@@ -342,4 +342,81 @@ class Phase2AutomationTest extends TestCase
         $this->assertEquals(4.1, (float) $product->rating);
         $this->assertNotNull($product->last_synced_at);
     }
+
+    public function test_sync_command_revives_out_of_stock_products(): void
+    {
+        $category = Category::create(['name' => 'تكييفات', 'slug' => 'air-conditioners', 'description' => '']);
+
+        $product = Product::create([
+            'category_id' => $category->id,
+            'title' => 'تكييف رجع متاح',
+            'asin' => 'B0REVIVE',
+            'price' => 15000.00,
+            'rating' => 4.0,
+            'review_count' => 10,
+            'affiliate_url' => 'https://www.amazon.eg/dp/B0REVIVE',
+            'in_stock' => false,
+            'is_active' => true,
+            'platform' => 'amazon',
+            'sync_status' => Product::SYNC_STATUS_PENDING,
+        ]);
+
+        $this->app->instance(AmazonProductDataFetcher::class, new class implements AmazonProductDataFetcher
+        {
+            public function fetch(Product $product): array
+            {
+                return [
+                    'price' => 15000.00,
+                    'in_stock' => true,
+                    'rating' => 4.0,
+                    'review_count' => 10,
+                ];
+            }
+        });
+
+        $this->artisan('amazon:sync-prices')->assertSuccessful();
+
+        $product->refresh();
+        $this->assertTrue($product->in_stock);
+        $this->assertEquals(Product::SYNC_STATUS_SYNCED, $product->sync_status);
+    }
+
+    public function test_pending_catalog_queue_includes_out_of_stock_products(): void
+    {
+        $category = Category::create(['name' => 'تكييفات', 'slug' => 'air-conditioners', 'description' => '']);
+
+        $make = fn (string $asin, array $overrides = []) => Product::create(array_merge([
+            'category_id' => $category->id,
+            'title' => 'منتج '.$asin,
+            'asin' => $asin,
+            'price' => 1000.00,
+            'rating' => 4.0,
+            'review_count' => 10,
+            'affiliate_url' => 'https://www.amazon.eg/dp/'.$asin,
+            'in_stock' => true,
+            'is_active' => true,
+            'platform' => 'amazon',
+            'sync_status' => Product::SYNC_STATUS_PENDING,
+        ], $overrides));
+
+        $make('OOS-PENDING', ['in_stock' => false]);
+        $make('INSTOCK-PENDING', ['in_stock' => true]);
+        $make('OOS-STALE', [
+            'in_stock' => false,
+            'sync_status' => Product::SYNC_STATUS_SYNCED,
+            'last_synced_at' => now()->subHours(7),
+        ]);
+        $make('OOS-INACTIVE', ['in_stock' => false, 'is_active' => false]);
+
+        $pending = Product::query()
+            ->pendingForCatalogSync()
+            ->get()
+            ->pluck('asin')
+            ->all();
+
+        $this->assertContains('OOS-PENDING', $pending);
+        $this->assertContains('INSTOCK-PENDING', $pending);
+        $this->assertContains('OOS-STALE', $pending);
+        $this->assertNotContains('OOS-INACTIVE', $pending);
+    }
 }

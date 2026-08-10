@@ -50,7 +50,7 @@ class CatalogSyncApiController extends Controller
         $payload = $request->validate([
             'results' => ['required', 'array', 'max:200'],
             'results.*.id' => ['required', 'integer'],
-            'results.*.live_price' => ['required', 'numeric'],
+            'results.*.live_price' => ['nullable', 'numeric'],
             'results.*.was_price' => ['nullable', 'numeric'],
             'results.*.in_stock' => ['required', 'boolean'],
             'results.*.rating' => ['nullable', 'numeric', 'min:0', 'max:5'],
@@ -84,7 +84,11 @@ class CatalogSyncApiController extends Controller
                     continue;
                 }
 
-                $priceChanged = $product->hasMaterialPriceChange((float) $result['live_price']);
+                // Out-of-stock is a SUCCESS state, not a failure: the product page
+                // loaded and is simply not buyable right now. It must still move
+                // (re)sync forward so it leaves the pending queue.
+                $livePrice = round((float) ($result['live_price'] ?? 0), 2);
+                $priceChanged = (bool) $result['in_stock'] && $product->hasMaterialPriceChange($livePrice);
 
                 $this->applySuccess($product, $result, $imagesToUpload);
 
@@ -117,12 +121,19 @@ class CatalogSyncApiController extends Controller
      */
     protected function applySuccess(Product $product, array $result, array &$imagesToUpload = []): void
     {
-        $livePrice = round((float) $result['live_price'], 2);
+        $livePrice = round((float) ($result['live_price'] ?? 0), 2);
         $previousPrice = (float) $product->price;
+        $inStock = (bool) $result['in_stock'];
+
+        // Keep the last known good price when an out-of-stock item reports no
+        // live price (so "أفضل سعر سُجِّل" and the badge stay stable).
+        $finalPrice = ($inStock === false && $livePrice <= 0)
+            ? ($previousPrice > 0 ? $previousPrice : 0)
+            : $livePrice;
 
         $update = [
-            'price' => $livePrice,
-            'in_stock' => (bool) $result['in_stock'],
+            'price' => $finalPrice,
+            'in_stock' => $inStock,
             'last_synced_at' => now(),
             'sync_status' => Product::SYNC_STATUS_SYNCED,
             'sync_attempts' => 0,
@@ -130,7 +141,7 @@ class CatalogSyncApiController extends Controller
         ];
 
         // Keep the struck-through original price only when it represents a real discount.
-        $wasPrice = isset($result['was_price']) && (float) $result['was_price'] > $livePrice
+        $wasPrice = isset($result['was_price']) && (float) $result['was_price'] > $finalPrice
             ? round((float) $result['was_price'], 2)
             : null;
 
@@ -166,9 +177,11 @@ class CatalogSyncApiController extends Controller
             $update['reviews_scraped_at'] = now();
         }
 
-        // Golden rule: log a history row ONLY when the price actually moved.
-        // The memoized range + JSON window are updated in the same save below.
-        $product->recordPriceHistory($livePrice, now(), $previousPrice);
+        // Golden rule: log a history row ONLY when a buyable product's price
+        // actually moved. Out-of-stock snapshots must never pollute the range.
+        if ($inStock && $finalPrice > 0) {
+            $product->recordPriceHistory($finalPrice, now(), $previousPrice);
+        }
 
         $product->fill($update);
         $product->save();

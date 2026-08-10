@@ -112,6 +112,67 @@ class CatalogSyncApiTest extends TestCase
         $this->assertNotNull($product->last_synced_at);
     }
 
+    public function test_sync_results_out_of_stock_is_success_not_failure(): void
+    {
+        $product = $this->makeProduct(['price' => 15000.00, 'in_stock' => true]);
+
+        $response = $this->postJson('/api/v1/catalog/sync-results', [
+            'results' => [[
+                'id' => $product->id,
+                'in_stock' => false,
+                'sync_status' => 'success',
+            ]],
+        ], ['x-sync-token' => self::TOKEN])->assertOk();
+
+        $this->assertEquals(0, $response->json('price_updates'));
+
+        $product->refresh();
+        $this->assertFalse($product->in_stock);
+        $this->assertEquals(Product::SYNC_STATUS_SYNCED, $product->sync_status);
+        $this->assertEquals(15000.00, (float) $product->price);
+        $this->assertNotNull($product->last_synced_at);
+
+        // A previous in-stock price must not be dropped to 0 or bucketed into history.
+        $this->assertDoesntHaveSyncedPriceHistory($product);
+    }
+
+    public function test_sync_results_out_of_stock_moves_off_pending_queue_and_can_revive(): void
+    {
+        $out = $this->makeProduct(['asin' => 'OOS-REVIVE', 'in_stock' => true, 'price' => 9000.00]);
+
+        $this->postJson('/api/v1/catalog/sync-results', [
+            'results' => [[
+                'id' => $out->id,
+                'live_price' => 0,
+                'in_stock' => false,
+                'sync_status' => 'success',
+            ]],
+        ], ['x-sync-token' => self::TOKEN])->assertOk();
+
+        // No longer in the pending queue.
+        $pendingAsins = Product::query()->pendingForCatalogSync()->pluck('asin')->all();
+        $this->assertNotContains('OOS-REVIVE', $pendingAsins);
+
+        // Next sync finds it in stock again -> price + state restored.
+        $this->postJson('/api/v1/catalog/sync-results', [
+            'results' => [[
+                'id' => $out->id,
+                'live_price' => 9200.00,
+                'in_stock' => true,
+                'sync_status' => 'success',
+            ]],
+        ], ['x-sync-token' => self::TOKEN])->assertOk();
+
+        $out->refresh();
+        $this->assertTrue($out->in_stock);
+        $this->assertEquals(9200.00, (float) $out->price);
+    }
+
+    private function assertDoesntHaveSyncedPriceHistory(Product $product): void
+    {
+        $this->assertEmpty($product->priceHistories()->get()->all());
+    }
+
     public function test_material_price_change_refreshes_article_and_dispatches_jobs(): void
     {
         Queue::fake();
@@ -184,6 +245,7 @@ class CatalogSyncApiTest extends TestCase
         $this->assertEquals(4, (int) $product->sync_attempts);
         $this->assertEquals('blocked by captcha', $product->last_sync_error);
         $this->assertEquals(Product::SYNC_STATUS_PENDING, $product->sync_status);
+        $this->assertNotNull($product->last_synced_at);
 
         $this->postJson('/api/v1/catalog/sync-results', [
             'results' => [[
