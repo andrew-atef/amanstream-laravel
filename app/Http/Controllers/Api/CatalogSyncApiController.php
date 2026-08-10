@@ -159,13 +159,15 @@ class CatalogSyncApiController extends Controller
             $update['original_price'] = $wasPrice;
         }
 
-        // Refresh rating/review signals only when the scraper actually captured them.
-        if (filled($result['rating'] ?? null) && (float) $result['rating'] > 0) {
+        // Refresh rating/review signals, including clearing them to 0 when the
+        // scraper confirms the product has no reviews at all (it now scopes
+        // strictly to the official #acrPopover / #acrCustomerReviewText widget).
+        if (array_key_exists('rating', $result) && $result['rating'] !== null) {
             $update['rating'] = round((float) $result['rating'], 2);
         }
 
-        if (filled($result['review_count'] ?? null) && (int) $result['review_count'] > 0) {
-            $update['review_count'] = (int) $result['review_count'];
+        if (array_key_exists('review_count', $result) && $result['review_count'] !== null) {
+            $update['review_count'] = max(0, (int) $result['review_count']);
         }
 
         if (filled($result['title'] ?? null)) {

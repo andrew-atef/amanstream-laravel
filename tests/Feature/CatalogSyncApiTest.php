@@ -296,6 +296,46 @@ class CatalogSyncApiTest extends TestCase
         $this->assertEquals(1200.00, (float) $product->original_price);
     }
 
+    public function test_sync_results_clears_rating_and_review_count_when_product_has_no_reviews(): void
+    {
+        $product = $this->makeProduct(['price' => 1000.00, 'rating' => 4.1, 'review_count' => 149]);
+
+        $this->postJson('/api/v1/catalog/sync-results', [
+            'results' => [[
+                'id' => $product->id,
+                'live_price' => 1000.00,
+                'in_stock' => true,
+                'rating' => 0,
+                'review_count' => 0,
+                'sync_status' => 'success',
+            ]],
+        ], ['x-sync-token' => self::TOKEN])->assertOk();
+
+        $product->refresh();
+
+        $this->assertEquals(0.0, (float) $product->rating);
+        $this->assertEquals(0, (int) $product->review_count);
+    }
+
+    public function test_sync_results_keeps_existing_rating_when_scraper_omits_it(): void
+    {
+        $product = $this->makeProduct(['price' => 1000.00, 'rating' => 4.1, 'review_count' => 149]);
+
+        $this->postJson('/api/v1/catalog/sync-results', [
+            'results' => [[
+                'id' => $product->id,
+                'live_price' => 1000.00,
+                'in_stock' => true,
+                'sync_status' => 'success',
+            ]],
+        ], ['x-sync-token' => self::TOKEN])->assertOk();
+
+        $product->refresh();
+
+        $this->assertEquals(4.1, (float) $product->rating);
+        $this->assertEquals(149, (int) $product->review_count);
+    }
+
     public function test_sync_results_failure_increments_attempts_and_flags_after_limit(): void
     {
         $product = $this->makeProduct(['sync_attempts' => 3]);
