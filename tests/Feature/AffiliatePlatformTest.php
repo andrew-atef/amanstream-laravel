@@ -121,6 +121,7 @@ class AffiliatePlatformTest extends TestCase
             'name' => 'Admin',
             'email' => 'admin@example.com',
             'password' => 'password',
+            'is_admin' => true,
         ]);
 
         $this->actingAs($user)

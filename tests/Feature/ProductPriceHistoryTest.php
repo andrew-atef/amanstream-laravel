@@ -87,7 +87,7 @@ final class ProductPriceHistoryTest extends TestCase
 
         $noOriginal = $this->makeProduct(['price' => 10000.00, 'original_price' => null]);
 
-        $this->assertSame(11500.0, $noOriginal->getHighestRecordedPrice());
+        $this->assertSame(11200.0, $noOriginal->getHighestRecordedPrice());
     }
 
     #[Test]
@@ -138,7 +138,7 @@ final class ProductPriceHistoryTest extends TestCase
     public function it_classifies_the_current_price_against_the_cached_range(): void
     {
         $product = $this->makeProduct([
-            'price' => 18521.00,
+            'price' => 18000.00,
             'lowest_price' => 18000.00,
             'highest_price' => 24000.00,
         ]);

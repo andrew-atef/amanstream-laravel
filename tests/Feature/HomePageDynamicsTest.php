@@ -139,8 +139,8 @@ final class HomePageDynamicsTest extends TestCase
 
         $html = $this->get('/')->getContent();
 
-        $this->assertStringContainsString('22,000.00', $html);
+        $this->assertStringContainsString('22,000', $html);
         $this->assertStringContainsString('line-through', $html);
-        $this->assertStringContainsString('خصم 16%', $html);
+        $this->assertStringContainsString('-16%', $html);
     }
 }

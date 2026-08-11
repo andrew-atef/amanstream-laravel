@@ -238,7 +238,7 @@ class Product extends Model
         }
 
         // Guarantees highest recorded is NEVER lower than current or original price.
-        return max($highest, $current, $original);
+        return round(max($highest, $current, $original), 2);
     }
 
     /**
