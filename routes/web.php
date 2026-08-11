@@ -4,6 +4,7 @@ use App\Http\Controllers\ArticleController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\LlmsTxtController;
 use App\Http\Controllers\SitemapController;
+use App\Http\Controllers\WellKnownController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
@@ -17,6 +18,13 @@ Route::get('/articles/{slug}', [ArticleController::class, 'show'])
 
 Route::get('/llms.txt', [LlmsTxtController::class, 'index'])
     ->name('llms.txt');
+
+// RFC 9727 protocol discovery for AI agents / crawlers.
+Route::get('/.well-known/api-catalog', [WellKnownController::class, 'catalog'])
+    ->name('api.catalog');
+
+Route::get('/auth.md', [WellKnownController::class, 'authGuide'])
+    ->name('auth.md');
 
 Route::get('/sitemap.xml', [SitemapController::class, 'index'])
     ->name('sitemap');

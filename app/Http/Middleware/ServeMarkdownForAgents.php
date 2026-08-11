@@ -9,63 +9,87 @@ use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Content Negotiation: serves clean Markdown to AI agents / crawlers that
- * request `Accept: text/markdown`, while browsers keep receiving the normal
- * HTML pages. The check happens BEFORE the controller renders the (heavy)
- * HTML view, so there is no wasted rendering work for machine readers.
+ * Content Negotiation + Protocol Discovery for AI agents:
+ *  - serves clean Markdown when the client requests `Accept: text/markdown`
+ *    instead of the heavy HTML page, and
+ *  - attaches RFC 9727 Link headers so crawlers discover the API catalog,
+ *    sitemap and llms.txt up-front.
  */
 class ServeMarkdownForAgents
 {
     public function handle(Request $request, Closure $next): Response
     {
-        // Only GET requests coming from an agent that explicitly wants Markdown.
-        $accept = strtolower($request->header('Accept', ''));
-
-        if (! str_contains($accept, 'text/markdown') || ! $request->isMethod('GET')) {
+        // Public GET pages only — never admin, API, Livewire, assets or health.
+        if (! $request->isMethod('GET') || $this->isInternalPath($request)) {
             return $next($request);
         }
 
-        // Never touch the admin panel, API, Livewire, compiled assets or health checks.
-        if (
-            $request->path() === 'up'
-            || $request->is('admin*')
-            || $request->is('api*')
-            || $request->is('livewire*')
-            || $request->is('filament*')
-            || $request->is('build/*')
-            || $request->is('storage/*')
-            || $request->is('_ignition/*')
-        ) {
-            return $next($request);
+        // Machine readers that explicitly ask for Markdown get a clean text version.
+        if (str_contains(strtolower($request->header('Accept', '')), 'text/markdown')) {
+            $markdown = $this->resolveMarkdown($request);
+
+            if ($markdown !== null) {
+                return $this->withDiscoveryHeaders(response($markdown, 200, [
+                    'Content-Type' => 'text/markdown; charset=utf-8',
+                    'Vary' => 'Accept',
+                ]));
+            }
         }
 
-        // Global middleware runs before the router resolves the route, so match
-        // the URL path directly instead of querying the (still-null) route name.
-        $markdown = null;
+        return $this->withDiscoveryHeaders($next($request));
+    }
+
+    /**
+     * Global middleware runs before the router resolves the route, so match the
+     * URL path directly instead of querying the (still-null) route name.
+     */
+    private function resolveMarkdown(Request $request): ?string
+    {
         $path = $request->path();
 
         if ($path === '/') {
-            $markdown = $this->renderHome();
-        } elseif (preg_match('#^articles/([^/]+)$#', $path, $matches)) {
+            return $this->renderHome();
+        }
+
+        if (preg_match('#^articles/([^/]+)$#', $path, $matches)) {
             $article = Article::query()
                 ->with('product')
                 ->where('slug', $matches[1])
                 ->where('is_published', true)
                 ->first();
 
-            if ($article) {
-                $markdown = $this->renderArticle($article);
-            }
+            return $article ? $this->renderArticle($article) : null;
         }
 
-        if ($markdown === null) {
-            return $next($request);
-        }
+        return null;
+    }
 
-        return response($markdown, 200, [
-            'Content-Type' => 'text/markdown; charset=utf-8',
-            'Vary' => 'Accept',
-        ]);
+    private function isInternalPath(Request $request): bool
+    {
+        $path = $request->path();
+
+        return $path === 'up'
+            || str_starts_with($path, 'admin')
+            || str_starts_with($path, 'api/')
+            || str_starts_with($path, 'livewire/')
+            || str_starts_with($path, 'filament/')
+            || str_starts_with($path, 'build/')
+            || str_starts_with($path, 'storage/')
+            || str_starts_with($path, '_ignition/');
+    }
+
+    private function withDiscoveryHeaders(Response $response): Response
+    {
+        $base = url('/');
+
+        $response->headers->set('Link', sprintf(
+            '<%s/.well-known/api-catalog>; rel="api-catalog"; type="application/linkset+json", <%s/sitemap.xml>; rel="sitemap"; type="application/xml", <%s/llms.txt>; rel="describedby"; type="text/markdown"',
+            $base,
+            $base,
+            $base
+        ));
+
+        return $response;
     }
 
     private function renderArticle(Article $article): string
