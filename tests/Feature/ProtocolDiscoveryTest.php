@@ -59,6 +59,10 @@ class ProtocolDiscoveryTest extends TestCase
         $this->assertStringContainsString('rel="sitemap"', $link);
         $this->assertStringContainsString('/llms.txt', $link);
         $this->assertStringContainsString('rel="describedby"', $link);
+
+        // The HTML variant must also declare Vary: Accept so the edge cache
+        // never serves it to a client that asked for text/markdown.
+        $this->assertStringContainsString('Accept', (string) $response->headers->get('Vary'));
     }
 
     public function test_article_markdown_response_also_carries_discovery_link_headers(): void

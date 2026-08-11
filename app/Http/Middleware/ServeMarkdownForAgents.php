@@ -89,6 +89,15 @@ class ServeMarkdownForAgents
             $base
         ));
 
+        // Split the cache by Accept on EVERY public page (HTML included) so a
+        // Cloudflare edge cache can never serve the HTML variant to a crawler
+        // that explicitly asked for text/markdown.
+        $vary = $response->headers->get('Vary');
+
+        if (! str_contains((string) $vary, 'Accept')) {
+            $response->headers->set('Vary', $vary ? $vary.', Accept' : 'Accept');
+        }
+
         return $response;
     }
 
