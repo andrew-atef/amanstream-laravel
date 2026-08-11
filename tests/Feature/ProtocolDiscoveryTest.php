@@ -21,15 +21,54 @@ class ProtocolDiscoveryTest extends TestCase
 
         $payload = $response->json();
         $this->assertArrayHasKey('linkset', $payload);
+        $this->assertCount(2, $payload['linkset']);
 
-        $relations = array_column($payload['linkset'], 'rel');
-        $this->assertContains('sitemap', $relations);
-        $this->assertContains('describedby', $relations);
-        $this->assertContains('authoritative-about', $relations);
+        $main = collect($payload['linkset'])->firstWhere('anchor', url('/').'/');
+        $this->assertNotNull($main);
+        $this->assertArrayHasKey('service-desc', $main);
+        $this->assertArrayHasKey('service-doc', $main);
+        $this->assertArrayHasKey('status', $main);
+        $this->assertArrayHasKey('sitemap', $main);
+        $this->assertArrayHasKey('describedby', $main);
+        $this->assertArrayHasKey('authoritative-about', $main);
 
+        $api = collect($payload['linkset'])->firstWhere('anchor', url('/').'/api/v1/catalog');
+        $this->assertNotNull($api);
+        $this->assertArrayHasKey('service-desc', $api);
+        $this->assertArrayHasKey('service-doc', $api);
+
+        $this->assertStringContainsString('/openapi.json', $response->getContent());
+        $this->assertStringContainsString('/docs', $response->getContent());
+        $this->assertStringContainsString('/up', $response->getContent());
         $this->assertStringContainsString('/sitemap.xml', $response->getContent());
         $this->assertStringContainsString('/llms.txt', $response->getContent());
         $this->assertStringContainsString('/auth.md', $response->getContent());
+    }
+
+    public function test_openapi_spec_is_served_for_service_desc(): void
+    {
+        $response = $this->get('/openapi.json');
+
+        $response->assertOk();
+        $this->assertStringStartsWith('application/vnd.oai.openapi+json', (string) $response->headers->get('Content-Type'));
+
+        $spec = $response->json();
+        $this->assertSame('3.0.3', $spec['openapi']);
+        $this->assertArrayHasKey('paths', $spec);
+        $this->assertArrayHasKey('/api/v1/catalog/pending-sync', $spec['paths']);
+        $this->assertArrayHasKey('/api/v1/catalog/sync-results', $spec['paths']);
+        $this->assertArrayHasKey('XSyncToken', $spec['components']['securitySchemes']);
+    }
+
+    public function test_docs_page_is_served_for_service_doc(): void
+    {
+        $response = $this->get('/docs');
+
+        $response->assertOk();
+        $this->assertStringStartsWith('text/markdown', (string) $response->headers->get('Content-Type'));
+        $this->assertStringContainsString('# AmanStream API Documentation', $response->getContent());
+        $this->assertStringContainsString('/.well-known/api-catalog', $response->getContent());
+        $this->assertStringContainsString('/api/v1/catalog/pending-sync', $response->getContent());
     }
 
     public function test_auth_md_describes_public_and_protected_endpoints(): void

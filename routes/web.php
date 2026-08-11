@@ -26,6 +26,12 @@ Route::get('/.well-known/api-catalog', [WellKnownController::class, 'catalog'])
 Route::get('/auth.md', [WellKnownController::class, 'authGuide'])
     ->name('auth.md');
 
+Route::get('/openapi.json', [WellKnownController::class, 'openApi'])
+    ->name('openapi');
+
+Route::get('/docs', [WellKnownController::class, 'docs'])
+    ->name('docs');
+
 Route::get('/sitemap.xml', [SitemapController::class, 'index'])
     ->name('sitemap');
 
