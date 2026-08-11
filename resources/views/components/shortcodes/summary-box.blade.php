@@ -33,7 +33,7 @@
             }
 
             if ((float) ($product?->rating ?? 0) >= 4.0) {
-                $pros[] = 'تقييم مرتفع ('.number_format((float) $product->rating, 1).'/5) وإشادات إيجابية من المشتريين.';
+                $pros[] = 'تقييم مرتفع ('.number_format((float) $product->rating, 1).' من 5) وإشادات إيجابية من المشتريين.';
             }
 
             if ($product?->supports_installment) {
@@ -60,7 +60,7 @@
             }
 
             if ((float) ($product?->rating ?? 0) < 4.0) {
-                $cons[] = 'تقييم المستخدمين متوسط ('.number_format((float) $product->rating, 1).'/5) مما يستدعي مراجعة تفاصيل الاستخدام.';
+                $cons[] = 'تقييم المستخدمين متوسط ('.number_format((float) $product->rating, 1).' من 5) مما يستدعي مراجعة تفاصيل الاستخدام.';
             }
 
             $cons[] = 'يتطلب التركيب عبر فنيين معتمدين لضمان سريان الضمان المحلي.';
@@ -82,7 +82,7 @@
                 $baseS = 'اختيار اقتصادي يلبي الاحتياجات الأساسية اليومية';
             }
             $verdict = sprintf(
-                '%s (%s بتقييم %s/5). يوفر موازنة ملموسة بين الثمن والجودة.',
+                '%s (%s بتقييم %s من 5). يوفر موازنة ملموسة بين الثمن والجودة.',
                 $baseS,
                 e($titleD),
                 number_format($ratingV, 1)

@@ -83,6 +83,71 @@ MD,
     }
 
     #[Test]
+    public function it_renders_the_rating_widget_in_arabic(): void
+    {
+        $category = Category::create(['name' => 'أجهزة', 'slug' => 'devices']);
+        $product = Product::create([
+            'category_id' => $category->id,
+            'title' => 'منتج عليه تقييمات',
+            'asin' => 'B0RATING1',
+            'brand' => 'Demo',
+            'price' => 100.00,
+            'rating' => 4.5,
+            'review_count' => 87,
+            'affiliate_url' => 'https://www.amazon.eg/dp/B0RATING1',
+            'in_stock' => true,
+        ]);
+
+        $article = Article::create([
+            'product_id' => $product->id,
+            'category_id' => $category->id,
+            'title' => 'مقال تقييم',
+            'slug' => 'rating-article',
+            'content' => '[rating]',
+            'is_published' => true,
+        ]);
+
+        $html = $this->get('/articles/'.$article->slug)->getContent();
+
+        $this->assertStringContainsString('4.5 من 5', $html);
+        $this->assertStringContainsString('(87 مراجعة)', $html);
+        $this->assertStringNotContainsString('built on', $html);
+        $this->assertStringNotContainsString('(4.5 / 5', $html);
+    }
+
+    #[Test]
+    public function it_renders_the_rating_widget_with_no_reviews_in_arabic(): void
+    {
+        $category = Category::create(['name' => 'أجهزة', 'slug' => 'devices']);
+        $product = Product::create([
+            'category_id' => $category->id,
+            'title' => 'منتج بلا تقييمات',
+            'asin' => 'B0RATING0',
+            'brand' => 'Demo',
+            'price' => 100.00,
+            'rating' => 0,
+            'review_count' => 0,
+            'affiliate_url' => 'https://www.amazon.eg/dp/B0RATING0',
+            'in_stock' => true,
+        ]);
+
+        $article = Article::create([
+            'product_id' => $product->id,
+            'category_id' => $category->id,
+            'title' => 'مقال بدون تقييم',
+            'slug' => 'rating-article-none',
+            'content' => '[rating]',
+            'is_published' => true,
+        ]);
+
+        $html = $this->get('/articles/'.$article->slug)->getContent();
+
+        $this->assertStringContainsString('0.0 من 5', $html);
+        $this->assertStringContainsString('لا توجد مراجعات بعد', $html);
+        $this->assertStringNotContainsString('built on 0', $html);
+    }
+
+    #[Test]
     public function it_passes_existing_html_through_unchanged(): void
     {
         $category = Category::create(['name' => 'أجهزة', 'slug' => 'devices']);

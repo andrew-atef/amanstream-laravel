@@ -33,7 +33,7 @@
                                 <span class="rounded-md bg-primary-50 px-2 py-0.5 text-xs font-bold text-primary-700">خصم {{ $discountPct }}%</span>
                             @endif
                             <span class="inline-flex items-center gap-1 rounded-lg border border-primary-200 bg-primary-50 px-2.5 py-1 text-xs font-bold text-primary-900">
-                                <svg class="h-3.5 w-3.5 text-primary-500" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l2.9 6.3 6.9.9-5 4.8 1.2 6.9-6-3.2-6 3.2 1.2-6.9-5-4.8 6.9-.9L12 2z"/></svg> {{ number_format((float) $product->rating, 1) }} / 5 ({{ (int) $product->review_count }})
+                                <svg class="h-3.5 w-3.5 text-primary-500" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l2.9 6.3 6.9.9-5 4.8 1.2 6.9-6-3.2-6 3.2 1.2-6.9-5-4.8 6.9-.9L12 2z"/></svg> {{ number_format((float) $product->rating, 1) }} من 5 <span class="text-slate-500">({{ (int) $product->review_count }} مراجعة)</span>
                             </span>
                         </div>
                         <div class="mt-3 flex flex-wrap items-center gap-2">

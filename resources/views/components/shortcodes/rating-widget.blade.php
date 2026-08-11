@@ -5,11 +5,14 @@
 @php
     $rating = (float) ($product?->rating ?? 0);
     $fullStars = (int) floor($rating);
-    $reviewLabel = trans_choice(
-        'built on :count review|built on :count reviews',
-        (int) ($product?->review_count ?? 0),
-        ['count' => number_format((int) ($product?->review_count ?? 0))]
-    );
+    $reviewCount = (int) ($product?->review_count ?? 0);
+    $reviewLabel = match (true) {
+        $reviewCount === 0 => 'لا توجد مراجعات بعد',
+        $reviewCount === 1 => 'مراجعة واحدة',
+        $reviewCount === 2 => 'مراجعتان',
+        $reviewCount >= 3 && $reviewCount <= 10 => number_format($reviewCount).' مراجعات',
+        default => number_format($reviewCount).' مراجعة',
+    };
 @endphp
 
 <div class="inline-flex items-center gap-2 rounded-xl bg-primary-50 border border-primary-200 px-4 py-2" role="status">
@@ -22,5 +25,5 @@
             @endif
         @endfor
     </div>
-    <span class="text-sm font-medium text-primary-900"><span class="font-bold">{{ number_format($rating, 1) }} / 5</span> ({{ $reviewLabel }})</span>
+    <span class="text-sm font-medium text-primary-900"><span class="font-bold">{{ number_format($rating, 1) }} من 5</span> <span class="text-primary-700">({{ $reviewLabel }})</span></span>
 </div>

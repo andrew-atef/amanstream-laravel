@@ -24,7 +24,7 @@
                 <th class="py-3 px-4 text-right font-bold text-ink/70">التقييم</th>
                 @foreach ($items as $item)
                     <td class="py-3 px-4 text-center text-sm font-semibold text-primary-700">
-                        <svg class="inline h-4 w-4 text-primary-500" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l2.9 6.3 6.9.9-5 4.8 1.2 6.9-6-3.2-6 3.2 1.2-6.9-5-4.8 6.9-.9L12 2z"/></svg> {{ number_format((float) $item['product']->rating, 1) }} / 5
+                        <svg class="inline h-4 w-4 text-primary-500" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l2.9 6.3 6.9.9-5 4.8 1.2 6.9-6-3.2-6 3.2 1.2-6.9-5-4.8 6.9-.9L12 2z"/></svg> {{ number_format((float) $item['product']->rating, 1) }} من 5
                     </td>
                 @endforeach
             </tr>
