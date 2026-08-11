@@ -25,6 +25,14 @@ class CloudflareCacheService
     protected const MAX_URLS_PER_CHUNK = 250;
 
     /**
+     * Query parameter that marks the Markdown cache variant. A zone-level
+     * Cloudflare Transform Rule rewrites `Accept: text/markdown` requests to
+     * this key so the Markdown representation caches separately from HTML,
+     * keeping both URLs purgeable with the regular purge-by-URL mechanism.
+     */
+    public const MARKDOWN_VARIANT_QUERY = '_fmt=md';
+
+    /**
      * Purge multiple URLs from the Cloudflare edge cache.
      *
      * URLs are deduplicated and cleaned, then split into chunks of at most
@@ -46,7 +54,7 @@ class CloudflareCacheService
             return false;
         }
 
-        $cleanUrls = $this->cleanUrls($urls);
+        $cleanUrls = $this->withMarkdownVariants($this->cleanUrls($urls));
 
         if ($cleanUrls === []) {
             return true;
@@ -88,6 +96,33 @@ class CloudflareCacheService
         }
 
         return array_keys($cleaned);
+    }
+
+    /**
+     * Expand each URL with its Markdown cache variant so a single purge also
+     * clears the `Accept: text/markdown` representation stored under the
+     * `?_fmt=md` key created by the zone's Transform Rule.
+     *
+     * @param  array<int, string>  $urls
+     * @return array<int, string>
+     */
+    public function withMarkdownVariants(array $urls): array
+    {
+        $expanded = [];
+
+        foreach ($urls as $url) {
+            $expanded[] = $url;
+
+            if (str_contains($url, '?'.self::MARKDOWN_VARIANT_QUERY) || str_contains($url, '&'.self::MARKDOWN_VARIANT_QUERY)) {
+                continue;
+            }
+
+            $separator = str_contains($url, '?') ? '&' : '?';
+
+            $expanded[] = $url.$separator.self::MARKDOWN_VARIANT_QUERY;
+        }
+
+        return array_values(array_unique($expanded));
     }
 
     /**

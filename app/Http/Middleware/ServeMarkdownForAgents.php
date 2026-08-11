@@ -25,7 +25,12 @@ class ServeMarkdownForAgents
         }
 
         // Machine readers that explicitly ask for Markdown get a clean text version.
-        if (str_contains(strtolower($request->header('Accept', '')), 'text/markdown')) {
+        // The `_fmt=md` query param (added by a zone Transform Rule) also opts in,
+        // so the variant still resolves even if the edge normalizes the Accept header.
+        $wantsMarkdown = str_contains(strtolower($request->header('Accept', '')), 'text/markdown')
+            || $request->query('_fmt') === 'md';
+
+        if ($wantsMarkdown) {
             $markdown = $this->resolveMarkdown($request);
 
             if ($markdown !== null) {

@@ -98,6 +98,18 @@ class MarkdownNegotiationTest extends TestCase
         $this->get('/articles/md-draft', ['Accept' => 'text/markdown'])->assertNotFound();
     }
 
+    public function test_markdown_variant_query_param_serves_markdown_without_accept_header(): void
+    {
+        $this->makePublishedArticle('md-article');
+
+        $response = $this->get('/articles/md-article?_fmt=md');
+
+        $response->assertOk();
+        $this->assertStringStartsWith('text/markdown', (string) $response->headers->get('Content-Type'));
+        $this->assertStringContainsString('# مقال تجريبي', $response->getContent());
+        $this->assertStringContainsString('Accept', (string) $response->headers->get('Vary'));
+    }
+
     public function test_llms_txt_is_served(): void
     {
         $this->makePublishedArticle('md-llms-article');

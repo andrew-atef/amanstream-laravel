@@ -241,6 +241,23 @@ class Phase2AutomationTest extends TestCase
         $this->assertFalse((new CloudflareCacheService)->purgeUrl('https://example.com/article'));
     }
 
+    public function test_cloudflare_cache_service_adds_markdown_variant_to_purge_urls(): void
+    {
+        $service = new CloudflareCacheService;
+
+        $this->assertSame([
+            'https://example.com/article',
+            'https://example.com/article?_fmt=md',
+            'https://example.com/list?page=1',
+            'https://example.com/list?page=1&_fmt=md',
+            'https://example.com/already?_fmt=md',
+        ], $service->withMarkdownVariants([
+            'https://example.com/article',
+            'https://example.com/list?page=1',
+            'https://example.com/already?_fmt=md',
+        ]));
+    }
+
     public function test_get_eligible_installment_plans_respects_supports_installment_flag(): void
     {
         $bank = Bank::create(['name_ar' => 'بنك', 'name_en' => 'Bank', 'code' => 'flag-bank', 'is_active' => true]);
