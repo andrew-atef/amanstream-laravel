@@ -91,6 +91,50 @@ final class ProductPriceHistoryTest extends TestCase
     }
 
     #[Test]
+    public function it_never_treats_a_zero_snapshot_as_a_real_price(): void
+    {
+        // lowest_price/highest_price are decimal:2 → returned as the STRING
+        // "0.00", which is truthy in PHP. A legacy 0 snapshot must never
+        // surface as "أقل سعر سُجِّل 0.00" nor floor the recorded range.
+        $product = $this->makeProduct([
+            'price' => 23799.00,
+            'lowest_price' => 0.00,
+            'highest_price' => 0.00,
+        ]);
+
+        $this->assertSame(23799.0, $product->getLowestRecordedPrice());
+        $this->assertSame(26654.88, $product->getHighestRecordedPrice());
+
+        // A zero snapshot is never written to history or the JSON window.
+        $product->recordPriceHistory(0);
+        $product->recordPriceHistory(28899);
+        $product->save();
+
+        $this->assertSame(1, ProductPriceHistory::query()->where('product_id', $product->id)->count());
+        $this->assertSame(28899.0, (float) $product->lowest_price);
+        $this->assertSame(28899.0, (float) $product->highest_price);
+        $this->assertSame(28899.0, (float) $product->price_history_json[0]['p']);
+    }
+
+    #[Test]
+    public function it_filters_zero_points_out_of_the_chart_data(): void
+    {
+        $product = $this->makeProduct([
+            'price' => 23799.00,
+            'price_history_json' => [
+                ['p' => 0, 'd' => '08/08'],
+                ['p' => 23799, 'd' => '09/08'],
+            ],
+        ]);
+
+        $points = $product->getPriceHistoryPoints();
+
+        $this->assertCount(1, $points);
+        $this->assertSame(23799.0, $points[0]['price']);
+        $this->assertSame('09/08', $points[0]['date']);
+    }
+
+    #[Test]
     public function it_classifies_the_current_price_against_the_cached_range(): void
     {
         $product = $this->makeProduct([

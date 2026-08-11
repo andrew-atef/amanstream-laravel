@@ -151,6 +151,13 @@ class Product extends Model
      */
     public function recordPriceHistory(float $livePrice, ?CarbonInterface $when = null, ?float $previousPrice = null): void
     {
+        // A zero or negative snapshot is never a real price — it normally means
+        // the scraper/import failed. Recording it would permanently floor the
+        // lowest_price column (0.00 is string-truthy in PHP, defeating `?:`).
+        if ($livePrice <= 0) {
+            return;
+        }
+
         $when ??= now();
         $previousPrice ??= (float) $this->price;
 
@@ -168,11 +175,13 @@ class Product extends Model
         ]);
 
         // Golden rule #2 — maintain ready-made range columns incrementally.
-        $this->lowest_price = $this->lowest_price !== null && (float) $this->lowest_price < $livePrice
+        // A stored 0.00 (string-truthy) is treated as poison and replaced by the
+        // real snapshot so legacy records self-heal on the next price change.
+        $this->lowest_price = (float) ($this->lowest_price ?? 0) > 0 && (float) $this->lowest_price <= $livePrice
             ? $this->lowest_price
             : $livePrice;
 
-        $this->highest_price = $this->highest_price !== null && (float) $this->highest_price > $livePrice
+        $this->highest_price = (float) ($this->highest_price ?? 0) > 0 && (float) $this->highest_price >= $livePrice
             ? $this->highest_price
             : $livePrice;
 
@@ -193,7 +202,14 @@ class Product extends Model
             return 0;
         }
 
-        $lowest = (float) ($this->lowest_price ?: $current);
+        // lowest_price is a decimal:2 column → comes back as the STRING "0.00",
+        // which is truthy in PHP and would defeat `?:`. Compare numerically so a
+        // zero snapshot can never leak through as "lowest = 0".
+        $lowest = (float) $this->lowest_price;
+
+        if ($lowest <= 0) {
+            $lowest = $current;
+        }
 
         // Guarantees lowest recorded is NEVER higher than current live price.
         return min($lowest, $current);
@@ -206,7 +222,13 @@ class Product extends Model
     {
         $current = (float) $this->price;
         $original = (float) ($this->original_price ?? 0);
-        $highest = (float) ($this->highest_price ?: max($original, $current * 1.12));
+        // highest_price is decimal:2 → string "0.00" is truthy in PHP; compare
+        // numerically so a zero snapshot never becomes the recorded high.
+        $highest = (float) $this->highest_price;
+
+        if ($highest <= 0) {
+            $highest = max($original, $current * 1.12);
+        }
 
         // Guarantees highest recorded is NEVER lower than current or original price.
         return max($highest, $current, $original);
@@ -263,12 +285,14 @@ class Product extends Model
      */
     public function getPriceHistoryPoints(): array
     {
-        return array_map(
-            fn (array $point): array => [
+        return collect((array) $this->price_history_json)
+            // Zero/negative snapshots are scraper/import artifacts, never prices.
+            ->filter(fn (array $point): bool => (float) ($point['p'] ?? 0) > 0)
+            ->map(fn (array $point): array => [
                 'date' => (string) ($point['d'] ?? ''),
                 'price' => (float) ($point['p'] ?? 0),
-            ],
-            (array) $this->price_history_json
-        );
+            ])
+            ->values()
+            ->all();
     }
 }
