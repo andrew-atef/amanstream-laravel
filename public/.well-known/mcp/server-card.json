@@ -1,0 +1,27 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/v1/server-card.schema.json",
+  "name": "com.amanstream/main",
+  "title": "AmanStream",
+  "description": "Deals and offers catalog for AmanStream.",
+  "version": "1.0.0",
+  "serverInfo": {
+    "name": "amanstream",
+    "version": "1.0.0"
+  },
+  "endpoint": {
+    "type": "streamable-http",
+    "url": "https://amanstream.me/mcp"
+  },
+  "capabilities": {
+    "tools": {},
+    "resources": {},
+    "prompts": {}
+  },
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://amanstream.me/mcp",
+      "supportedProtocolVersions": ["2025-03-26", "2025-06-18"]
+    }
+  ]
+}
