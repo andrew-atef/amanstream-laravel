@@ -59,10 +59,7 @@ class BulkImportProducts extends Page implements HasForms
     {
         $data = $this->form->getState();
 
-        $urls = preg_split('/\r\n|\r|\n/', (string) ($data['urls'] ?? ''))
-            ?: [];
-
-        $urls = array_values(array_filter(array_map('trim', $urls), fn (string $url) => $url !== ''));
+        $urls = $this->parseUrls((string) ($data['urls'] ?? ''));
 
         if ($urls === []) {
             Notification::make()
@@ -73,53 +70,100 @@ class BulkImportProducts extends Page implements HasForms
             return;
         }
 
+        $result = $this->createProductsFromUrls($urls, (int) ($data['category_id'] ?? 0));
+
+        $skipped = $result['skipped'];
+        $hasSkipped = $skipped !== [];
+
+        Notification::make()
+            ->title($result['created'] > 0
+                ? 'تم إضافة '.$result['created'].' منتج ومقال كمسودات تنتظر المزامنة والتنقيح!'
+                : 'لم تتم إضافة أي منتج جديد')
+            ->body($hasSkipped
+                ? 'تخطّيت '.count($skipped).' منتجاً مسجلاً مسبقاً ولن يُكرَّر: '.implode('، ', array_slice($skipped, 0, 8))
+                : null)
+            ->color($hasSkipped ? 'warning' : 'success')
+            ->send();
+
+        $this->redirect(ProductResource::getUrl('index'));
+    }
+
+    /**
+     * Creates draft products + articles from the given URLs.
+     *
+     * Products whose ASIN already exists in the database are refused (never
+     * duplicated, and no draft article is created for them either).
+     *
+     * @return array{created: int, skipped: array<int, string>}
+     */
+    public function createProductsFromUrls(array $urls, int $categoryId): array
+    {
         $created = 0;
+        $skipped = [];
+        $seen = [];
         $now = now();
-        $categoryId = (int) ($data['category_id'] ?? 0);
 
         foreach ($urls as $url) {
-            $asin = $this->extractAsin($url);
+            $url = trim($url);
 
-            $product = Product::query()->firstOrCreate(
-                ['asin' => $asin],
-                [
-                    'category_id' => $categoryId,
-                    'title' => 'مسودة منتج - '.$asin,
-                    'affiliate_url' => $url,
-                    'price' => 0,
-                    'is_active' => false,
-                    'sync_status' => Product::SYNC_STATUS_PENDING,
-                ]
-            );
-
-            if ($product->articles()->where('slug', 'draft-'.$asin.'-'.$now->timestamp)->doesntExist()) {
-                Article::query()->create([
-                    'product_id' => $product->id,
-                    'category_id' => $categoryId,
-                    'title' => 'مسودة مقال - '.$asin,
-                    'slug' => 'draft-'.Str::slug($asin).'-'.$now->timestamp,
-                    'content' => implode("\n\n", [
-                        '## مقدمة',
-                        '[summary_box]',
-                        '[price]',
-                        '[interactive_installment]',
-                        '[price_history]',
-                        '[rating]',
-                        '[buy_button]',
-                    ]),
-                    'is_published' => false,
-                ]);
+            if ($url === '') {
+                continue;
             }
+
+            $asin = strtoupper(trim($this->extractAsin($url)));
+
+            if ($asin === '' || in_array($asin, $seen, true)) {
+                continue;
+            }
+
+            $seen[] = $asin;
+
+            if (Product::query()->whereRaw('UPPER(asin) = ?', [$asin])->exists()) {
+                $skipped[] = $asin;
+
+                continue;
+            }
+
+            $product = Product::create([
+                'category_id' => $categoryId,
+                'title' => 'مسودة منتج - '.$asin,
+                'affiliate_url' => $url,
+                'price' => 0,
+                'is_active' => false,
+                'sync_status' => Product::SYNC_STATUS_PENDING,
+            ]);
+
+            Article::query()->create([
+                'product_id' => $product->id,
+                'category_id' => $categoryId,
+                'title' => 'مسودة مقال - '.$asin,
+                'slug' => 'draft-'.Str::slug($asin).'-'.$now->timestamp,
+                'content' => implode("\n\n", [
+                    '## مقدمة',
+                    '[summary_box]',
+                    '[price]',
+                    '[interactive_installment]',
+                    '[price_history]',
+                    '[rating]',
+                    '[buy_button]',
+                ]),
+                'is_published' => false,
+            ]);
 
             $created++;
         }
 
-        Notification::make()
-            ->success()
-            ->title('تم إضافة '.$created.' منتج ومقال كمسودات تنتظر المزامنة والتنقيح!')
-            ->send();
+        return ['created' => $created, 'skipped' => $skipped];
+    }
 
-        $this->redirect(ProductResource::getUrl('index'));
+    /**
+     * @return array<int, string>
+     */
+    protected function parseUrls(string $raw): array
+    {
+        $lines = preg_split('/\r\n|\r|\n/', $raw) ?: [];
+
+        return array_values(array_filter(array_map('trim', $lines), fn (string $line) => $line !== ''));
     }
 
     protected function extractAsin(string $url): string

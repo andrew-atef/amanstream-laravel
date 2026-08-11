@@ -73,6 +73,13 @@ class Product extends Model
         ];
     }
 
+    protected static function booted(): void
+    {
+        static::saving(function (Product $product) {
+            $product->asin = trim(strtoupper((string) $product->asin));
+        });
+    }
+
     public function category(): BelongsTo
     {
         return $this->belongsTo(Category::class);

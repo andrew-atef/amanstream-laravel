@@ -148,6 +148,9 @@ class ProductResource extends Resource
                     ->required()
                     ->maxLength(255)
                     ->unique(ignoreRecord: true)
+                    ->validationMessages([
+                        'unique' => 'المنتج مسجّل بالفعل بهذا الـ ASIN — لن يُضاف مرة أخرى.',
+                    ])
                     ->helperText('كود المنتج على أمازون، يُستخرج تلقائياً من الرابط'),
                 TextInput::make('brand')
                     ->label('الماركة')
