@@ -18,6 +18,10 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         // توثيق Cloudflare Proxies ليعرف لارفيل أن الطلب القادم هو HTTPS
         $middleware->trustProxies(at: '*');
+
+        // Content Negotiation: يسلّم نسخة Markdown نقية لروبوتات الذكاء الاصطناعي
+        // التي تطلب `Accept: text/markdown` بدلاً من HTML، دون التأثير على المتصفحات.
+        $middleware->append(\App\Http\Middleware\ServeMarkdownForAgents::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

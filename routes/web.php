@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\ArticleController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\LlmsTxtController;
 use App\Http\Controllers\SitemapController;
 use Illuminate\Support\Facades\Route;
 
@@ -13,6 +14,9 @@ Route::get('/about', function () {
 
 Route::get('/articles/{slug}', [ArticleController::class, 'show'])
     ->name('articles.show');
+
+Route::get('/llms.txt', [LlmsTxtController::class, 'index'])
+    ->name('llms.txt');
 
 Route::get('/sitemap.xml', [SitemapController::class, 'index'])
     ->name('sitemap');
