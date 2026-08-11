@@ -5,6 +5,7 @@
     'ogDescription' => null,
     'ogImage' => null,
     'ogType' => 'website',
+    'robots' => 'index, follow',
 ])
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
@@ -31,7 +32,7 @@
 
     <title>{{ $metaTitle ?? config('app.name', 'أمان ستريم | بث أسعار ومراجعات الأجهزة في مصر') }}</title>
     <meta name="description" content="{{ $metaDescription ?? 'أمان ستريم — بوابتك المباشرة لمراجعة أسعار الأجهزة المنزلية والتكنولوجيا على أمازون مصر مع حاسبة التقسيط والأمان في الشراء.' }}">
-    <meta name="robots" content="index, follow">
+    <meta name="robots" content="{{ $robots }}">
 
     <!-- Google Fonts: Readex Pro (preloaded; font-display=optional kills swap-CLS) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
