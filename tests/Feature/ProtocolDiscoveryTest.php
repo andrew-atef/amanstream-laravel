@@ -38,8 +38,9 @@ class ProtocolDiscoveryTest extends TestCase
 
         $response->assertOk();
         $this->assertStringStartsWith('text/markdown', (string) $response->headers->get('Content-Type'));
-        $this->assertStringContainsString('# AmanStream AI Agent Authentication Guide', $response->getContent());
-        $this->assertStringContainsString('No Auth Required', $response->getContent());
+        $this->assertStringStartsWith('# Auth.md', $response->getContent());
+        $this->assertStringContainsString('# Auth.md', $response->getContent());
+        $this->assertStringContainsString('no auth required', strtolower($response->getContent()));
         $this->assertStringContainsString('/articles/{slug}', $response->getContent());
         $this->assertStringContainsString('x-sync-token', $response->getContent());
         $this->assertStringContainsString('/admin/*', $response->getContent());
