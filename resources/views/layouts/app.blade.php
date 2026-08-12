@@ -115,5 +115,55 @@
     <!-- AmanStream Footer -->
     <x-layouts.footer />
 
+    <!-- WebMCP (AgentCat / navigator.modelContext): registers a search tool so
+         browser agents can query the site without a token. Feature-detected so
+         browsers without modelContext are untouched. -->
+    <script>
+    (function () {
+        if (! ("modelContext" in navigator)) return;
+
+        try {
+            navigator.modelContext.registerTool({
+                name: "amanstream_search",
+                description: "Search AmanStream (amanstream.me), an independent Egyptian guide to appliance prices, reviews and bank-installment comparisons on Amazon Egypt. Returns Markdown search results.",
+                inputSchema: {
+                    type: "object",
+                    properties: {
+                        q: {
+                            type: "string",
+                            description: "Search terms, e.g. 'تكييف 1.5 حصان' or 'washing machine price Egypt'."
+                        },
+                        deals: {
+                            type: "boolean",
+                            description: "Only show items with a live discount."
+                        }
+                    },
+                    required: ["q"]
+                },
+                outputSchema: {
+                    type: "string",
+                    contentType: "text/markdown"
+                },
+                annotations: {
+                    readOnlyHint: true,
+                    confirmMessage: "Search AmanStream for products?"
+                },
+                handler: async function (params) {
+                    const q = encodeURIComponent(String(params.q || ""));
+                    const deals = params.deals ? "&deals=1" : "";
+                    const url = "/?q=" + q + deals + "&_fmt=md";
+                    const response = await fetch(url, {
+                        headers: { "Accept": "text/markdown" }
+                    });
+                    const text = await response.text();
+                    return { content: [{ type: "text", text: text }] };
+                }
+            });
+        } catch (e) {
+            // Non-fatal: the page still works without WebMCP.
+        }
+    })();
+    </script>
+
 </body>
 </html>

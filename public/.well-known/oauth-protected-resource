@@ -1,1 +1,0 @@
-{"resource":"https://amanstream.me","authorization_servers":["https://amanstream.me"],"scopes_supported":["read:public","agent"],"bearer_methods_supported":["header"]}

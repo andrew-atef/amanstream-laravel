@@ -35,6 +35,18 @@ Route::get('/docs', [WellKnownController::class, 'docs'])
 Route::get('/sitemap.xml', [SitemapController::class, 'index'])
     ->name('sitemap');
 
+// Agent discovery documents (Level 5 Agent-Native): A2A agent card + the
+// Agent Skills discovery index and skill payloads. All are read-only.
+Route::get('/.well-known/agent-card.json', [WellKnownController::class, 'agentCard'])
+    ->name('agent.card');
+
+Route::get('/.well-known/agent-skills/index.json', [WellKnownController::class, 'agentSkillsIndex'])
+    ->name('agent.skills.index');
+
+Route::get('/.well-known/agent-skills/{skill}/SKILL.md', [WellKnownController::class, 'agentSkill'])
+    ->where('skill', '[A-Za-z0-9_-]+')
+    ->name('agent.skills.skill');
+
 Route::get('/robots.txt', function () {
     $sitemapUrl = config('app.url').'/sitemap.xml';
 
