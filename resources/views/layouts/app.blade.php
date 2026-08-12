@@ -54,13 +54,16 @@
     <meta property="og:site_name" content="{{ config('app.name') }}">
     <meta property="og:title" content="{{ $ogTitle ?? ($metaTitle ?? '') }}">
     <meta property="og:description" content="{{ $ogDescription ?? ($metaDescription ?? '') }}">
-    <meta property="og:image" content="{{ ! empty($ogImage) ? $ogImage : url('/favicon.svg') }}">
+    <meta property="og:image" content="{{ ! empty($ogImage) ? $ogImage : url('/img/og-image.png') }}">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="{{ $ogTitle ?? ($metaTitle ?? '') }}">
     <meta property="og:url" content="{{ url()->current() }}">
 
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="{{ $ogTitle ?? ($metaTitle ?? '') }}">
     <meta name="twitter:description" content="{{ $ogDescription ?? ($metaDescription ?? '') }}">
-    <meta name="twitter:image" content="{{ ! empty($ogImage) ? $ogImage : url('/favicon.svg') }}">
+    <meta name="twitter:image" content="{{ ! empty($ogImage) ? $ogImage : url('/img/og-image.png') }}">
 
     <link rel="canonical" href="{{ url()->current() }}">
 

@@ -207,26 +207,44 @@ class ArticleResource extends Resource
                     ->label('العنوان')
                     ->searchable()
                     ->sortable()
-                    ->limit(40),
+                    ->limit(35)
+                    ->tooltip(fn ($record) => $record->title),
+
                 TextColumn::make('category.name')
                     ->label('التصنيف')
+                    ->badge()
+                    ->color('sky')
                     ->sortable(),
+
                 TextColumn::make('product.title')
-                    ->label('المنتج')
+                    ->label('المنتج المرتبط')
+                    ->searchable()
                     ->sortable()
-                    ->limit(30),
+                    ->limit(25)
+                    ->default('— مقارنة / تجميعة —'),
+
                 IconColumn::make('is_published')
-                    ->label('الحالة')
+                    ->label('منشور')
                     ->boolean()
                     ->sortable(),
+
+                TextColumn::make('created_at')
+                    ->label('تاريخ الإنشاء')
+                    ->dateTime('Y-m-d H:i')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+
                 TextColumn::make('updated_at')
                     ->label('آخر تحديث')
-                    ->dateTime('Y-m-d')
+                    ->since()
                     ->sortable(),
             ])
+            ->defaultSort('updated_at', 'desc')
             ->filters([
                 Tables\Filters\TernaryFilter::make('is_published')
-                    ->label('الحالة'),
+                    ->label('حالة النشر')
+                    ->trueLabel('منشور فقط')
+                    ->falseLabel('مسودة فقط'),
                 Tables\Filters\SelectFilter::make('category_id')
                     ->label('التصنيف')
                     ->relationship('category', 'name'),

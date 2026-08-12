@@ -1,4 +1,13 @@
-<x-layouts.app>
+@php
+    // Search, category-filter, deals and paginated views are near-duplicates
+    // of the canonical homepage — keep crawlers from splitting index equity.
+    $isFilteredView = $searchQuery !== '' || $selectedCategory !== null || $dealsOnly || request()->has('page');
+    $robotsMeta = $isFilteredView ? 'noindex, follow' : 'index, follow';
+@endphp
+
+<x-layouts.app
+    :robots="$robotsMeta"
+>
     @push('schema')
         @php
             $siteUrl = url('/');
