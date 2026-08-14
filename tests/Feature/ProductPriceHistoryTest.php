@@ -267,7 +267,7 @@ final class ProductPriceHistoryTest extends TestCase
         $html = $this->get('/articles/'.$article->slug)->getContent();
 
         $this->assertStringNotContainsString('[price_history]', $html);
-        $this->assertStringContainsString('مؤشر أمان ستريم لتاريخ السعر', $html);
+        $this->assertStringContainsString('مؤشر أمان برايس لتاريخ السعر', $html);
         $this->assertStringContainsString('أقل سعر سُجِّل', $html);
         $this->assertStringContainsString('السعر الحالي اليوم', $html);
         $this->assertStringContainsString('أعلى سعر سُجِّل', $html);

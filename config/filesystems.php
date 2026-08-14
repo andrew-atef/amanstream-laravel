@@ -66,7 +66,7 @@ return [
             'secret' => env('CLOUDFLARE_R2_SECRET_ACCESS_KEY', env('R2_SECRET_ACCESS_KEY')),
             'region' => env('CLOUDFLARE_R2_REGION', env('R2_REGION', 'auto')),
             'bucket' => env('CLOUDFLARE_R2_BUCKET', env('R2_BUCKET')),
-            'url' => env('R2_URL', 'https://media.amanstream.me'),
+            'url' => env('R2_URL', 'https://media.amanprice.tech'),
             'endpoint' => rtrim(env('CLOUDFLARE_R2_ENDPOINT', env('R2_ENDPOINT', 'https://example.r2.cloudflarestorage.com')), '/'),
             'use_path_style_endpoint' => true,
             'visibility' => 'public',

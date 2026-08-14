@@ -32,7 +32,7 @@ class ImageUploaderService
     protected const MIN_CANVAS_SIZE = 400;
 
     /**
-     * Download an arbitrary external image URL, apply the AmanStream brand
+     * Download an arbitrary external image URL, apply the AmanPrice brand
      * watermark, upload the resulting WebP to Cloudflare R2 and return the
      * permanent public URL. Returns null on any failure (never throws).
      */
@@ -168,7 +168,7 @@ class ImageUploaderService
             // always has room for the brand logo and keeps a clean look.
             $image = self::padToMinimumCanvas($image);
 
-            self::applyAmanStreamWatermark($image);
+            self::applyAmanPriceWatermark($image);
 
             ob_start();
             imagewebp($image, null, self::WEBP_QUALITY);
@@ -197,7 +197,7 @@ class ImageUploaderService
     }
 
     /**
-     * Path to the pre-rendered AmanStream logo used as the photo watermark.
+     * Path to the pre-rendered AmanPrice logo used as the photo watermark.
      *
      * GD cannot rasterize SVG, so this PNG was generated once from
      * public/logo_dark.svg with transparency preserved. The same file is used
@@ -250,7 +250,7 @@ class ImageUploaderService
      *
      * @param  \GdImage  $gd
      */
-    private static function applyAmanStreamWatermark(\GdImage $gd): void
+    private static function applyAmanPriceWatermark(\GdImage $gd): void
     {
         $width = imagesx($gd);
         $height = imagesy($gd);

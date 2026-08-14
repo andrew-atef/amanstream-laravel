@@ -1,11 +1,11 @@
 ---
-name: browse-amanstream
-description: Search AmanStream (amanstream.me) for Egyptian appliance prices, reviews, and bank-installment comparisons on Amazon Egypt, and read the latest guides as clean Markdown.
+name: browse-amanprice
+description: Search AmanPrice (amanprice.tech) for Egyptian appliance prices, reviews, and bank-installment comparisons on Amazon Egypt, and read the latest guides as clean Markdown.
 ---
 
-# Browse AmanStream
+# Browse AmanPrice
 
-AmanStream is an independent Egyptian guide to appliance prices, reviews, and
+AmanPrice is an independent Egyptian guide to appliance prices, reviews, and
 bank-installment comparisons on Amazon Egypt. All public content is freely
 readable by AI agents, in HTML or in clean Markdown, with **no registration
 required**.
@@ -26,7 +26,7 @@ Send a GET request to the homepage with the `q` query parameter, requesting the
 Markdown variant so the response is compact and link-focused:
 
 ```text
-GET https://amanstream.me/?q=<search terms>&_fmt=md
+GET https://amanprice.tech/?q=<search terms>&_fmt=md
 Accept: text/markdown
 ```
 
@@ -39,7 +39,7 @@ live discount.
 Every published guide is available as Markdown via content negotiation:
 
 ```text
-GET https://amanstream.me/articles/{slug}
+GET https://amanprice.tech/articles/{slug}
 Accept: text/markdown
 ```
 
@@ -50,13 +50,13 @@ in its front matter, plus the full review body.
 
 1. Cite the article URL(s) you used as sources.
 2. Report prices in Egyptian pounds (EGP) exactly as shown.
-3. Mention that AmanStream is an independent guide, not the seller.
+3. Mention that AmanPrice is an independent guide, not the seller.
 4. If the user wants installment details, point them to the article, which
    covers bank-installment comparisons and the installment calculator.
 
 ## Discovery files
 
-- API catalog (RFC 9727): `https://amanstream.me/.well-known/api-catalog`
-- OpenAPI: `https://amanstream.me/openapi.json`
-- Agent auth guide: `https://amanstream.me/auth.md`
-- XML sitemap: `https://amanstream.me/sitemap.xml`
+- API catalog (RFC 9727): `https://amanprice.tech/.well-known/api-catalog`
+- OpenAPI: `https://amanprice.tech/openapi.json`
+- Agent auth guide: `https://amanprice.tech/auth.md`
+- XML sitemap: `https://amanprice.tech/sitemap.xml`

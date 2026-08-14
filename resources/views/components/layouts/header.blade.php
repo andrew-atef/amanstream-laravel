@@ -15,7 +15,7 @@
             'active' => request('category') == $category->slug,
         ]),
         [
-            'label' => 'عن أمان ستريم',
+            'label' => 'عن أمان برايس',
             'href' => '/about',
             'active' => request()->is('about'),
         ],
@@ -25,9 +25,9 @@
 <header class="sticky top-0 z-50 border-b border-primary-600/30 bg-[#0f172a] text-white shadow-md">
     <div class="mx-auto flex max-w-6xl items-center justify-between px-4 py-3.5 sm:px-6">
 
-        <!-- Logo AmanStream -->
-        <a href="/" class="group shrink-0" aria-label="أمان ستريم الرئيسية">
-            <img src="/logo.svg" alt="أمان ستريم | AmanStream" width="429" height="120" class="h-10 w-auto transition duration-200 sm:h-11 group-hover:opacity-90">
+        <!-- Logo AmanPrice -->
+        <a href="/" class="group shrink-0" aria-label="أمان برايس الرئيسية">
+            <img src="/logo.svg" alt="أمان برايس | AmanPrice" width="429" height="120" class="h-10 w-auto transition duration-200 sm:h-11 group-hover:opacity-90">
         </a>
 
         <!-- Dynamic Category Navigation Links (Desktop) -->
