@@ -164,6 +164,17 @@
                     ];
                 })->values()->all(),
             ] : null;
+
+            // Built here inside the @php block (NOT inline in the Blade body)
+            // so `'@context'` stays a plain string — Blade would otherwise
+            // compile it into Livewire's @context directive PHP, corrupting
+            // the emitted JSON-LD.
+            $faqQuestions = $article->getFaqSchemaData();
+            $faqPageSchema = ! empty($faqQuestions) ? [
+                '@context' => 'https://schema.org',
+                '@type' => 'FAQPage',
+                'mainEntity' => $faqQuestions,
+            ] : null;
         @endphp
 
         @if ($product && $productSchema)
@@ -175,12 +186,8 @@
         @if ($itemListSchema)
             <script type="application/ld+json">{!! json_encode($itemListSchema, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
         @endif
-        @if (! empty($faqSchema = $article->getFaqSchemaData()))
-            <script type="application/ld+json">{!! json_encode([
-                '@context' => 'https://schema.org',
-                '@type' => 'FAQPage',
-                'mainEntity' => $faqSchema,
-            ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
+        @if (! empty($faqPageSchema))
+            <script type="application/ld+json">{!! json_encode($faqPageSchema, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
         @endif
     @endpush
 

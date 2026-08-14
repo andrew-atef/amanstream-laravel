@@ -303,14 +303,11 @@ class Phase2AutomationTest extends TestCase
 
     public function test_canonical_www_host_passes_through_without_redirect(): void
     {
-        config(['app.url' => 'https://www.amanprice.tech']);
-
-        $this->withServerVariables([
-            'HTTP_HOST' => 'www.amanprice.tech',
+        $request = $this->withServerVariables([
             'HTTP_X_FORWARDED_PROTO' => 'https',
-            'HTTP_X_FORWARDED_HOST' => 'www.amanprice.tech',
-        ])->get('/')
-            ->assertOk();
+        ])->get('https://www.amanprice.tech/');
+
+        $request->assertOk();
     }
 
     public function test_faq_schema_is_extracted_from_markdown_headings(): void
@@ -358,7 +355,7 @@ MD,
         $this->assertSame('س: ما مدة الضمان؟', $faqs[0]['name']);
     }
 
-    public function test_article_page_renders_faqpage_json_ld_when_questions_exist(): void
+    public function test_article_page_renders_faqpage_json_ld_without_blade_leak(): void
     {
         $article = $this->seedArticle();
 
@@ -370,6 +367,28 @@ MD,
 
         $this->assertStringContainsString('FAQPage', $html);
         $this->assertStringContainsString('"name":"س: هل يدعم التقسيط؟"', $html);
+
+        // Regression: `'@context'` must NEVER be compiled into Blade/Livewire
+        // directive PHP inside the emitted JSON-LD.
+        $this->assertStringNotContainsString('<?php', $html);
+        $this->assertStringNotContainsString('$__contextArgs', $html);
+        $this->assertStringNotContainsString('context()->get', $html);
+        $this->assertStringContainsString('"@context":"https://schema.org"', $html);
+    }
+
+    public function test_schema_urls_have_no_double_slashes(): void
+    {
+        $article = $this->seedArticle();
+
+        // Homepage carries the WebSite SearchAction schema + category links.
+        $home = $this->get('/')->getContent();
+        $this->assertStringNotContainsString('//?q=', $home);
+        $this->assertStringContainsString('/?q={search_term_string}', $home);
+
+        // Article page carries Publisher logo / image fallbacks.
+        $articleHtml = $this->get('/articles/'.$article->slug)->getContent();
+        $this->assertStringNotContainsString('//favicon.svg', $articleHtml);
+        $this->assertStringContainsString('/favicon.svg', $articleHtml);
     }
 
     public function test_cloudflare_cache_service_skips_without_configuration(): void

@@ -28,13 +28,17 @@ class SEOHelper
         return trim($title);
     }
 
-    /**
+/**
      * Absolute site URL with a canonical www. host.
      *
      * Local/dev hosts (http://localhost, http://127.0.0.1:*) are left exactly
      * as configured so tinker/tests keep working; only production https hosts
      * are normalized to the https://www. canonical variant — the same host that
      * every canonical link, OG tag and JSON-LD @id must agree on.
+     *
+     * A path is joined with exactly one slash (`favicon.svg`, `?q=...` or a
+     * multi-segment `category/air-conditioners`), and an empty path yields the
+     * bare canonical host. Callers must NOT pre-pend a `/` to the result.
      */
     public static function url(string $path = ''): string
     {
@@ -47,7 +51,16 @@ class SEOHelper
             $baseUrl = str_starts_with($host, 'www.') ? 'https://'.$host : 'https://www.'.$host;
         }
 
-        return $baseUrl.'/'.ltrim($path, '/');
+        // Leading slashes (or stray "//") are normalized to a single join at
+        // the end, so even a caller passing "//favicon.svg" never duplicates.
+        $path = (string) $path;
+        $path = ltrim($path, '/');
+
+        if ($path === '') {
+            return $baseUrl;
+        }
+
+        return $baseUrl.'/'.$path;
     }
 
     /**

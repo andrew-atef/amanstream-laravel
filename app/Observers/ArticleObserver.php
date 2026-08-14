@@ -59,8 +59,10 @@ class ArticleObserver
 
         // Cloudflare caches "https://www.example.com" and "https://www.example.com/"
         // under separate cache keys, so purge both forms plus the sitemap.
+        // SEOHelper::url() returns a slash-less host, so the trailing-slash
+        // homepage variant is appended explicitly.
         $urls[] = SEOHelper::url();
-        $urls[] = rtrim(SEOHelper::url(), '/');
+        $urls[] = SEOHelper::url().'/';
         $urls[] = SEOHelper::url('sitemap.xml');
 
         return array_values(array_unique($urls));

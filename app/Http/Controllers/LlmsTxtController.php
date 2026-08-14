@@ -44,7 +44,7 @@ class LlmsTxtController extends Controller
         ];
 
         foreach ($categories as $category) {
-            $lines[] = '- ['.$category->name.']('.$siteUrl.'category/'.$category->slug.')';
+            $lines[] = '- ['.$category->name.']('.$siteUrl.'/category/'.$category->slug.')';
         }
 
         $lines = array_merge($lines, [
@@ -54,13 +54,13 @@ class LlmsTxtController extends Controller
         ]);
 
         foreach ($articles as $article) {
-            $lines[] = '- ['.$article->title.']('.$siteUrl.'articles/'.$article->slug.')';
+            $lines[] = '- ['.$article->title.']('.$siteUrl.'/articles/'.$article->slug.')';
         }
 
         $lines[] = '';
         $lines[] = '## السجلات التقنية (Sitemaps & Specs)';
-        $lines[] = '- Sitemap: '.$siteUrl.'sitemap.xml';
-        $lines[] = '- llms.txt: '.$siteUrl.'llms.txt';
+        $lines[] = '- Sitemap: '.$siteUrl.'/sitemap.xml';
+        $lines[] = '- llms.txt: '.$siteUrl.'/llms.txt';
         $lines[] = '';
         $lines[] = '## Changelog';
         $lines[] = '- 2026-08-15: إزالة الأسعار المثبتة من الملف ومنع هالوسة النماذج؛ إضافة روابط الأقسام النظيفة /category/{slug}.';
