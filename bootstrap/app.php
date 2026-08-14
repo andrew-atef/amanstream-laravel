@@ -19,6 +19,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // توثيق Cloudflare Proxies ليعرف لارفيل أن الطلب القادم هو HTTPS
         $middleware->trustProxies(at: '*');
 
+        // Host unification: 301 من non-www إلى www في بيئة الإنتاج فقط.
+        $middleware->prepend(\App\Http\Middleware\CanonicalHostRedirect::class);
+
         // Content Negotiation: يسلّم نسخة Markdown نقية لروبوتات الذكاء الاصطناعي
         // التي تطلب `Accept: text/markdown` بدلاً من HTML، دون التأثير على المتصفحات.
         $middleware->append(\App\Http\Middleware\ServeMarkdownForAgents::class);

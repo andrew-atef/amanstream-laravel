@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Carbon\CarbonInterface;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -73,12 +74,32 @@ class Product extends Model
         ];
     }
 
-    protected static function booted(): void
+    /**
+     * Title is always cleaned on read (single source of truth), so legacy
+     * rows scraped with "(المملكة العربية السعودية)" style pollution never
+     * leak into H1s, OG tags, JSON-LD or component cards. Writes are cleaned
+     * by the saving hook below.
+     */
+    protected function title(): Attribute
     {
-        static::saving(function (Product $product) {
-            $product->asin = trim(strtoupper((string) $product->asin));
-        });
+        return Attribute::make(
+            get: fn (?string $value): ?string => $value === null ? null : \App\Services\SEOHelper::cleanTitle($value),
+        );
     }
+
+protected static function booted(): void
+{
+    static::saving(function (Product $product) {
+        $product->asin = trim(strtoupper((string) $product->asin));
+
+        // Scraped-title hygiene: strip foreign country markers and normalize
+        // whitespace so titles captured from Amazon's global feeds never leak
+        // "(المملكة العربية السعودية)" or stray leading spaces into H1/OG/schema.
+        if ($product->title !== null) {
+            $product->title = \App\Services\SEOHelper::cleanTitle((string) $product->title);
+        }
+    });
+}
 
     public function category(): BelongsTo
     {

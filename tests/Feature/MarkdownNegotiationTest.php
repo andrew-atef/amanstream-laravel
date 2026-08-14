@@ -49,7 +49,7 @@ class MarkdownNegotiationTest extends TestCase
         $response->assertOk();
         $this->assertStringStartsWith('text/markdown', (string) $response->headers->get('Content-Type'));
         $this->assertSame('Accept', $response->headers->get('Vary'));
-        $this->assertStringContainsString('# أمان ستريم', $response->getContent());
+        $this->assertStringContainsString('# أمان برايس', $response->getContent());
         $this->assertStringContainsString('/articles/md-article', $response->getContent());
         $this->assertStringNotContainsString('<!DOCTYPE html>', $response->getContent());
     }
@@ -129,7 +129,22 @@ class MarkdownNegotiationTest extends TestCase
 
         $response->assertOk();
         $this->assertStringStartsWith('text/markdown', (string) $response->headers->get('Content-Type'));
-        $this->assertStringContainsString('# أمان ستريم', $response->getContent());
+        $this->assertStringContainsString('# أمان برايس', $response->getContent());
         $this->assertStringContainsString('/articles/md-llms-article', $response->getContent());
+    }
+
+    public function test_llms_txt_never_embeds_static_prices(): void
+    {
+        // Amazon prices change daily — llms.txt must not pin numeric values that
+        // would hallucinate stale figures into model answers. Prices belong to
+        // the live [price]/[installment] shortcodes at request time.
+        $this->makePublishedArticle('md-llms-price');
+
+        $content = $this->get('/llms.txt')->getContent();
+
+        $this->assertStringNotContainsString('ج.م', $content);
+        $this->assertStringNotContainsString('1000', $content);
+        $this->assertStringNotContainsString('1200', $content);
+        $this->assertStringContainsString('/articles/md-llms-price', $content);
     }
 }

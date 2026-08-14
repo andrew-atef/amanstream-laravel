@@ -114,6 +114,44 @@ final class HomePageDynamicsTest extends TestCase
         $this->assertStringContainsString('إلغاء التصفية', $html);
         // TV article must be absent when filtering the AC category.
         $this->assertStringNotContainsString('مراجعة شاشة LG سمارت', $html);
+        // Legacy faceted URLs stay noindex (near-duplicate of the homepage).
+        $this->assertStringContainsString('noindex', $html);
+    }
+
+    #[Test]
+    public function it_serves_clean_indexable_category_hub_pages(): void
+    {
+        $this->seedCatalog();
+
+        // The clean /category/{slug} destination replaces the ?category= faceted
+        // links everywhere and must be an indexable Category Hub.
+        $response = $this->get('/category/air-conditioners');
+
+        $response->assertOk();
+        $html = $response->getContent();
+        $this->assertStringContainsString('<h1', $html);
+        $this->assertStringContainsString('تكييفات', $html);
+        $this->assertStringNotContainsString('name="robots" content="noindex', $html);
+        $this->assertStringContainsString('rel="canonical"', $html);
+        $this->assertStringContainsString('/category/air-conditioners', $html);
+        // TV article must be absent on the AC category hub.
+        $this->assertStringNotContainsString('مراجعة شاشة LG سمارت', $html);
+        // And the AC articles must be present.
+        $this->assertStringContainsString('سعر تكييف فريش 1.5 حصان', $html);
+        $this->assertStringContainsString('أفضل تكييف بارد للمساحات الصغيرة', $html);
+    }
+
+    #[Test]
+    public function it_links_categories_to_clean_hub_urls_in_navigation(): void
+    {
+        $this->seedCatalog();
+
+        $html = $this->get('/')->getContent();
+
+        // Category links must point to the clean /category/{slug} hubs, not the
+        // old faceted ?category= query strings.
+        $this->assertStringContainsString('href="'.route('categories.show', 'air-conditioners').'"', $html);
+        $this->assertStringContainsString('href="'.route('categories.show', 'tvs').'"', $html);
     }
 
     #[Test]

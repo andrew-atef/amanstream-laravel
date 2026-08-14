@@ -10,14 +10,24 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-    <!-- Google tag (gtag.js) -->
+    <!-- Google tag (gtag.js) — async loader + config deferred off the main
+         thread (requestIdleCallback) to keep TBT/interaction-low on small hosts. -->
     @if (config('app.env') !== 'local')
         <script async src="https://www.googletagmanager.com/gtag/js?id=G-4HK625WV4X"></script>
         <script>
         window.dataLayer = window.dataLayer || [];
         function gtag(){dataLayer.push(arguments);}
-        gtag('js', new Date());
-        gtag('config', 'G-4HK625WV4X');
+        (function () {
+            var init = function () {
+                gtag('js', new Date());
+                gtag('config', 'G-4HK625WV4X', { send_page_view: true });
+            };
+            if ('requestIdleCallback' in window) {
+                requestIdleCallback(init, { timeout: 2000 });
+            } else {
+                window.addEventListener('load', function () { setTimeout(init, 0); });
+            }
+        })();
         </script>
     @endif
 
@@ -25,13 +35,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <!-- Favicon / أمان ستريم أيقونة -->
+    <!-- Favicon / أمان برايس أيقونة -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="alternate icon" href="/favicon.ico">
     <meta name="theme-color" content="#0f172a">
 
-    <title>{{ $metaTitle ?? config('app.name', 'أمان ستريم | بث أسعار ومراجعات الأجهزة في مصر') }}</title>
-    <meta name="description" content="{{ $metaDescription ?? 'أمان ستريم — بوابتك المباشرة لمراجعة أسعار الأجهزة المنزلية والتكنولوجيا على أمازون مصر مع حاسبة التقسيط والأمان في الشراء.' }}">
+    @php
+        $seoHelper = \App\Services\SEOHelper::class;
+        $canonicalPath = request()->path() === '/' ? '' : request()->path();
+        $canonicalUrl = $seoHelper::canonical($canonicalPath);
+        $siteName = config('app.name', 'أمان برايس');
+    @endphp
+
+    <title>{{ $metaTitle ?? $siteName }}</title>
+    <meta name="description" content="{{ $metaDescription ?? $siteName.' — بوابتك المباشرة لمراجعة أسعار الأجهزة المنزلية والتكنولوجيا على أمازون مصر مع حاسبة التقسيط والأمان في الشراء.' }}">
     <meta name="robots" content="{{ $robots }}">
 
     <!-- Google Fonts: Readex Pro (preloaded; font-display=optional kills swap-CLS) -->
@@ -51,31 +68,35 @@
 
     <!-- OpenGraph Tagging -->
     <meta property="og:type" content="{{ $ogType ?? 'website' }}">
-    <meta property="og:site_name" content="{{ config('app.name') }}">
+    <meta property="og:site_name" content="{{ $siteName }}">
     <meta property="og:title" content="{{ $ogTitle ?? ($metaTitle ?? '') }}">
     <meta property="og:description" content="{{ $ogDescription ?? ($metaDescription ?? '') }}">
     <meta property="og:image" content="{{ ! empty($ogImage) ? $ogImage : url('/img/og-image.png') }}">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta property="og:image:alt" content="{{ $ogTitle ?? ($metaTitle ?? '') }}">
-    <meta property="og:url" content="{{ url()->current() }}">
+    <meta property="og:url" content="{{ $canonicalUrl }}">
 
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="{{ $ogTitle ?? ($metaTitle ?? '') }}">
     <meta name="twitter:description" content="{{ $ogDescription ?? ($metaDescription ?? '') }}">
     <meta name="twitter:image" content="{{ ! empty($ogImage) ? $ogImage : url('/img/og-image.png') }}">
 
-    <link rel="canonical" href="{{ url()->current() }}">
+    <link rel="canonical" href="{{ $canonicalUrl }}">
 
     @php
         $organizationSchema = [
             '@context' => 'https://schema.org',
+            '@id' => $seoHelper::url('#organization'),
             '@type' => 'Organization',
-            'name' => 'أمان ستريم | AmanStream Egypt',
-            'alternateName' => ['AmanStream', 'أمان ستريم مصر'],
-            'url' => 'https://amanstream.me',
-            'logo' => 'https://amanstream.me/favicon.svg',
-            'description' => 'منصة ودليل مصري مستقل لمراجعة أسعار الأجهزة المنزلية، التكييفات، ومقارنات التقسيط البنكي على أمازون مصر.',
+            'name' => 'أمان برايس | AmanPrice Egypt',
+            'alternateName' => ['AmanPrice', 'أمان برايس مصر'],
+            'url' => $seoHelper::url(),
+            'logo' => [
+                '@type' => 'ImageObject',
+                'url' => $seoHelper::url('logo.svg'),
+            ],
+            'description' => 'دليل مصري مستقل لمراجعة أسعار الأجهزة المنزلية، التكييفات، ومقارنات التقسيط البنكي على أمازون مصر.',
             'address' => [
                 '@type' => 'PostalAddress',
                 'addressCountry' => 'EG',
@@ -125,7 +146,7 @@
         try {
             navigator.modelContext.registerTool({
                 name: "amanstream_search",
-                description: "Search AmanStream (amanstream.me), an independent Egyptian guide to appliance prices, reviews and bank-installment comparisons on Amazon Egypt. Returns Markdown search results.",
+                description: "Search AmanPrice (amanprice.tech), an independent Egyptian guide to appliance prices, reviews and bank-installment comparisons on Amazon Egypt. Returns Markdown search results.",
                 inputSchema: {
                     type: "object",
                     properties: {

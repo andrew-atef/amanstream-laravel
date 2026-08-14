@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -25,6 +26,127 @@ class Article extends Model
         return [
             'is_published' => 'boolean',
         ];
+    }
+
+    /**
+     * Title is normalized on every read so scraped pollution never leaks into
+     * the H1, OG tags, meta title or JSON-LD on legacy rows.
+     */
+    protected function title(): Attribute
+    {
+        return Attribute::make(
+            get: fn (?string $value): ?string => $value === null ? null : \App\Services\SEOHelper::cleanTitle($value),
+        );
+    }
+
+    /**
+     * Auto-extract FAQ Question/Answer pairs from the article content for the
+     * FAQPage JSON-LD schema. Content is a Markdown/HTML mix, so both `<h3>`
+     * + `<p>` blocks and `##`/`###` headings + following paragraphs are parsed.
+     * Shortcodes are stripped first so widget placeholders never leak into the
+     * answer text. Only headings that read as real questions are kept, which
+     * keeps the emitted schema clean for Google AI Overviews.
+     *
+     * @return array<int, array{@type: string, name: string, acceptedAnswer: array{@type: string, text: string}}>
+     */
+    public function getFaqSchemaData(): array
+    {
+        $content = \App\Services\ShortcodeParser::stripShortcodes((string) $this->content);
+
+        $faqs = [];
+
+        // HTML form: <h3>Question</h3> immediately followed by a <p>Answer</p>.
+        if (preg_match_all('/<h3[^>]*>(.*?)<\/h3>\s*<p[^>]*>(.*?)<\/p>/is', $content, $matches, PREG_SET_ORDER)) {
+            foreach ($matches as $match) {
+                $question = trim(strip_tags($match[1]));
+                $answer = trim(strip_tags($match[2]));
+
+                if ($this->isPlausibleFaqPair($question, $answer)) {
+                    $faqs[] = $this->faqEntry($question, $answer);
+                }
+            }
+        }
+
+        // Markdown form: "### Question" heading followed by paragraph line(s)
+        // until the next heading — used by compact/DB-seeded articles.
+        if ($faqs === []) {
+            $currentQuestion = null;
+            $answerParts = [];
+
+            $flushCurrent = function () use (&$faqs, &$currentQuestion, &$answerParts): void {
+                if ($currentQuestion === null) {
+                    return;
+                }
+
+                $answer = trim(implode(' ', $answerParts));
+
+                if ($this->isPlausibleFaqPair($currentQuestion, $answer)) {
+                    $faqs[] = $this->faqEntry($currentQuestion, $answer);
+                }
+
+                $currentQuestion = null;
+                $answerParts = [];
+            };
+
+            foreach (preg_split('/\R/u', $content) ?? [] as $line) {
+                $line = trim($line);
+
+                if (preg_match('/^#{2,3}\s+(.+)$/u', $line, $headingMatch)) {
+                    $flushCurrent();
+                    $currentQuestion = trim($headingMatch[1]);
+                    continue;
+                }
+
+                if ($currentQuestion !== null && $line !== '') {
+                    $answerParts[] = $line;
+                }
+            }
+
+            $flushCurrent();
+        }
+
+        // Google recommends capping FAQPage at ~10 questions per page.
+        return array_slice($faqs, 0, 10);
+    }
+
+    /**
+     * Build a single FAQPage Question/Answer node with sane length caps.
+     *
+     * @return array{@type: string, name: string, acceptedAnswer: array{@type: string, text: string}}
+     */
+    protected function faqEntry(string $question, string $answer): array
+    {
+        return [
+            '@type' => 'Question',
+            'name' => mb_strimwidth($question, 0, 150),
+            'acceptedAnswer' => [
+                '@type' => 'Answer',
+                'text' => mb_strimwidth($answer, 0, 500),
+            ],
+        ];
+    }
+
+    /**
+     * Only keep pairs where the heading genuinely reads as a question, so
+     * section headers like "المميزات الرئيسية" never become junk FAQ entries.
+     */
+    protected function isPlausibleFaqPair(string $question, string $answer): bool
+    {
+        $question = trim($question);
+        $answer = trim($answer);
+
+        if ($question === '' || $answer === '') {
+            return false;
+        }
+
+        return str_contains($question, '؟')
+            || str_contains($question, '?')
+            || str_starts_with($question, 'س:')
+            || str_starts_with($question, 'هل ')
+            || str_starts_with($question, 'ما ')
+            || str_starts_with($question, 'كيف')
+            || str_starts_with($question, 'لماذا')
+            || str_starts_with($question, 'إزاي');
     }
 
     public function product(): BelongsTo
@@ -57,5 +179,14 @@ class Article extends Model
         return $this->belongsToMany(Product::class, 'article_product')
             ->withPivot(['sort_order', 'badge_label', 'quick_verdict', 'specs_json', 'specs_markdown'])
             ->orderBy('article_product.sort_order');
+    }
+
+    protected static function booted(): void
+    {
+        static::saving(function (Article $article) {
+            if ($article->title !== null) {
+                $article->title = \App\Services\SEOHelper::cleanTitle((string) $article->title);
+            }
+        });
     }
 }

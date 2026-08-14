@@ -205,6 +205,7 @@ class Phase2AutomationTest extends TestCase
             ->assertHeaderContains('Content-Type', 'application/xml')
             ->assertSee('urlset', false)
             ->assertSee('/articles/'.$article->slug, false)
+            ->assertSee('/category/air-conditioners', false)
             ->assertSee('changefreq', false)
             ->assertSee('priority', false);
     }
@@ -232,6 +233,143 @@ class Phase2AutomationTest extends TestCase
         Queue::assertPushed(PurgeCloudflareCacheJob::class, function (PurgeCloudflareCacheJob $job) use ($article) {
             return collect($job->urls)->contains(fn (string $url) => str_contains($url, '/articles/'.$article->slug));
         });
+    }
+
+    public function test_sitemap_cache_is_invalidated_when_a_new_article_is_published(): void
+    {
+        $article = $this->seedArticle();
+
+        // Warm the 6-hour sitemap cache.
+        $this->get('/sitemap.xml')->assertSee('/articles/'.$article->slug, false);
+
+        // Publishing a brand-new article must drop the cached snapshot so the
+        // next request serves it immediately (was: stale for up to 6 hours).
+        $newArticle = Article::create([
+            'product_id' => $article->product_id,
+            'category_id' => $article->category_id,
+            'title' => 'مراجعة جديدة منشورة لتكيف',
+            'slug' => 'freshly-published-review',
+            'content' => '<p>محتوى مقال جديد</p>',
+            'is_published' => true,
+        ]);
+
+        $this->get('/sitemap.xml')
+            ->assertSee('/articles/freshly-published-review', false)
+            ->assertSee('/articles/'.$article->slug, false);
+
+        $this->assertTrue($newArticle->is_published);
+    }
+
+    public function test_sitemap_includes_product_images_for_google_images(): void
+    {
+        $article = $this->seedArticle();
+
+        Article::where('id', $article->id)->update(['is_published' => true]);
+        $article->product->update(['image_url' => 'https://img.example.com/ac-1.5hp.jpg']);
+
+        $this->get('/sitemap.xml')
+            ->assertOk()
+            ->assertSee('xmlns:image', false)
+            ->assertSee('<image:loc>https://img.example.com/ac-1.5hp.jpg</image:loc>', false);
+    }
+
+    public function test_bare_host_is_redirected_to_www_when_app_url_is_canonical(): void
+    {
+        // APP_URL carry the www prefix: bare-host visits must STILL 301 to www.
+        config(['app.url' => 'https://www.amanprice.tech']);
+
+        $this->withServerVariables([
+            'HTTP_HOST' => 'amanprice.tech',
+            'HTTPS' => 'on',
+            'SERVER_NAME' => 'amanprice.tech',
+        ])->get('/category/air-conditioners?deals=1')
+            ->assertRedirect('https://www.amanprice.tech/category/air-conditioners?deals=1')
+            ->assertStatus(301);
+    }
+
+    public function test_bare_host_is_redirected_to_www_when_app_url_is_apex(): void
+    {
+        // APP_URL without www: the canonical host must still be normalized to
+        // the www. subdomain before the 301 hop.
+        config(['app.url' => 'https://amanprice.tech']);
+
+        $this->withServerVariables([
+            'HTTP_HOST' => 'amanprice.tech',
+            'HTTPS' => 'on',
+        ])->get('/')
+            ->assertRedirect('https://www.amanprice.tech/')
+            ->assertStatus(301);
+    }
+
+    public function test_canonical_www_host_passes_through_without_redirect(): void
+    {
+        config(['app.url' => 'https://www.amanprice.tech']);
+
+        $this->withServerVariables([
+            'HTTP_HOST' => 'www.amanprice.tech',
+            'HTTP_X_FORWARDED_PROTO' => 'https',
+            'HTTP_X_FORWARDED_HOST' => 'www.amanprice.tech',
+        ])->get('/')
+            ->assertOk();
+    }
+
+    public function test_faq_schema_is_extracted_from_markdown_headings(): void
+    {
+        $article = $this->seedArticle();
+
+        $article->update([
+            'content' => <<<'MD'
+## جهاز
+
+### س: هل يدعم هذا الجهاز التدفئة؟
+
+لا، الجهاز بارد فقط ولا يملك وضع تدفئة شتوية.
+
+### لماذا يعتبر هذا الموديل اقتصادياً؟
+
+يستهلك طاقة أقل لأنه مزود بضاغط إنفرتر.
+
+[price]
+MD,
+        ]);
+
+        $faqs = $article->getFaqSchemaData();
+
+        $this->assertCount(2, $faqs);
+        $this->assertSame('س: هل يدعم هذا الجهاز التدفئة؟', $faqs[0]['name']);
+        $this->assertStringContainsString('لا، الجهاز بارد فقط', $faqs[0]['acceptedAnswer']['text']);
+        // Answer text must not leak the [price] shortcode.
+        $this->assertStringNotContainsString('[price]', $faqs[1]['acceptedAnswer']['text']);
+    }
+
+    public function test_faq_schema_supports_html_blocks_and_ignores_section_headings(): void
+    {
+        $article = $this->seedArticle();
+
+        $article->update([
+            'content' => '<h2>المميزات الرئيسية</h2><p>سرعة تبريد عالية وسعر اقتصادي.</p>'
+                .'<h3>س: ما مدة الضمان؟</h3><p>الضمان سنة كاملة من الوكيل.</p>',
+        ]);
+
+        $faqs = $article->getFaqSchemaData();
+
+        // The "المميزات الرئيسية" H2 must never become a junk FAQ entry.
+        $this->assertCount(1, $faqs);
+        $this->assertSame('س: ما مدة الضمان؟', $faqs[0]['name']);
+    }
+
+    public function test_article_page_renders_faqpage_json_ld_when_questions_exist(): void
+    {
+        $article = $this->seedArticle();
+
+        $article->update([
+            'content' => '### س: هل يدعم التقسيط؟'.PHP_EOL.PHP_EOL.'نعم، يدعم تقسيط 12 شهراً عبر البنوك.'.PHP_EOL,
+        ]);
+
+        $html = $this->get('/articles/'.$article->slug)->getContent();
+
+        $this->assertStringContainsString('FAQPage', $html);
+        $this->assertStringContainsString('"name":"س: هل يدعم التقسيط؟"', $html);
     }
 
     public function test_cloudflare_cache_service_skips_without_configuration(): void

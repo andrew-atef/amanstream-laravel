@@ -1,25 +1,29 @@
 <x-layouts.app
-    :meta-title="$article->meta_title ?: $article->title"
+    :meta-title="isset($article) ? \App\Services\SEOHelper::cleanTitle($article->meta_title ?: $article->title) : null"
     :meta-description="$article->meta_description"
-    :og-title="$article->title"
+    :og-title="isset($article) ? \App\Services\SEOHelper::cleanTitle($article->title) : null"
     :og-description="$article->meta_description"
     :og-image="$product?->image_url"
     og-type="article"
 >
     @push('schema')
         @php
-            $pageUrl = url()->current();
+            $seoHelper = \App\Services\SEOHelper::class;
+            $pageUrl = $seoHelper::canonical('articles/'.$article->slug);
+            $siteUrl = $seoHelper::url();
             $cleanContent = \App\Services\ShortcodeParser::stripShortcodes($article->content);
             $schemaDescription = $article->meta_description ?: Str::limit(strip_tags($cleanContent), 300);
             $shortDescription = $article->meta_description ?: Str::limit(strip_tags($cleanContent), 160);
+            $cleanProductTitle = $seoHelper::cleanTitle($product?->title ?? $article->title);
+            $cleanArticleTitle = $seoHelper::cleanTitle($article->title);
 
             $productSchema = $product ? [
                 '@context' => 'https://schema.org',
                 '@type' => 'Product',
-                'name' => $product->title,
-                'image' => $product->image_url ?: url('/favicon.svg'),
+                'name' => $cleanProductTitle,
+                'image' => $product->image_url ?: $siteUrl.'/favicon.svg',
                 'description' => $schemaDescription,
-                'brand' => ['@type' => 'Brand', 'name' => $product->brand ?: $product->title],
+                'brand' => ['@type' => 'Brand', 'name' => $product->brand ?: $cleanProductTitle],
                 'sku' => $product->asin,
                 'mpn' => $product->asin,
                 'offers' => [
@@ -78,15 +82,14 @@
                 ] : null,
             ] : null;
 
-            $siteUrl = url('/');
             $articleImageUrl = $product?->image_url ?: $siteUrl.'/favicon.svg';
-            $brandName = config('app.name', 'أمان ستريم');
+            $brandName = config('app.name', 'أمان برايس');
 
             $articleSchema = [
                 '@context' => 'https://schema.org',
                 '@type' => 'Article',
                 'mainEntityOfPage' => ['@type' => 'WebPage', '@id' => $pageUrl],
-                'headline' => $article->title,
+                'headline' => $cleanArticleTitle,
                 'description' => $shortDescription,
                 'image' => [$articleImageUrl],
                 'datePublished' => $article->created_at?->toIso8601String(),
@@ -109,15 +112,15 @@
             ];
 
             $categoryName = $product?->category?->name ?? 'مقالات';
-            $categoryUrl = $product?->category ? route('home', ['category' => $product->category->slug]) : url('/');
+            $categoryUrl = $product?->category ? route('categories.show', $product->category->slug) : $siteUrl;
 
             $breadcrumbSchema = [
                 '@context' => 'https://schema.org',
                 '@type' => 'BreadcrumbList',
                 'itemListElement' => [
-                    ['@type' => 'ListItem', 'position' => 1, 'name' => 'الرئيسية', 'item' => url('/')],
+                    ['@type' => 'ListItem', 'position' => 1, 'name' => 'الرئيسية', 'item' => $siteUrl],
                     ['@type' => 'ListItem', 'position' => 2, 'name' => $categoryName, 'item' => $categoryUrl],
-                    ['@type' => 'ListItem', 'position' => 3, 'name' => $article->title, 'item' => $pageUrl],
+                    ['@type' => 'ListItem', 'position' => 3, 'name' => $cleanArticleTitle, 'item' => $pageUrl],
                 ],
             ];
 
@@ -132,23 +135,24 @@
             $itemListSchema = $listicleItems->count() >= 2 ? [
                 '@context' => 'https://schema.org',
                 '@type' => 'ItemList',
-                'name' => $article->title,
+                'name' => $cleanArticleTitle,
                 'itemListOrder' => 'https://schema.org/ItemListOrderAscending',
                 'numberOfItems' => $listicleItems->count(),
                 'itemListElement' => $listicleItems->map(function ($row, $index) {
                     $product = $row->product;
+                    $cleanProductTitle = \App\Services\SEOHelper::cleanTitle((string) $product->title);
 
                     return [
                         '@type' => 'ListItem',
                         'position' => $index + 1,
-                        'name' => $product->title,
+                        'name' => $cleanProductTitle,
                         'url' => $product->affiliate_url,
-                        'image' => $product->image_url ?: url('/favicon.svg'),
+                        'image' => $product->image_url ?: \App\Services\SEOHelper::url('favicon.svg'),
                         'item' => [
                             '@type' => 'Product',
-                            'name' => $product->title,
+                            'name' => $cleanProductTitle,
                             'sku' => $product->asin,
-                            'brand' => ['@type' => 'Brand', 'name' => $product->brand ?: $product->title],
+                            'brand' => ['@type' => 'Brand', 'name' => $product->brand ?: $cleanProductTitle],
                             'offers' => [
                                 '@type' => 'Offer',
                                 'url' => $product->affiliate_url,
@@ -171,6 +175,13 @@
         @if ($itemListSchema)
             <script type="application/ld+json">{!! json_encode($itemListSchema, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
         @endif
+        @if (! empty($faqSchema = $article->getFaqSchemaData()))
+            <script type="application/ld+json">{!! json_encode([
+                '@context' => 'https://schema.org',
+                '@type' => 'FAQPage',
+                'mainEntity' => $faqSchema,
+            ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
+        @endif
     @endpush
 
     <article class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-10">
@@ -178,14 +189,14 @@
             <ol class="flex flex-wrap items-center gap-1">
                 <li><a href="/" class="hover:text-primary-600">الرئيسية</a></li>
                 @if ($product?->category)
-                    <li><span aria-hidden="true">/</span> <a href="{{ route('home', ['category' => $product->category->slug]) }}" class="hover:text-primary-600">{{ $product->category->name }}</a></li>
+                    <li><span aria-hidden="true">/</span> <a href="{{ route('categories.show', $product->category->slug) }}" class="hover:text-primary-600">{{ $product->category->name }}</a></li>
                 @endif
-                <li aria-current="page"><span aria-hidden="true">/</span> <span class="text-ink">{{ $article->title }}</span></li>
+                <li aria-current="page"><span aria-hidden="true">/</span> <span class="text-ink">{{ \App\Services\SEOHelper::cleanTitle($article->title) }}</span></li>
             </ol>
         </nav>
 
         <header class="mb-8 border-b border-slate-100 pb-6">
-            <h1 class="text-3xl font-black leading-snug text-ink sm:text-4xl">{{ $article->title }}</h1>
+            <h1 class="text-3xl font-black leading-snug text-ink sm:text-4xl">{{ \App\Services\SEOHelper::cleanTitle($article->title) }}</h1>
 
             <div class="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 text-xs font-medium sm:text-sm">
                 <span class="inline-flex items-center gap-1.5 rounded-full bg-primary-50 border border-primary-200 px-3 py-1 text-primary-700">
@@ -194,7 +205,7 @@
                 </span>
                 <span class="inline-flex items-center gap-1.5 text-slate-500">
                     <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                    مراجعة: فريق أمان ستريم
+                    مراجعة: فريق {{ config('app.name', 'أمان برايس') }}
                 </span>
             </div>
 
@@ -204,7 +215,7 @@
                         @if ($product->image_url)
                             <img
                                 src="{{ $product->image_url }}"
-                                alt="{{ $product->title }}"
+                                alt="{{ \App\Services\SEOHelper::cleanTitle($product->title) }}"
                                 width="80"
                                 height="80"
                                 fetchpriority="high"
@@ -213,7 +224,7 @@
                             >
                         @endif
                         <div class="min-w-0 flex-1">
-                            <div class="font-bold text-ink">{{ $product->title }}</div>
+                            <div class="font-bold text-ink">{{ \App\Services\SEOHelper::cleanTitle($product->title) }}</div>
                             <div class="mt-1 text-sm text-slate-500">
                                 {{ $product->brand }} · ASIN: {{ $product->asin }}
                             </div>
@@ -289,7 +300,7 @@
                     @if ($product->image_url)
                         <img
                             src="{{ $product->image_url }}"
-                            alt="{{ $product->title }}"
+                            alt="{{ \App\Services\SEOHelper::cleanTitle($product->title) }}"
                             width="40"
                             height="40"
                             loading="lazy"
@@ -297,7 +308,7 @@
                         >
                     @endif
                     <div class="min-w-0 flex-1">
-                        <div class="truncate text-xs font-bold text-ink">{{ $product->title }}</div>
+                        <div class="truncate text-xs font-bold text-ink">{{ \App\Services\SEOHelper::cleanTitle($product->title) }}</div>
                         <div class="truncate">
                             @if ($hasDiscount)
                                 <span class="text-xs font-semibold text-slate-500 line-through">{{ number_format($showOriginal, 2) }} ج.م</span>

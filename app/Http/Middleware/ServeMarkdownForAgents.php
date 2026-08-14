@@ -156,7 +156,7 @@ class ServeMarkdownForAgents
 
     private function renderHome(): string
     {
-        $siteName = config('app.name', 'أمان ستريم');
+        $siteName = config('app.name', 'أمان برايس');
         $siteUrl = url('/');
 
         $articles = Article::query()

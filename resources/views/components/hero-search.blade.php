@@ -1,15 +1,18 @@
 @props([
     'searchQuery' => null,
     'dealsOnly' => false,
+    'selectedCategory' => null,
 ])
 
 <section class="-mx-4 -mt-8 mb-8 bg-[#0f172a] px-4 py-10 text-white shadow-md sm:-mx-6 sm:px-8 lg:-mx-8">
     <div class="mx-auto max-w-4xl text-center">
         <h1 class="text-2xl font-black leading-tight sm:text-4xl">
-            ابحث عن مواصفات وأسعار الأجهزة في مصر
+            {{ $selectedCategory ? $selectedCategory->name : 'ابحث عن مواصفات وأسعار الأجهزة في مصر' }}
         </h1>
         <p class="mt-2 text-xs text-mist sm:text-sm">
-            مقارنات دقيقة، أسعار يومية، وحاسبة التقسيط الأمان على أمازون مصر
+            {{ $selectedCategory
+                ? trim((string) $selectedCategory->description) ?: 'مراجعات ومقارنات محدثة يومياً من أمازون مصر'
+                : 'مقارنات دقيقة، أسعار يومية، وحاسبة التقسيط الأمان على أمازون مصر' }}
         </p>
 
         <!-- Search Bar -->

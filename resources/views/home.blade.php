@@ -1,8 +1,11 @@
 @php
-    // Search, category-filter, deals and paginated views are near-duplicates
-    // of the canonical homepage — keep crawlers from splitting index equity.
-    $isFilteredView = $searchQuery !== '' || $selectedCategory !== null || $dealsOnly || request()->has('page');
-    $robotsMeta = $isFilteredView ? 'noindex, follow' : 'index, follow';
+    $categoryPage ??= false;
+    // Clean /category/{slug} pages are indexable Category Hubs. Search, deals,
+    // legacy `?category=` filtering and pagination stay noindex (near-duplicates
+    // of the canonical homepage — don't split index equity).
+    $robotsMeta = ($searchQuery !== '' || $dealsOnly || (! $categoryPage && $selectedCategory !== null) || request()->has('page'))
+        ? 'noindex, follow'
+        : 'index, follow';
 @endphp
 
 <x-layouts.app
@@ -10,15 +13,15 @@
 >
     @push('schema')
         @php
-            $siteUrl = url('/');
-            $brandName = config('app.name', 'أمان ستريم');
+            $siteUrl = \App\Services\SEOHelper::url();
+            $brandName = config('app.name', 'أمان برايس');
 
             // Schema التعريف بالموقع ومربع البحث الفوري داخل جوجل
             $websiteSchema = [
                 '@context' => 'https://schema.org',
                 '@type' => 'WebSite',
                 'name' => $brandName,
-                'alternateName' => 'AmanStream Egypt',
+                'alternateName' => 'AmanPrice Egypt',
                 'url' => $siteUrl,
                 'potentialAction' => [
                     '@type' => 'SearchAction',
@@ -32,10 +35,24 @@
         @endphp
 
         <script type="application/ld+json">{!! json_encode($websiteSchema, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
+
+        @if ($categoryPage && $selectedCategory)
+            @php
+                $breadcrumbCategorySchema = [
+                    '@context' => 'https://schema.org',
+                    '@type' => 'BreadcrumbList',
+                    'itemListElement' => [
+                        ['@type' => 'ListItem', 'position' => 1, 'name' => 'الرئيسية', 'item' => $siteUrl],
+                        ['@type' => 'ListItem', 'position' => 2, 'name' => $selectedCategory->name, 'item' => route('categories.show', $selectedCategory->slug)],
+                    ],
+                ];
+            @endphp
+            <script type="application/ld+json">{!! json_encode($breadcrumbCategorySchema, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
+        @endif
     @endpush
 
     <!-- 1. Hero Search Banner -->
-    <x-hero-search :search-query="$searchQuery" :deals-only="$dealsOnly" />
+    <x-hero-search :search-query="$searchQuery" :deals-only="$dealsOnly" :selected-category="$categoryPage ? $selectedCategory : null" />
 
     <!-- 2. Top Deals Slider -->
     @if ($topDeals->isNotEmpty() && ! $searchQuery && ! $selectedCategory)
@@ -91,7 +108,17 @@
                 <div class="flex flex-wrap items-center gap-2">
                     <span>تم العثور على <strong>{{ $articles->total() }}</strong> مراجعة محدثة</span>
                     <span class="text-slate-500">|</span>
-                    <a href="{{ $dealsOnly ? route('home', array_filter(request()->except(['deals']))) : route('home', array_merge(array_filter(request()->only(['q', 'category'])), ['deals' => 1])) }}"
+                    @php
+                        // Deals toggle preserves the current clean path (home or
+                        // /category/{slug}) while only flipping the deals flag.
+                        $dealsToggleHref = $dealsOnly
+                            ? request()->fullUrlWithoutQuery(['deals', 'page'])
+                            : url(request()->path().'?'.http_build_query(array_merge(
+                                array_filter(request()->except(['deals', 'page', 'category'])),
+                                ['deals' => 1]
+                            )));
+                    @endphp
+                    <a href="{{ $dealsToggleHref }}"
                        class="inline-flex items-center gap-1 rounded-lg px-2.5 py-1 font-bold transition {{ $dealsOnly ? 'bg-primary-600 text-white shadow-sm' : 'border border-primary-200 bg-primary-50 text-primary-600 hover:bg-primary-100' }}">
                         العروض فقط
                         @if ($dealsOnly)

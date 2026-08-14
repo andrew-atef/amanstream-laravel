@@ -9,6 +9,9 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
 
+// Clean, crawlable category hub URLs (replaces the faceted `?category=` links).
+Route::get('/category/{slug}', [HomeController::class, 'index'])->name('categories.show');
+
 Route::get('/about', function () {
     return view('about');
 })->name('about');

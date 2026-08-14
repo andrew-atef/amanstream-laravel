@@ -11,7 +11,11 @@ class HomeController extends Controller
     public function index(Request $request)
     {
         $search = trim($request->query('q'));
-        $categorySlug = $request->query('category');
+        // Category hub pages use the clean /category/{slug} route; `?category=`
+        // remains supported for backwards-compat (old indexed URLs / quick links).
+        $categorySlug = $request->route('slug') ?? $request->query('category') ?? null;
+        $categoryPage = $request->route('slug') !== null;
+
         $dealsOnly = $request->boolean('deals', false);
 
         $query = Article::query()
@@ -57,20 +61,21 @@ class HomeController extends Controller
         $totalArticlesCount = Article::where('is_published', true)->count();
         $selectedCategory = $categorySlug ? Category::where('slug', $categorySlug)->first() : null;
 
-        // Top 8 deals: published + in-stock discounts, strongest % first.
+        // Top 8 deals: ranking and limit computed 100% inside the SQL engine
+        // (join + discount_percentage alias), so we never hydrate every deal
+        // article into RAM on a 2,000+ article catalog.
         $topDeals = Article::query()
+            ->join('products', 'articles.product_id', '=', 'products.id')
+            ->where('articles.is_published', true)
+            ->where('products.in_stock', true)
+            ->where('products.original_price', '>', 0)
+            ->whereColumn('products.original_price', '>', 'products.price')
             ->with(['category', 'product', 'products'])
-            ->where('is_published', true)
-            ->whereHas('product', function ($query) {
-                $query->where('in_stock', true)
-                    ->whereColumn('original_price', '>', 'price');
-            })
-            ->get()
-            ->sortByDesc(fn (Article $article) => $article->product && (float) $article->product->original_price > 0
-                ? (((float) $article->product->original_price - (float) $article->product->price) / (float) $article->product->original_price) * 100
-                : 0)
+            ->select('articles.*')
+            ->selectRaw('((products.original_price - products.price) / products.original_price) * 100 as discount_percentage')
+            ->orderByDesc('discount_percentage')
             ->take(8)
-            ->values();
+            ->get();
 
         return view('home', [
             'articles' => $articles,
@@ -80,6 +85,7 @@ class HomeController extends Controller
             'searchQuery' => $search,
             'dealsOnly' => $dealsOnly,
             'topDeals' => $topDeals,
+            'categoryPage' => $categoryPage,
         ]);
     }
 }

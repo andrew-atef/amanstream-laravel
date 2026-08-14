@@ -6,6 +6,7 @@ use App\Jobs\PurgeCloudflareCacheJob;
 use App\Jobs\UploadProductImageToR2Job;
 use App\Models\Article;
 use App\Models\Product;
+use Illuminate\Support\Facades\Cache;
 
 class ProductObserver
 {
@@ -56,6 +57,11 @@ class ProductObserver
         if (! $this->hasCoreAttributeChanged($product) && ! $imageChanged) {
             return;
         }
+
+        // Touching article `updated_at` changes the sitemap's per-article and
+        // per-category `lastmod`, so the 6-hour cached XML must be dropped here
+        // too — otherwise Google reads stale freshness hints until expiry.
+        Cache::forget('sitemap_xml_content');
 
         $urls = $this->siteUrls();
 
