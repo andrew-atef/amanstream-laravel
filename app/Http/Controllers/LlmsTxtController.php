@@ -7,13 +7,13 @@ use App\Models\Article;
 /**
  * llms.txt — the machine-readable index of the site for LLMs / AI agents.
  * Follows the llms.txt spec (https://llmstxt.org): a Markdown file of key
- * links and context, served at https://amanprice.tech/llms.txt.
+ * links and context, served at https://amanstream.me/llms.txt.
  */
 class LlmsTxtController extends Controller
 {
     public function index()
     {
-        $siteName = config('app.name', 'أمان برايس').'';
+        $siteName = config('app.name', 'أمان ستريم').'';
         $siteUrl = url('/');
 
         $articles = Article::query()

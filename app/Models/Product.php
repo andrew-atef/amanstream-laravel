@@ -150,28 +150,29 @@ class Product extends Model
     }
 
     /**
-     * Log a price snapshot ONLY when the price actually changed (or when we
-     * have no cached history yet). While doing so it updates the memoized
-     * lowest_price / highest_price columns and rolls the compact
-     * price_history_json cache window forward — all inside the caller's
-     * single product UPDATE, keeping the DB ultra-lightweight.
+     * Log a price snapshot ONLY when the price actually changed on a buyable item.
+     * Maintains ready-made lowest_price, highest_price, and compact price_history_json.
      */
     public function recordPriceHistory(float $livePrice, ?CarbonInterface $when = null, ?float $previousPrice = null): void
     {
-        // A zero or negative snapshot is never a real price — it normally means
-        // the scraper/import failed. Recording it would permanently floor the
-        // lowest_price column (0.00 is string-truthy in PHP, defeating `?:`).
+        // A zero or negative snapshot is never a real sellable price. Callers
+        // already guard on that, but keep the model self-defending so a 0.00
+        // can never permanently floor the recorded range.
         if ($livePrice <= 0) {
             return;
         }
 
         $when ??= now();
         $previousPrice ??= (float) $this->price;
+        $points = (array) ($this->price_history_json ?? []);
 
-        $points = (array) $this->price_history_json;
+        // If first time recording, push previous price snapshot if valid
+        if (empty($points) && $previousPrice > 0 && abs($previousPrice - $livePrice) >= 0.01) {
+            $points[] = ['p' => $previousPrice, 'd' => $when->subDay()->format('d/m')];
+        }
 
-        // Golden rule #1 — zero rows when the price did not move.
-        if (abs($previousPrice - $livePrice) < 0.01 && $points !== []) {
+        // Ignore micro floating-point noise
+        if (abs($previousPrice - $livePrice) < 0.01 && ! empty($points)) {
             return;
         }
 
@@ -181,71 +182,85 @@ class Product extends Model
             'recorded_at' => $when,
         ]);
 
-        // Golden rule #2 — maintain ready-made range columns incrementally.
-        // A stored 0.00 (string-truthy) is treated as poison and replaced by the
-        // real snapshot so legacy records self-heal on the next price change.
-        $this->lowest_price = (float) ($this->lowest_price ?? 0) > 0 && (float) $this->lowest_price <= $livePrice
-            ? $this->lowest_price
-            : $livePrice;
-
-        $this->highest_price = (float) ($this->highest_price ?? 0) > 0 && (float) $this->highest_price >= $livePrice
-            ? $this->highest_price
-            : $livePrice;
-
-        // Roll the compact JSON window forward (max 10 points).
         $points[] = ['p' => $livePrice, 'd' => $when->format('d/m')];
+        $compactPoints = array_slice($points, -10);
 
-        $this->price_history_json = array_slice($points, -10);
+        $prices = array_column($compactPoints, 'p');
+
+        $this->lowest_price = ! empty($prices) ? min($prices) : $livePrice;
+        $this->highest_price = ! empty($prices) ? max($prices) : $livePrice;
+        $this->price_history_json = $compactPoints;
     }
 
     /**
-     * Pre-calculated lowest recorded EGP price bounded safely by current price.
+     * Compact price_history_json cache window decoded for views & charts.
+     *
+     * @return array<int, array{date: string, price: float}>
+     */
+    public function getPriceHistoryPoints(): array
+    {
+        $points = (array) ($this->price_history_json ?? []);
+
+        return array_map(
+            fn (array $point): array => [
+                'date' => (string) ($point['d'] ?? ''),
+                'price' => (float) ($point['p'] ?? 0),
+            ],
+            $points
+        );
+    }
+
+    /**
+     * Real lowest recorded selling price pulled strictly from actual tracked history points.
      */
     public function getLowestRecordedPrice(): float
     {
         $current = (float) $this->price;
+        $points = $this->getPriceHistoryPoints();
 
-        if ($current <= 0) {
-            return 0;
+        if (empty($points)) {
+            $cached = (float) $this->lowest_price;
+
+            return $cached > 0 ? $cached : $current;
         }
 
-        // lowest_price is a decimal:2 column → comes back as the STRING "0.00",
-        // which is truthy in PHP and would defeat `?:`. Compare numerically so a
-        // zero snapshot can never leak through as "lowest = 0".
-        $lowest = (float) $this->lowest_price;
-
-        if ($lowest <= 0) {
-            $lowest = $current;
+        $prices = array_column($points, 'price');
+        if ($current > 0) {
+            $prices[] = $current;
         }
 
-        // Guarantees lowest recorded is NEVER higher than current live price.
-        return min($lowest, $current);
+        $valid = array_filter($prices, fn ($p) => $p > 0);
+
+        return ! empty($valid) ? min($valid) : $current;
     }
 
     /**
-     * Pre-calculated highest recorded EGP price bounded safely by original price or historical max.
+     * Real highest recorded selling price pulled strictly from actual tracked history points.
+     * Never mixes with Amazon list price (original_price) to prevent data mismatch.
      */
     public function getHighestRecordedPrice(): float
     {
         $current = (float) $this->price;
-        $original = (float) ($this->original_price ?? 0);
-        // highest_price is decimal:2 → string "0.00" is truthy in PHP; compare
-        // numerically so a zero snapshot never becomes the recorded high.
-        $highest = (float) $this->highest_price;
+        $points = $this->getPriceHistoryPoints();
 
-        if ($highest <= 0) {
-            $highest = max($original, $current * 1.12);
+        if (empty($points)) {
+            $cached = (float) $this->highest_price;
+
+            return $cached > 0 ? $cached : $current;
         }
 
-        // Guarantees highest recorded is NEVER lower than current or original price.
-        return round(max($highest, $current, $original), 2);
+        $prices = array_column($points, 'price');
+        if ($current > 0) {
+            $prices[] = $current;
+        }
+
+        $valid = array_filter($prices, fn ($p) => $p > 0);
+
+        return ! empty($valid) ? max($valid) : $current;
     }
 
     /**
-     * Classify the current price against the cached historical range.
-     * Pure in-memory — executes zero additional queries.
-     *
-     * @return array{status: 'excellent'|'fair'|'high', label: string, color: 'emerald'|'sky'|'rose'}
+     * Classify current price status against real historical tracked selling range.
      */
     public function getPriceStatus(): array
     {
@@ -256,7 +271,7 @@ class Product extends Model
         if ($current <= 0) {
             return [
                 'status' => 'fair',
-                'label' => 'السعر قيد التحديث',
+                'label' => 'السعر قيد التحديث ⏳',
                 'color' => 'sky',
             ];
         }
@@ -264,42 +279,23 @@ class Product extends Model
         if (abs($current - $lowest) < 0.01) {
             return [
                 'status' => 'excellent',
-                'label' => 'أفضل سعر سُجِّل حتى الآن',
+                'label' => 'أفضل سعر سُجِّل حتى الآن 🔥',
                 'color' => 'emerald',
             ];
         }
 
-        if ($current >= $highest * 0.95) {
+        if (abs($current - $highest) < 0.01 && $highest > $lowest) {
             return [
                 'status' => 'high',
-                'label' => 'سعر مرتفع نسبياً',
+                'label' => 'سعر مرتفع نسبياً ⚠️',
                 'color' => 'rose',
             ];
         }
 
         return [
             'status' => 'fair',
-            'label' => 'سعر متوازن للشراء',
+            'label' => 'سعر متوازن للشراء ⚖️',
             'color' => 'sky',
         ];
-    }
-
-    /**
-     * The compact price_history_json cache decoded into chart-ready points
-     * (oldest first). Pure in-memory — executes zero additional queries.
-     *
-     * @return array<int, array{date: string, price: float}>
-     */
-    public function getPriceHistoryPoints(): array
-    {
-        return collect((array) $this->price_history_json)
-            // Zero/negative snapshots are scraper/import artifacts, never prices.
-            ->filter(fn (array $point): bool => (float) ($point['p'] ?? 0) > 0)
-            ->map(fn (array $point): array => [
-                'date' => (string) ($point['d'] ?? ''),
-                'price' => (float) ($point['p'] ?? 0),
-            ])
-            ->values()
-            ->all();
     }
 }

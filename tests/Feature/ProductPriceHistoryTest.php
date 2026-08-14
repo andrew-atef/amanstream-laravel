@@ -78,16 +78,20 @@ final class ProductPriceHistoryTest extends TestCase
     }
 
     #[Test]
-    public function it_falls_back_to_sensible_prices_when_no_cache_exists(): void
+    public function it_falls_back_to_current_price_when_no_history_exists(): void
     {
+        // With zero tracked points there is NO previous sale to point at, so
+        // both recorded-range helpers return the live price — never the Amazon
+        // list/MSRP (original_price) that used to inflate "أعلى سعر سُجِّل".
         $product = $this->makeProduct(['price' => 10000.00, 'original_price' => 12500.00]);
 
         $this->assertSame(10000.0, $product->getLowestRecordedPrice());
-        $this->assertSame(12500.0, $product->getHighestRecordedPrice());
+        $this->assertSame(10000.0, $product->getHighestRecordedPrice());
 
         $noOriginal = $this->makeProduct(['price' => 10000.00, 'original_price' => null]);
 
-        $this->assertSame(11200.0, $noOriginal->getHighestRecordedPrice());
+        $this->assertSame(10000.0, $noOriginal->getLowestRecordedPrice());
+        $this->assertSame(10000.0, $noOriginal->getHighestRecordedPrice());
     }
 
     #[Test]
@@ -103,7 +107,7 @@ final class ProductPriceHistoryTest extends TestCase
         ]);
 
         $this->assertSame(23799.0, $product->getLowestRecordedPrice());
-        $this->assertSame(26654.88, $product->getHighestRecordedPrice());
+        $this->assertSame(23799.0, $product->getHighestRecordedPrice());
 
         // A zero snapshot is never written to history or the JSON window.
         $product->recordPriceHistory(0);
@@ -111,13 +115,16 @@ final class ProductPriceHistoryTest extends TestCase
         $product->save();
 
         $this->assertSame(1, ProductPriceHistory::query()->where('product_id', $product->id)->count());
-        $this->assertSame(28899.0, (float) $product->lowest_price);
+        // The previous price (23799) is seeded as the baseline point, so the
+        // recorded range reflects only real historical snapshots.
+        $this->assertSame(23799.0, (float) $product->lowest_price);
         $this->assertSame(28899.0, (float) $product->highest_price);
-        $this->assertSame(28899.0, (float) $product->price_history_json[0]['p']);
+        $this->assertSame(23799.0, (float) $product->price_history_json[0]['p']);
+        $this->assertSame(28899.0, (float) $product->price_history_json[1]['p']);
     }
 
     #[Test]
-    public function it_filters_zero_points_out_of_the_chart_data(): void
+    public function it_keeps_legacy_zero_points_out_of_the_recorded_range(): void
     {
         $product = $this->makeProduct([
             'price' => 23799.00,
@@ -127,11 +134,16 @@ final class ProductPriceHistoryTest extends TestCase
             ],
         ]);
 
+        // The chart renders the raw cached window as-is (source of truth).
         $points = $product->getPriceHistoryPoints();
 
-        $this->assertCount(1, $points);
-        $this->assertSame(23799.0, $points[0]['price']);
-        $this->assertSame('09/08', $points[0]['date']);
+        $this->assertCount(2, $points);
+        $this->assertSame(23799.0, $points[1]['price']);
+        $this->assertSame('09/08', $points[1]['date']);
+
+        // But recorded min/max helpers always filter legacy zero points out.
+        $this->assertSame(23799.0, $product->getLowestRecordedPrice());
+        $this->assertSame(23799.0, $product->getHighestRecordedPrice());
     }
 
     #[Test]
@@ -146,7 +158,7 @@ final class ProductPriceHistoryTest extends TestCase
         $this->assertSame('excellent', $product->getPriceStatus()['status']);
         $this->assertSame('emerald', $product->getPriceStatus()['color']);
 
-        $product->update(['price' => 23500.00]);
+        $product->update(['price' => 24000.00]);
 
         $this->assertSame('high', $product->getPriceStatus()['status']);
         $this->assertSame('rose', $product->getPriceStatus()['color']);
@@ -174,7 +186,9 @@ final class ProductPriceHistoryTest extends TestCase
         $this->assertCount(10, $product->price_history_json);
         $this->assertSame(300.0, (float) $product->price_history_json[0]['p']);
         $this->assertSame(1200.0, (float) $product->price_history_json[9]['p']);
-        $this->assertSame(100.0, (float) $product->lowest_price);
+        // lowest/highest are recomputed strictly from the last-ten window so
+        // the table numbers always match the visible chart points.
+        $this->assertSame(300.0, (float) $product->lowest_price);
         $this->assertSame(1200.0, (float) $product->highest_price);
     }
 
@@ -199,9 +213,9 @@ final class ProductPriceHistoryTest extends TestCase
         ]);
 
         $product->refresh();
-        $this->assertSame(18521.0, (float) $product->lowest_price);
+        $this->assertSame(1000.0, (float) $product->lowest_price);
         $this->assertSame(18521.0, (float) $product->highest_price);
-        $this->assertCount(1, $product->price_history_json);
+        $this->assertCount(2, $product->price_history_json);
 
         // Identical price on the next sync → zero new history rows.
         $this->postJson('/api/v1/catalog/sync-results', [
@@ -227,7 +241,7 @@ final class ProductPriceHistoryTest extends TestCase
 
         $product->refresh();
         $this->assertSame(2, ProductPriceHistory::query()->where('product_id', $product->id)->count());
-        $this->assertSame(18000.0, (float) $product->lowest_price);
+        $this->assertSame(1000.0, (float) $product->lowest_price);
         $this->assertSame(18521.0, (float) $product->highest_price);
     }
 
@@ -267,7 +281,7 @@ final class ProductPriceHistoryTest extends TestCase
         $html = $this->get('/articles/'.$article->slug)->getContent();
 
         $this->assertStringNotContainsString('[price_history]', $html);
-        $this->assertStringContainsString('مؤشر أمان برايس لتاريخ السعر', $html);
+        $this->assertStringContainsString('مؤشر أمان برايس لتاريخ السعر (كان بكام)', $html);
         $this->assertStringContainsString('أقل سعر سُجِّل', $html);
         $this->assertStringContainsString('السعر الحالي اليوم', $html);
         $this->assertStringContainsString('أعلى سعر سُجِّل', $html);

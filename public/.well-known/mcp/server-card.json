@@ -1,16 +1,16 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/v1/server-card.schema.json",
-  "name": "com.amanprice/main",
-  "title": "AmanPrice",
-  "description": "Deals and offers catalog for AmanPrice.",
+  "name": "com.amanstream/main",
+  "title": "AmanStream",
+  "description": "Deals and offers catalog for AmanStream.",
   "version": "1.0.0",
   "serverInfo": {
-    "name": "amanprice",
+    "name": "amanstream",
     "version": "1.0.0"
   },
   "endpoint": {
     "type": "streamable-http",
-    "url": "https://amanprice.tech/mcp"
+    "url": "https://amanstream.me/mcp"
   },
   "capabilities": {
     "tools": {},
@@ -20,7 +20,7 @@
   "remotes": [
     {
       "type": "streamable-http",
-      "url": "https://amanprice.tech/mcp",
+      "url": "https://amanstream.me/mcp",
       "supportedProtocolVersions": ["2025-03-26", "2025-06-18"]
     }
   ]

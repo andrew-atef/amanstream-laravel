@@ -41,7 +41,7 @@
                 <a href="{{ route('sitemap') }}" class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-primary-200 bg-primary-50 px-6 py-3 text-sm font-bold text-primary-700 transition hover:bg-primary-100 sm:w-auto">
                     استعرض كل المراجعات
                 </a>
-                <a href="mailto:contact@amanprice.tech" class="inline-flex w-full items-center justify-center gap-2 rounded-xl px-6 py-3 text-sm font-bold text-ink/70 transition hover:text-primary-700 sm:w-auto">
+                <a href="mailto:contact@amanstream.me" class="inline-flex w-full items-center justify-center gap-2 rounded-xl px-6 py-3 text-sm font-bold text-ink/70 transition hover:text-primary-700 sm:w-auto">
                     تواصل معنا
                 </a>
             </div>

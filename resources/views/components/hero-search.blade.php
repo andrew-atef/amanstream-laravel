@@ -6,10 +6,10 @@
 <section class="-mx-4 -mt-8 mb-8 bg-[#0f172a] px-4 py-10 text-white shadow-md sm:-mx-6 sm:px-8 lg:-mx-8">
     <div class="mx-auto max-w-4xl text-center">
         <h1 class="text-2xl font-black leading-tight sm:text-4xl">
-            أسعار ومراجعات ومقارنات الأجهزة المنزلية في مصر
+            ابحث عن مواصفات وأسعار الأجهزة في مصر
         </h1>
         <p class="mt-2 text-xs text-mist sm:text-sm">
-            مقارنات دقيقة على أمازون مصر، أسعار يومية محدثة، وحاسبة تقسيط البنوك
+            مقارنات دقيقة، أسعار يومية، وحاسبة التقسيط الأمان على أمازون مصر
         </p>
 
         <!-- Search Bar -->
@@ -17,8 +17,8 @@
             action="{{ route('home') }}"
             method="GET"
             class="mt-6 flex flex-col gap-2 sm:flex-row sm:items-center"
-            toolname="amanprice_search"
-            tooldescription="Search AmanPrice (amanprice.tech) for Egyptian appliance prices, reviews and bank-installment comparisons on Amazon Egypt."
+            toolname="amanstream_search"
+            tooldescription="Search AmanStream (amanstream.me) for Egyptian appliance prices, reviews and bank-installment comparisons on Amazon Egypt."
         >
             @if (request('category'))
                 <input type="hidden" name="category" value="{{ request('category') }}">

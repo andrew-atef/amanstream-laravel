@@ -19,7 +19,6 @@ class SitemapController extends Controller
             // Static pages.
             $static = [
                 ['loc' => route('home'), 'lastmod' => now(), 'changefreq' => 'daily', 'priority' => '1.0'],
-                ['loc' => route('about'), 'lastmod' => now(), 'changefreq' => 'monthly', 'priority' => '0.5'],
             ];
 
             foreach ($static as $entry) {

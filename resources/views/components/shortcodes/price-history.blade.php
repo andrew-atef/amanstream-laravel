@@ -4,13 +4,15 @@
 
 @php
     $current = (float) ($product?->price ?? 0);
-    $lowest = $product?->getLowestRecordedPrice() ?? 0;
-    $highest = $product?->getHighestRecordedPrice() ?? 0;
     $points = $product?->getPriceHistoryPoints() ?? [];
+
+    $lowest = $product?->getLowestRecordedPrice() ?? $current;
+    $highest = $product?->getHighestRecordedPrice() ?? $current;
 
     $lowestDate = 'اليوم';
     $highestDate = 'اليوم';
 
+    // Match dates strictly against recorded history points
     foreach ($points as $point) {
         if (abs((float) $point['price'] - $lowest) < 0.01) {
             $lowestDate = $point['date'];
@@ -20,6 +22,7 @@
         }
     }
 
+    // Discount percentage vs highest recorded selling price
     $discountVsMax = $highest > $current && $highest > 0
         ? (int) round((1 - $current / $highest) * 100)
         : 0;
@@ -27,7 +30,7 @@
 
 <div class="my-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm" dir="rtl">
     <div class="border-b border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-ink">
-        مؤشر أمان برايس لتاريخ السعر
+        مؤشر أمان برايس لتاريخ السعر (كان بكام)
     </div>
 
     <table class="w-full text-right text-sm">
@@ -40,7 +43,7 @@
             <tr class="bg-primary-50/70">
                 <th class="px-4 py-2.5 font-bold text-ink">السعر الحالي اليوم</th>
                 <td class="px-4 py-2.5 text-left text-lg font-black text-primary-700">{{ number_format($current, 2) }} <span class="text-xs font-normal text-slate-500">ج.م</span></td>
-                <td class="px-4 py-2.5 whitespace-nowrap text-left text-xs font-bold text-primary-600">{{ $discountVsMax > 0 ? "خصم {$discountVsMax}%" : '—' }}</td>
+                <td class="px-4 py-2.5 whitespace-nowrap text-left text-xs font-bold text-primary-600">{{ $discountVsMax > 0 ? "خصم {$discountVsMax}% عن أعلى سعر" : 'أفضل سعر 🔥' }}</td>
             </tr>
             <tr>
                 <th class="px-4 py-2.5 font-semibold text-ink/60">أعلى سعر سُجِّل</th>
@@ -70,8 +73,6 @@
             @php
                 $range = max(1, $highest - $lowest);
                 $barPercent = min(100, max(0, round((($current - $lowest) / $range) * 100)));
-                // The bar must always be visible: a sliver at least ~4% wide is rendered
-                // even when the live price equals the lowest recorded price.
                 $barWidth = max(4, $barPercent);
             @endphp
             <div>

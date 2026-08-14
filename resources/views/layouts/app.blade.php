@@ -1,11 +1,10 @@
 @props([
-    'metaTitle' => null,
+    'metaTitle' => config('app.name'),
     'metaDescription' => null,
     'ogTitle' => null,
     'ogDescription' => null,
     'ogImage' => null,
     'ogType' => 'website',
-    'ogUrl' => null,
     'robots' => 'index, follow',
 ])
 <!DOCTYPE html>
@@ -26,13 +25,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <!-- Favicon / أمان برايس أيقونة -->
+    <!-- Favicon / أمان ستريم أيقونة -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="alternate icon" href="/favicon.ico">
     <meta name="theme-color" content="#0f172a">
 
-    <title>{{ $metaTitle ?? config('app.name', 'أمان برايس | أسعار ومقارنات الأجهزة المنزلية في مصر') }}</title>
-    <meta name="description" content="{{ $metaDescription ?? 'أمان برايس — دليل مصري مستقل لمقارنة أسعار ومراجعات الأجهزة المنزلية والإلكترونيات على أمازون مصر، مع تتبع يومي للأسعار وحاسبة تقسيط البنوك.' }}">
+    <title>{{ $metaTitle ?? config('app.name', 'أمان ستريم | بث أسعار ومراجعات الأجهزة في مصر') }}</title>
+    <meta name="description" content="{{ $metaDescription ?? 'أمان ستريم — بوابتك المباشرة لمراجعة أسعار الأجهزة المنزلية والتكنولوجيا على أمازون مصر مع حاسبة التقسيط والأمان في الشراء.' }}">
     <meta name="robots" content="{{ $robots }}">
 
     <!-- Google Fonts: Readex Pro (preloaded; font-display=optional kills swap-CLS) -->
@@ -59,27 +58,24 @@
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta property="og:image:alt" content="{{ $ogTitle ?? ($metaTitle ?? '') }}">
-    <meta property="og:url" content="{{ $ogUrl ?? url()->current() }}">
-    <meta property="og:locale" content="ar_EG">
-    <meta property="og:locale:alternate" content="en_US">
+    <meta property="og:url" content="{{ url()->current() }}">
 
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="{{ $ogTitle ?? ($metaTitle ?? '') }}">
     <meta name="twitter:description" content="{{ $ogDescription ?? ($metaDescription ?? '') }}">
     <meta name="twitter:image" content="{{ ! empty($ogImage) ? $ogImage : url('/img/og-image.png') }}">
 
-    <link rel="canonical" href="{{ $ogUrl ?? url()->current() }}">
+    <link rel="canonical" href="{{ url()->current() }}">
 
-    <!-- Schema.org Organization -->
     @php
         $organizationSchema = [
             '@context' => 'https://schema.org',
             '@type' => 'Organization',
-            'name' => 'أمان برايس | AmanPrice Egypt',
-            'alternateName' => ['AmanPrice', 'أمان برايس مصر'],
-            'url' => 'https://amanprice.tech',
-            'logo' => 'https://amanprice.tech/favicon.svg',
-            'description' => 'دليل مصري مستقل لمقارنة أسعار ومراجعات الأجهزة المنزلية، التكييفات، ومقارنات التقسيط البنكي على أمازون مصر.',
+            'name' => 'أمان ستريم | AmanStream Egypt',
+            'alternateName' => ['AmanStream', 'أمان ستريم مصر'],
+            'url' => 'https://amanstream.me',
+            'logo' => 'https://amanstream.me/favicon.svg',
+            'description' => 'منصة ودليل مصري مستقل لمراجعة أسعار الأجهزة المنزلية، التكييفات، ومقارنات التقسيط البنكي على أمازون مصر.',
             'address' => [
                 '@type' => 'PostalAddress',
                 'addressCountry' => 'EG',
@@ -108,7 +104,7 @@
 </head>
 <body class="min-h-screen bg-white text-ink antialiased selection:bg-primary-600 selection:text-white">
 
-    <!-- Rich AmanPrice Header -->
+    <!-- Rich AmanStream Header -->
     <x-layouts.header :categories="$headerCategories ?? collect()" />
 
     <!-- Main Content Slot -->
@@ -116,7 +112,7 @@
         {{ $slot }}
     </main>
 
-    <!-- AmanPrice Footer -->
+    <!-- AmanStream Footer -->
     <x-layouts.footer />
 
     <!-- WebMCP (AgentCat / navigator.modelContext): registers a search tool so
@@ -128,8 +124,8 @@
 
         try {
             navigator.modelContext.registerTool({
-                name: "amanprice_search",
-                description: "Search AmanPrice (amanprice.tech), an independent Egyptian guide to appliance prices, reviews and bank-installment comparisons on Amazon Egypt. Returns Markdown search results.",
+                name: "amanstream_search",
+                description: "Search AmanStream (amanstream.me), an independent Egyptian guide to appliance prices, reviews and bank-installment comparisons on Amazon Egypt. Returns Markdown search results.",
                 inputSchema: {
                     type: "object",
                     properties: {
@@ -150,7 +146,7 @@
                 },
                 annotations: {
                     readOnlyHint: true,
-                    confirmMessage: "Search AmanPrice for products?"
+                    confirmMessage: "Search AmanStream for products?"
                 },
                 handler: async function (params) {
                     const q = encodeURIComponent(String(params.q || ""));

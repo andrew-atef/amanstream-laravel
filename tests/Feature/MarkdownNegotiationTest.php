@@ -49,7 +49,7 @@ class MarkdownNegotiationTest extends TestCase
         $response->assertOk();
         $this->assertStringStartsWith('text/markdown', (string) $response->headers->get('Content-Type'));
         $this->assertSame('Accept', $response->headers->get('Vary'));
-        $this->assertStringContainsString('# أمان برايس', $response->getContent());
+        $this->assertStringContainsString('# أمان ستريم', $response->getContent());
         $this->assertStringContainsString('/articles/md-article', $response->getContent());
         $this->assertStringNotContainsString('<!DOCTYPE html>', $response->getContent());
     }
@@ -129,7 +129,7 @@ class MarkdownNegotiationTest extends TestCase
 
         $response->assertOk();
         $this->assertStringStartsWith('text/markdown', (string) $response->headers->get('Content-Type'));
-        $this->assertStringContainsString('# أمان برايس', $response->getContent());
+        $this->assertStringContainsString('# أمان ستريم', $response->getContent());
         $this->assertStringContainsString('/articles/md-llms-article', $response->getContent());
     }
 }

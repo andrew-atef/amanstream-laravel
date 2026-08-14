@@ -3,44 +3,22 @@
     // of the canonical homepage — keep crawlers from splitting index equity.
     $isFilteredView = $searchQuery !== '' || $selectedCategory !== null || $dealsOnly || request()->has('page');
     $robotsMeta = $isFilteredView ? 'noindex, follow' : 'index, follow';
-
-    $siteName = config('app.name', 'أمان برايس');
-
-    // ديناميكية العنوان والوصف حسب حالة العرض للاستفادة القصوى من الكلمات المفتاحية
-    if (! empty($searchQuery)) {
-        $pageTitle = 'نتائج البحث عن «'.$searchQuery.'» | '.$siteName;
-        $pageDescription = 'نتائج البحث عن «'.$searchQuery.'» — مقارنات وأسعار محدثة يومياً من أمازون مصر مع حاسبة تقسيط البنوك.';
-    } elseif ($selectedCategory !== null) {
-        $pageTitle = $selectedCategory->name.' في مصر — أسعار ومقارنات | '.$siteName;
-        $pageDescription = 'أسعار ومقارنات '.$selectedCategory->name.' في مصر محدثة يومياً من أمازون مصر، مع مراجعات شفافة وحاسبة تقسيط البنوك.';
-    } elseif ($dealsOnly) {
-        $pageTitle = 'أقوى عروض وتخفيضات اليوم على أمازون مصر | '.$siteName;
-        $pageDescription = 'أقوى عروض وتخفيضات الأجهزة المنزلية والإلكترونيات اليوم في مصر على أمازون مصر، محدثة يومياً بأقل الأسعار.';
-    } else {
-        $pageTitle = $siteName.' | أسعار ومقارنات ومراجعات الأجهزة المنزلية في مصر';
-        $pageDescription = 'أمان برايس — دليل مصري مستقل لمقارنة أسعار ومراجعات الأجهزة المنزلية والإلكترونيات على أمازون مصر، مع تتبع يومي للأسعار وحاسبة تقسيط البنوك.';
-    }
 @endphp
 
 <x-layouts.app
     :robots="$robotsMeta"
-    :meta-title="$pageTitle"
-    :meta-description="$pageDescription"
-    :og-title="$pageTitle"
-    :og-description="$pageDescription"
-    :og-url="url('/')"
 >
     @push('schema')
         @php
             $siteUrl = url('/');
-            $brandName = config('app.name', 'أمان برايس');
+            $brandName = config('app.name', 'أمان ستريم');
 
             // Schema التعريف بالموقع ومربع البحث الفوري داخل جوجل
             $websiteSchema = [
                 '@context' => 'https://schema.org',
                 '@type' => 'WebSite',
                 'name' => $brandName,
-                'alternateName' => 'AmanPrice Egypt',
+                'alternateName' => 'AmanStream Egypt',
                 'url' => $siteUrl,
                 'potentialAction' => [
                     '@type' => 'SearchAction',
@@ -51,51 +29,9 @@
                     'query-input' => 'required name=search_term_string',
                 ],
             ];
-
-            // ItemList للمنتجات المعروضة حالياً — يساعد جوجل في فهم محتوى الصفحة
-            $productItems = collect();
-            foreach ($articles as $article) {
-                $p = $article->product;
-                if (! $p) {
-                    continue;
-                }
-                $productItems->push([
-                    '@type' => 'ListItem',
-                    'position' => $productItems->count() + 1,
-                    'url' => route('articles.show', $article->slug),
-                    'name' => $p->title,
-                    'image' => $p->image_url ?: url('/favicon.svg'),
-                    'item' => [
-                        '@type' => 'Product',
-                        'name' => $p->title,
-                        'image' => $p->image_url ?: url('/favicon.svg'),
-                        'brand' => ['@type' => 'Brand', 'name' => $p->brand ?: $p->title],
-                        'sku' => $p->asin,
-                        'offers' => [
-                            '@type' => 'Offer',
-                            'url' => $p->affiliate_url,
-                            'priceCurrency' => 'EGP',
-                            'price' => number_format((float) $p->price, 2, '.', ''),
-                            'availability' => $p->in_stock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
-                        ],
-                    ],
-                ]);
-            }
-
-            $itemListSchema = $productItems->isNotEmpty() ? [
-                '@context' => 'https://schema.org',
-                '@type' => 'ItemList',
-                'name' => $pageTitle,
-                'itemListOrder' => 'https://schema.org/ItemListOrderAscending',
-                'numberOfItems' => $productItems->count(),
-                'itemListElement' => $productItems->values()->all(),
-            ] : null;
         @endphp
 
         <script type="application/ld+json">{!! json_encode($websiteSchema, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
-        @if ($itemListSchema)
-            <script type="application/ld+json">{!! json_encode($itemListSchema, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
-        @endif
     @endpush
 
     <!-- 1. Hero Search Banner -->

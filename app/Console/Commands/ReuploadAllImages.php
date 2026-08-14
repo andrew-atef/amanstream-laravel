@@ -22,7 +22,7 @@ class ReuploadAllImages extends Command
      *
      * @var string
      */
-    protected $description = 'Fetch raw Amazon images, apply AmanPrice watermark, convert to WebP and upload to R2 with the custom domain.';
+    protected $description = 'Fetch raw Amazon images, apply AmanStream watermark, convert to WebP and upload to R2 with the custom domain.';
 
     public function __construct(private readonly AmazonUrlDataFetcher $fetcher)
     {
