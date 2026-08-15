@@ -88,15 +88,23 @@ class InstantIndexingService
                 return false;
             }
 
+            $host = (string) parse_url($url, PHP_URL_HOST);
+
+            $payload = [
+                'host' => $host,
+                'key' => $key,
+                'urlList' => [$url],
+            ];
+
+            $keyLocation = config('services.indexnow.key_location');
+
+            if (filled($keyLocation)) {
+                $payload['keyLocation'] = $keyLocation;
+            }
+
             $response = Http::timeout(15)
-                ->asForm()
-                ->post(
-                    config('services.indexnow.base_uri'),
-                    [
-                        'url' => $url,
-                        'key' => $key,
-                    ]
-                );
+                ->withBody(json_encode($payload, JSON_UNESCAPED_SLASHES), 'application/json; charset=utf-8')
+                ->post(config('services.indexnow.base_uri'));
 
             $ok = $response->successful();
 

@@ -13,6 +13,7 @@ use App\Services\CloudflareCacheService;
 use App\Services\InstantIndexingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -447,6 +448,32 @@ MD,
 
         $this->assertFalse($service->notifyGoogle('https://example.com'));
         $this->assertFalse($service->notifyIndexNow('https://example.com'));
+    }
+
+    public function test_indexnow_submission_sends_host_key_and_key_location_json_payload(): void
+    {
+        config([
+            'services.indexnow.key' => '1bc2ec6150614ec9bf0a39c192f87f87',
+            'services.indexnow.key_location' => 'https://www.amanprice.tech/1bc2ec6150614ec9bf0a39c192f87f87.txt',
+        ]);
+
+        Http::fake([
+            'api.indexnow.org/*' => Http::response('', 200),
+        ]);
+
+        $service = new InstantIndexingService;
+
+        $this->assertTrue($service->notifyIndexNow('https://www.amanprice.tech/articles/some-article'));
+
+        Http::assertSent(function ($request) {
+            $payload = json_decode($request->body(), true);
+
+            return $request->url() === 'https://api.indexnow.org/indexnow'
+                && $payload['host'] === 'www.amanprice.tech'
+                && $payload['key'] === '1bc2ec6150614ec9bf0a39c192f87f87'
+                && $payload['keyLocation'] === 'https://www.amanprice.tech/1bc2ec6150614ec9bf0a39c192f87f87.txt'
+                && $payload['urlList'] === ['https://www.amanprice.tech/articles/some-article'];
+        });
     }
 
     public function test_installment_plan_calculates_monthly_payment_including_interest_and_fees(): void
