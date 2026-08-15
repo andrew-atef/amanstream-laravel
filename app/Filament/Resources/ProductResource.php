@@ -240,6 +240,10 @@ class ProductResource extends Resource
                     ->label('المخزون')
                     ->boolean()
                     ->sortable(),
+                IconColumn::make('is_active')
+                    ->label('نشط')
+                    ->boolean()
+                    ->sortable(),
                 IconColumn::make('supports_installment')
                     ->label('تقسيط')
                     ->boolean()
