@@ -27,6 +27,9 @@ final class SecurityHeadersTest extends TestCase
         $this->assertStringContainsString("default-src 'self'", $csp);
         $this->assertStringContainsString('frame-ancestors', $csp);
         $this->assertStringContainsString("object-src 'none'", $csp);
+        // Livewire 3 bundles Alpine which evaluates directives via new Function();
+        // without 'unsafe-eval' it throws EvalError and every live component dies.
+        $this->assertMatchesRegularExpression("/script-src [^;]*'unsafe-eval'/", $csp);
     }
 
     #[Test]

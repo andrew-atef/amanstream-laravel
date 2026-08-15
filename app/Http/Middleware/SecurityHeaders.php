@@ -18,7 +18,7 @@ class SecurityHeaders
         $response->headers->set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=()');
         $response->headers->set('Content-Security-Policy',
             "default-src 'self'; ".
-            "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com; ".
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com; ".
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; ".
             "font-src 'self' https://fonts.gstatic.com; ".
             "img-src 'self' data: blob: https://media.amanprice.tech; ".
