@@ -30,6 +30,11 @@ final class SecurityHeadersTest extends TestCase
         // Livewire 3 bundles Alpine which evaluates directives via new Function();
         // without 'unsafe-eval' it throws EvalError and every live component dies.
         $this->assertMatchesRegularExpression("/script-src [^;]*'unsafe-eval'/", $csp);
+        // Auth views load Inter from fonts.bunny.net and Cloudflare injects its
+        // Web Analytics beacon on every page; blocking either breaks the login
+        // page with Console CSP violations.
+        $this->assertStringContainsString('https://fonts.bunny.net', $csp);
+        $this->assertStringContainsString('https://static.cloudflareinsights.com', $csp);
     }
 
     #[Test]
