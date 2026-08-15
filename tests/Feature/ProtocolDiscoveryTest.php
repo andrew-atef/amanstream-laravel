@@ -66,7 +66,7 @@ class ProtocolDiscoveryTest extends TestCase
 
         $response->assertOk();
         $this->assertStringStartsWith('text/markdown', (string) $response->headers->get('Content-Type'));
-        $this->assertStringContainsString('# AmanStream API Documentation', $response->getContent());
+        $this->assertStringContainsString('# AmanPrice API Documentation', $response->getContent());
         $this->assertStringContainsString('/.well-known/api-catalog', $response->getContent());
         $this->assertStringContainsString('/api/v1/catalog/pending-sync', $response->getContent());
     }

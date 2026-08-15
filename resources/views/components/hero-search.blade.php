@@ -20,8 +20,8 @@
             action="{{ route('home') }}"
             method="GET"
             class="mt-6 flex flex-col gap-2 sm:flex-row sm:items-center"
-            toolname="amanstream_search"
-            tooldescription="Search AmanStream (amanstream.me) for Egyptian appliance prices, reviews and bank-installment comparisons on Amazon Egypt."
+            toolname="amanprice_search"
+            tooldescription="Search AmanPrice (amanprice.tech) for Egyptian appliance prices, reviews and bank-installment comparisons on Amazon Egypt."
         >
             @if (request('category'))
                 <input type="hidden" name="category" value="{{ request('category') }}">

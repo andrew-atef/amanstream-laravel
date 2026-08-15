@@ -6,10 +6,31 @@
     $robotsMeta = ($searchQuery !== '' || $dealsOnly || (! $categoryPage && $selectedCategory !== null) || request()->has('page'))
         ? 'noindex, follow'
         : 'index, follow';
+
+    $brandName = config('app.name', 'أمان برايس');
+
+    // Category hubs get a unique, keyword-targeted <title> + meta description
+    // instead of the generic homepage defaults, so each hub competes for its
+    // own "category + سعر/مراجعة في مصر" query.
+    if ($categoryPage && $selectedCategory) {
+        $categoryTitle = \App\Services\SEOHelper::cleanTitle((string) $selectedCategory->name);
+        $hubTitle = "سعر {$categoryTitle} وأفضل أنواعه في مصر 2025 | مراجعات وأسعار | {$brandName}";
+        $categoryDesc = trim((string) $selectedCategory->description);
+        $hubDescription = $categoryDesc !== ''
+            ? \Illuminate\Support\Str::limit($categoryDesc, 155)
+            : "مراجعات ومقارنات أسعار {$categoryTitle} المحدثة يومياً على أمازون مصر — حاسبة تقسيط ونصائح شراء آمنة من {$brandName}.";
+    } elseif ($selectedCategory === null && $searchQuery === '' && ! $dealsOnly) {
+        $hubTitle = "{$brandName} | مراجعات وأسعار الأجهزة المنزلية والتكييفات على أمازون مصر";
+        $hubDescription = 'بوابتك المباشرة لمراجعة أسعار التكييفات والأجهزة المنزلية على أمازون مصر مع مقارنات يومية وحاسبة التقسيط ونصائح شراء آمنة.';
+    }
 @endphp
 
 <x-layouts.app
     :robots="$robotsMeta"
+    :meta-title="$hubTitle ?? null"
+    :meta-description="$hubDescription ?? null"
+    :og-title="$hubTitle ?? null"
+    :og-description="$hubDescription ?? null"
 >
     @push('schema')
         @php
@@ -46,8 +67,36 @@
                         ['@type' => 'ListItem', 'position' => 2, 'name' => $selectedCategory->name, 'item' => route('categories.show', $selectedCategory->slug)],
                     ],
                 ];
+
+                // ItemList of the hub's top articles, so the category page can
+                // surface as a structured list/collection in the SERP.
+                $hubItems = collect($articles->items())
+                    ->filter(fn ($article) => filled($article->slug))
+                    ->take(10)
+                    ->map(function ($article, $index) {
+                        return [
+                            '@type' => 'ListItem',
+                            'position' => $index + 1,
+                            'name' => \App\Services\SEOHelper::cleanTitle((string) $article->title),
+                            'url' => route('articles.show', $article->slug),
+                        ];
+                    })
+                    ->values()
+                    ->all();
+
+                $categoryItemListSchema = count($hubItems) > 0 ? [
+                    '@context' => 'https://schema.org',
+                    '@type' => 'ItemList',
+                    'name' => $selectedCategory->name,
+                    'numberOfItems' => count($hubItems),
+                    'itemListOrder' => 'https://schema.org/ItemListOrderDescending',
+                    'itemListElement' => $hubItems,
+                ] : null;
             @endphp
             <script type="application/ld+json">{!! json_encode($breadcrumbCategorySchema, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
+            @if ($categoryItemListSchema)
+                <script type="application/ld+json">{!! json_encode($categoryItemListSchema, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
+            @endif
         @endif
     @endpush
 

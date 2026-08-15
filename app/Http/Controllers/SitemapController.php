@@ -26,6 +26,15 @@ class SitemapController extends Controller
                 'priority' => '1.0',
             ];
 
+            // The About/brand page is indexable and earns context for the
+            // whole site's entity/brand signals.
+            $urls[] = [
+                'loc' => route('about'),
+                'lastmod' => now(),
+                'changefreq' => 'monthly',
+                'priority' => '0.3',
+            ];
+
             // Clean /category/{slug} hubs — the Category Hubs Google should
             // treat as top-level destinations (was missing from the sitemap).
             // Only real categories that already have published articles qualify,

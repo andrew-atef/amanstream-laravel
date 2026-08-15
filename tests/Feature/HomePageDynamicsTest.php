@@ -134,6 +134,14 @@ final class HomePageDynamicsTest extends TestCase
         $this->assertStringNotContainsString('name="robots" content="noindex', $html);
         $this->assertStringContainsString('rel="canonical"', $html);
         $this->assertStringContainsString('/category/air-conditioners', $html);
+        // Category hubs must carry a unique, keyword-targeted <title> and a
+        // clean meta description — not the generic homepage fallback.
+        $this->assertStringContainsString('<title>سعر تكييفات وأفضل أنواعه في مصر 2025', $html);
+        $this->assertStringContainsString('name="description"', $html);
+        $this->assertStringContainsString('name="description" content="', $html);
+        // An ItemList of the hub's top articles lets the hub surface as a
+        // structured collection inside the SERP.
+        $this->assertStringContainsString('"@type":"ItemList"', $html);
         // TV article must be absent on the AC category hub.
         $this->assertStringNotContainsString('مراجعة شاشة LG سمارت', $html);
         // And the AC articles must be present.

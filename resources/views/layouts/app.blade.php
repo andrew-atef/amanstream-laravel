@@ -125,7 +125,7 @@
 </head>
 <body class="min-h-screen bg-white text-ink antialiased selection:bg-primary-600 selection:text-white">
 
-    <!-- Rich AmanStream Header -->
+    <!-- Rich AmanPrice Header -->
     <x-layouts.header :categories="$headerCategories ?? collect()" />
 
     <!-- Main Content Slot -->
@@ -133,7 +133,7 @@
         {{ $slot }}
     </main>
 
-    <!-- AmanStream Footer -->
+    <!-- AmanPrice Footer -->
     <x-layouts.footer />
 
     <!-- WebMCP (AgentCat / navigator.modelContext): registers a search tool so
@@ -145,7 +145,7 @@
 
         try {
             navigator.modelContext.registerTool({
-                name: "amanstream_search",
+                name: "amanprice_search",
                 description: "Search AmanPrice (amanprice.tech), an independent Egyptian guide to appliance prices, reviews and bank-installment comparisons on Amazon Egypt. Returns Markdown search results.",
                 inputSchema: {
                     type: "object",
@@ -167,7 +167,7 @@
                 },
                 annotations: {
                     readOnlyHint: true,
-                    confirmMessage: "Search AmanStream for products?"
+                    confirmMessage: "Search AmanPrice for products?"
                 },
                 handler: async function (params) {
                     const q = encodeURIComponent(String(params.q || ""));
