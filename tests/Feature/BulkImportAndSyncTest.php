@@ -246,4 +246,37 @@ class BulkImportAndSyncTest extends TestCase
         $this->assertSame(1, Product::query()->count());
         $this->assertSame(1, Article::query()->count());
     }
+
+    public function test_bulk_import_persists_asin_so_repeat_batches_never_violate_uniqueness(): void
+    {
+        $category = Category::query()->firstOrCreate(['slug' => 'unq-cat'], ['name' => 'فئة']);
+
+        $page = new class extends BulkImportProducts
+        {
+            public function uriKey(): string
+            {
+                return 'bulk-import-products';
+            }
+        };
+
+        // First batch on an empty table.
+        $first = $page->createProductsFromUrls([
+            'https://www.amazon.eg/dp/B0GYJF5Z7F',
+        ], (int) $category->id);
+
+        $this->assertSame(1, $first['created']);
+        $saved = Product::query()->first();
+        $this->assertSame('B0GYJF5Z7F', $saved->asin);
+
+        // Second batch on the same table must refuse the same ASIN instead of
+        // throwing a UNIQUE constraint error (the old behaviour stored asin=''
+        // and blew up on products.asin).
+        $second = $page->createProductsFromUrls([
+            'https://www.amazon.eg/dp/B0GYJF5Z7F',
+        ], (int) $category->id);
+
+        $this->assertSame(0, $second['created']);
+        $this->assertSame(['B0GYJF5Z7F'], $second['skipped']);
+        $this->assertSame(1, Product::query()->count());
+    }
 }

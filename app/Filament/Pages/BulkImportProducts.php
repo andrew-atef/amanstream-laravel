@@ -127,6 +127,7 @@ class BulkImportProducts extends Page implements HasForms
             $product = Product::create([
                 'category_id' => $categoryId,
                 'title' => 'مسودة منتج - '.$asin,
+                'asin' => $asin,
                 'affiliate_url' => $url,
                 'price' => 0,
                 'is_active' => false,

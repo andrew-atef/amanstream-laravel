@@ -35,6 +35,9 @@ final class SecurityHeadersTest extends TestCase
         // page with Console CSP violations.
         $this->assertStringContainsString('https://fonts.bunny.net', $csp);
         $this->assertStringContainsString('https://static.cloudflareinsights.com', $csp);
+        // Filament admin+login render avatar images from ui-avatars.com; blocking
+        // them breaks both the auth and admin UI.
+        $this->assertStringContainsString('https://ui-avatars.com', $csp);
     }
 
     #[Test]
