@@ -14,72 +14,91 @@
             $cleanContent = \App\Services\ShortcodeParser::stripShortcodes($article->content);
             $schemaDescription = $article->meta_description ?: Str::limit(strip_tags($cleanContent), 300);
             $shortDescription = $article->meta_description ?: Str::limit(strip_tags($cleanContent), 160);
-            $cleanProductTitle = $seoHelper::cleanTitle($product?->title ?? $article->title);
             $cleanArticleTitle = $seoHelper::cleanTitle($article->title);
+
+            // Build a complete Product node from a model. Used for BOTH the main
+            // product schema and every item inside a comparison ItemList, so
+            // merchant/product rich results never report a missing image,
+            // description, rating or shipping/return policy on either path.
+            $buildProductNode = function (App\Models\Product $p) use ($schemaDescription, $siteUrl, $seoHelper): array {
+                $title = $seoHelper::cleanTitle((string) $p->title);
+                $rating = (float) $p->rating;
+                $reviewCount = (int) $p->review_count;
+
+                $node = [
+                    '@type' => 'Product',
+                    'name' => $title,
+                    'image' => $p->image_url ?: $siteUrl.'/favicon.svg',
+                    'description' => $schemaDescription,
+                    'brand' => ['@type' => 'Brand', 'name' => $p->brand ?: $title],
+                    'sku' => $p->asin,
+                    'mpn' => $p->asin,
+                    'offers' => [
+                        '@type' => 'Offer',
+                        'url' => $p->affiliate_url,
+                        'priceCurrency' => 'EGP',
+                        'price' => number_format((float) $p->price, 2, '.', ''),
+                        'availability' => $p->in_stock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+                        'itemCondition' => 'https://schema.org/NewCondition',
+                        'seller' => [
+                            '@type' => 'Organization',
+                            'name' => 'أمازون مصر',
+                        ],
+                        'shippingDetails' => [
+                            '@type' => 'OfferShippingDetails',
+                            'shippingRate' => [
+                                '@type' => 'MonetaryAmount',
+                                'value' => '0.00',
+                                'currency' => 'EGP',
+                            ],
+                            'shippingDestination' => [
+                                '@type' => 'DefinedRegion',
+                                'addressCountry' => 'EG',
+                            ],
+                            'deliveryTime' => [
+                                '@type' => 'ShippingDeliveryTime',
+                                'handlingTime' => [
+                                    '@type' => 'QuantitativeValue',
+                                    'minValue' => 0,
+                                    'maxValue' => 1,
+                                    'unitCode' => 'DAY',
+                                ],
+                                'transitTime' => [
+                                    '@type' => 'QuantitativeValue',
+                                    'minValue' => 1,
+                                    'maxValue' => 3,
+                                    'unitCode' => 'DAY',
+                                ],
+                            ],
+                        ],
+                        'hasMerchantReturnPolicy' => [
+                            '@type' => 'MerchantReturnPolicy',
+                            'applicableCountry' => 'EG',
+                            'returnPolicyCategory' => 'https://schema.org/MerchantReturnFiniteReturnWindow',
+                            'merchantReturnDays' => 15,
+                            'returnMethod' => 'https://schema.org/ReturnByMail',
+                            'returnFees' => 'https://schema.org/FreeReturn',
+                        ],
+                    ],
+                ];
+
+                // Real Amazon rating data only — never invent a rating/review.
+                if ($rating > 0 && $reviewCount > 0) {
+                    $node['aggregateRating'] = [
+                        '@type' => 'AggregateRating',
+                        'ratingValue' => number_format($rating, 1, '.', ''),
+                        'reviewCount' => $reviewCount,
+                        'bestRating' => 5,
+                        'worstRating' => 1,
+                    ];
+                }
+
+                return $node;
+            };
 
             $productSchema = $product ? [
                 '@context' => 'https://schema.org',
-                '@type' => 'Product',
-                'name' => $cleanProductTitle,
-                'image' => $product->image_url ?: $siteUrl.'/favicon.svg',
-                'description' => $schemaDescription,
-                'brand' => ['@type' => 'Brand', 'name' => $product->brand ?: $cleanProductTitle],
-                'sku' => $product->asin,
-                'mpn' => $product->asin,
-                'offers' => [
-                    '@type' => 'Offer',
-                    'url' => $product->affiliate_url,
-                    'priceCurrency' => 'EGP',
-                    'price' => number_format((float) $product->price, 2, '.', ''),
-                    'availability' => $product->in_stock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
-                    'itemCondition' => 'https://schema.org/NewCondition',
-                    'seller' => [
-                        '@type' => 'Organization',
-                        'name' => 'أمازون مصر',
-                    ],
-                    'shippingDetails' => [
-                        '@type' => 'OfferShippingDetails',
-                        'shippingRate' => [
-                            '@type' => 'MonetaryAmount',
-                            'value' => '0.00',
-                            'currency' => 'EGP',
-                        ],
-                        'shippingDestination' => [
-                            '@type' => 'DefinedRegion',
-                            'addressCountry' => 'EG',
-                        ],
-                        'deliveryTime' => [
-                            '@type' => 'ShippingDeliveryTime',
-                            'handlingTime' => [
-                                '@type' => 'QuantitativeValue',
-                                'minValue' => 0,
-                                'maxValue' => 1,
-                                'unitCode' => 'DAY',
-                            ],
-                            'transitTime' => [
-                                '@type' => 'QuantitativeValue',
-                                'minValue' => 1,
-                                'maxValue' => 3,
-                                'unitCode' => 'DAY',
-                            ],
-                        ],
-                    ],
-                    'hasMerchantReturnPolicy' => [
-                        '@type' => 'MerchantReturnPolicy',
-                        'applicableCountry' => 'EG',
-                        'returnPolicyCategory' => 'https://schema.org/MerchantReturnFiniteReturnWindow',
-                        'merchantReturnDays' => 15,
-                        'returnMethod' => 'https://schema.org/ReturnByMail',
-                        'returnFees' => 'https://schema.org/FreeReturn',
-                    ],
-                ],
-                'aggregateRating' => $product->rating > 0 && $product->review_count > 0 ? [
-                    '@type' => 'AggregateRating',
-                    'ratingValue' => number_format((float) $product->rating, 1, '.', ''),
-                    'reviewCount' => (int) $product->review_count,
-                    'bestRating' => 5,
-                    'worstRating' => 1,
-                ] : null,
+                ...$buildProductNode($product),
             ] : null;
 
             $articleImageUrl = $product?->image_url ?: $siteUrl.'/favicon.svg';
@@ -138,29 +157,17 @@
                 'name' => $cleanArticleTitle,
                 'itemListOrder' => 'https://schema.org/ItemListOrderAscending',
                 'numberOfItems' => $listicleItems->count(),
-                'itemListElement' => $listicleItems->map(function ($row, $index) {
+                'itemListElement' => $listicleItems->map(function ($row, $index) use ($buildProductNode): array {
                     $product = $row->product;
-                    $cleanProductTitle = \App\Services\SEOHelper::cleanTitle((string) $product->title);
+                    $title = \App\Services\SEOHelper::cleanTitle((string) $product->title);
 
                     return [
                         '@type' => 'ListItem',
                         'position' => $index + 1,
-                        'name' => $cleanProductTitle,
+                        'name' => $title,
                         'url' => $product->affiliate_url,
                         'image' => $product->image_url ?: \App\Services\SEOHelper::url('favicon.svg'),
-                        'item' => [
-                            '@type' => 'Product',
-                            'name' => $cleanProductTitle,
-                            'sku' => $product->asin,
-                            'brand' => ['@type' => 'Brand', 'name' => $product->brand ?: $cleanProductTitle],
-                            'offers' => [
-                                '@type' => 'Offer',
-                                'url' => $product->affiliate_url,
-                                'priceCurrency' => 'EGP',
-                                'price' => number_format((float) $product->price, 2, '.', ''),
-                                'availability' => $product->in_stock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
-                            ],
-                        ],
+                        'item' => $buildProductNode($product),
                     ];
                 })->values()->all(),
             ] : null;

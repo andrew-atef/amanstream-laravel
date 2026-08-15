@@ -208,5 +208,17 @@ class AffiliatePlatformTest extends TestCase
         // Product cards render spec values as standalone rows, not wrapped in **.
         $this->assertStringContainsString('شاشة ديجيتال رقمية', $html);
         $this->assertStringNotContainsString('**خامات المواسير', $html);
+
+        // Search Console flagged the comparison ItemList Product nodes for a
+        // missing `image`, missing `description`, and offers without
+        // shipping/return policy. Every nested item must now carry them.
+        $this->assertStringContainsString('"@type":"ItemList"', $html);
+        $this->assertStringContainsString('"@type":"Product"', $html);
+        $this->assertStringContainsString('"image":', $html);
+        $this->assertStringContainsString('"shippingDetails"', $html);
+        $this->assertStringContainsString('"hasMerchantReturnPolicy"', $html);
+        $this->assertStringContainsString('"aggregateRating"', $html);
+        $this->assertStringContainsString('"reviewCount":46', $html);
+        $this->assertStringContainsString('"reviewCount":281', $html);
     }
 }

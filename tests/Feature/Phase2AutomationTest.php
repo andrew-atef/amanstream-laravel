@@ -357,6 +357,39 @@ MD,
         $this->assertSame('س: ما مدة الضمان؟', $faqs[0]['name']);
     }
 
+    public function test_faq_answers_never_truncate_mid_word(): void
+    {
+        $article = $this->seedArticle();
+
+        // A long, valid Arabic answer that exceeds the 500-char cap with many
+        // whole words. The old mb_strimwidth(answer, 0, 500) cut at exactly
+        // 500 characters and split a word (e.g. "والمكاتب" became "والم").
+        $sentence = 'المكاتب والشقق التجارية التي تبحث عن أداء موثوق بوضع التبريد فقط مع تقنيات التنظيف الذاتي وفلاتر حجب الغبار. ';
+        $answer = str_repeat($sentence, 4); // ~2300 chars, well over 500
+        $answer .= 'والجملة الأخيرة كاملة.';  // ensure clsure word complete
+
+        $article->update([
+            'content' => '### س: لماذا يعد هذا الخيار الاعتمادي؟'.PHP_EOL.PHP_EOL.$answer.PHP_EOL,
+        ]);
+
+        $faqs = $article->getFaqSchemaData();
+
+        $this->assertCount(1, $faqs);
+        $text = $faqs[0]['acceptedAnswer']['text'];
+
+        // The emitted answer is a pure prefix of the source text cut at the
+        // last space before the 500-char cap — never in the middle of a word.
+        $this->assertLessThanOrEqual(500, mb_strlen($text, 'UTF-8'));
+        $this->assertStringStartsWith('المكاتب', $text);
+        $this->assertTrue(str_starts_with($answer, $text) && mb_strlen($text, 'UTF-8') <= 500, 'answer is a whole-word prefix');
+
+        // The character right after the cap boundary in the source, if it is
+        // a plain space, means the truncation happened at a word boundary.
+        $after = mb_substr($answer, mb_strlen($text, 'UTF-8'), 1, 'UTF-8');
+        $this->assertTrue($after === '' || $after === ' ', 'truncation must stop exactly after a word');
+        $this->assertStringNotContainsString("\u{2026}", $text);
+    }
+
     public function test_article_page_renders_faqpage_json_ld_without_blade_leak(): void
     {
         $article = $this->seedArticle();

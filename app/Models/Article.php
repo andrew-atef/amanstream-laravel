@@ -112,6 +112,11 @@ class Article extends Model
     /**
      * Build a single FAQPage Question/Answer node with sane length caps.
      *
+     * Answers are capped by characters, but never cut in the middle of a word:
+     * a mid-word truncation looks like a typo to Google's answer extraction and
+     * corrupts the AI Overview snippet. Except that the truncation stops at the
+     * last space before the cap, so "والمكاتب" never becomes "والم".
+     *
      * @return array{@type: string, name: string, acceptedAnswer: array{@type: string, text: string}}
      */
     protected function faqEntry(string $question, string $answer): array
@@ -121,9 +126,32 @@ class Article extends Model
             'name' => mb_strimwidth($question, 0, 150),
             'acceptedAnswer' => [
                 '@type' => 'Answer',
-                'text' => mb_strimwidth($answer, 0, 500),
+                'text' => $this->truncateAtWordBoundary($answer, 500),
             ],
         ];
+    }
+
+    /**
+     * Character-cap a string at the last word boundary before the limit.
+     *
+     * Unlike mb_strimwidth/Str::limit this never splits a word, so schema text
+     * keeps whole words only. When the whole string fits, it is returned
+     * untouched. A tiebreaker space is not strictly required in Arabic, but
+     * keeping ASCII/space readers in mind, a lone word longer than the cap is
+     * returned whole rather than chopped.
+     */
+    protected function truncateAtWordBoundary(string $text, int $limit): string
+    {
+        if (mb_strlen($text, 'UTF-8') <= $limit) {
+            return $text;
+        }
+
+        $cut = mb_substr($text, 0, $limit, 'UTF-8');
+        $lastSpace = mb_strrpos($cut, ' ', 0, 'UTF-8');
+
+        return $lastSpace !== false
+            ? mb_substr($cut, 0, $lastSpace, 'UTF-8')
+            : $cut;
     }
 
     /**
