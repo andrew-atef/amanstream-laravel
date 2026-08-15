@@ -189,4 +189,37 @@ final class HomePageDynamicsTest extends TestCase
         $this->assertStringContainsString('line-through', $html);
         $this->assertStringContainsString('-16%', $html);
     }
+
+    #[Test]
+    public function pagination_uses_aria_without_the_forbidden_aria_disabled_on_plain_spans(): void
+    {
+        $this->seedCatalog();
+
+        // Push past the 12-per-page limit so a real multi-page paginator
+        // renders, including a disabled Prev placeholder on page one.
+        $ac = Product::where('asin', 'B0AC000000')->firstOrFail();
+        foreach (range(1, 13) as $i) {
+            Article::create([
+                'product_id' => $ac->id,
+                'category_id' => $ac->category_id,
+                'title' => "مقال إضافي $i",
+                'slug' => "extra-article-$i",
+                'content' => 'محتوى',
+                'is_published' => true,
+            ]);
+        }
+
+        $html = $this->get('/')->getContent();
+
+        // The fix: `aria-disabled` is not a permitted attribute on a role-less
+        // <span>. Laravel ships it in the default pagination view, which makes
+        // Lighthouse's "elements must only use permitted ARIA attributes" audit
+        // fail and distorts the accessibility tree that AI agents read.
+        $this->assertStringNotContainsString('aria-disabled', $html);
+        // Interaction state is still exposed to assistive tech via the nav's
+        // aria-label and the active page's aria-current.
+        $this->assertStringContainsString('aria-label="Pagination Navigation"', $html);
+        $this->assertStringContainsString('aria-current="page"', $html);
+        $this->assertStringContainsString('rel="next"', $html);
+    }
 }

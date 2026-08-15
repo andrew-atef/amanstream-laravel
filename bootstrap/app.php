@@ -25,6 +25,10 @@ return Application::configure(basePath: dirname(__DIR__))
         // Content Negotiation: يسلّم نسخة Markdown نقية لروبوتات الذكاء الاصطناعي
         // التي تطلب `Accept: text/markdown` بدلاً من HTML، دون التأثير على المتصفحات.
         $middleware->append(\App\Http\Middleware\ServeMarkdownForAgents::class);
+
+        // Security headers: nosniff, frame protection, referrer policy,
+        // permissions policy, وتوجيه CSP داعم للتحليلات والخطوط دون تعطيل الموقع.
+        $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

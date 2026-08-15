@@ -99,6 +99,7 @@ class ProtocolDiscoveryTest extends TestCase
         $this->assertStringContainsString('rel="sitemap"', $link);
         $this->assertStringContainsString('/llms.txt', $link);
         $this->assertStringContainsString('rel="describedby"', $link);
+        $this->assertStringContainsString('/.well-known/mcp/server-card.json', $link);
 
         // The HTML variant must also declare Vary: Accept so the edge cache
         // never serves it to a client that asked for text/markdown.
@@ -138,6 +139,59 @@ class ProtocolDiscoveryTest extends TestCase
         $this->assertIsString($link);
         $this->assertStringContainsString('/.well-known/api-catalog', $link);
         $this->assertStringNotContainsString('[price]', $response->getContent());
+    }
+
+    public function test_mcp_server_card_is_served_as_json(): void
+    {
+        $response = $this->get('/.well-known/mcp/server-card.json');
+
+        $response->assertOk();
+        $this->assertStringStartsWith('application/json', (string) $response->headers->get('Content-Type'));
+
+        $card = $response->json();
+        $this->assertSame('com.amanprice/main', $card['name']);
+        $this->assertSame(url('/').'/mcp', $card['endpoint']['url']);
+        $this->assertArrayHasKey('capabilities', $card);
+        $this->assertArrayHasKey('remotes', $card);
+    }
+
+    public function test_web_bot_auth_directory_is_served_as_json(): void
+    {
+        $response = $this->get('/.well-known/http-message-signatures-directory');
+
+        $response->assertOk();
+        $this->assertStringStartsWith('application/json', (string) $response->headers->get('Content-Type'));
+
+        $payload = $response->json();
+        $this->assertArrayHasKey('keys', $payload);
+        $this->assertCount(1, $payload['keys']);
+        $this->assertSame('ES256', $payload['keys'][0]['alg']);
+    }
+
+    public function test_agent_card_is_served_as_json(): void
+    {
+        $response = $this->get('/.well-known/agent-card.json');
+
+        $response->assertOk();
+        $this->assertStringStartsWith('application/json', (string) $response->headers->get('Content-Type'));
+
+        $card = $response->json();
+        $this->assertSame('AmanPrice', $card['name']);
+        $this->assertSame('AgentCard', $card['@type']);
+        $this->assertArrayHasKey('skills', $card);
+    }
+
+    public function test_agent_skills_index_is_served_as_json(): void
+    {
+        $response = $this->get('/.well-known/agent-skills/index.json');
+
+        $response->assertOk();
+        $this->assertStringStartsWith('application/json', (string) $response->headers->get('Content-Type'));
+
+        $payload = $response->json();
+        $this->assertArrayHasKey('skills', $payload);
+        $this->assertGreaterThanOrEqual(1, count($payload['skills']));
+        $this->assertSame('browse-amanprice', $payload['skills'][0]['name']);
     }
 
     public function test_internal_api_paths_do_not_receive_link_headers(): void

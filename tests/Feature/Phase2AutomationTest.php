@@ -220,8 +220,9 @@ class Phase2AutomationTest extends TestCase
 
         $content = $response->getContent();
         $this->assertStringContainsString('Googlebot', $content);
-        $this->assertStringContainsString('GPTBot', $content);
-        $this->assertStringContainsString('PerplexityBot', $content);
+        $this->assertStringContainsString('Bingbot', $content);
+        $this->assertStringContainsString('Disallow: /admin', $content);
+        $this->assertStringContainsString('Disallow: /cart', $content);
         $this->assertStringContainsString('/sitemap.xml', $content);
     }
 

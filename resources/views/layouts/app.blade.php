@@ -62,7 +62,7 @@
         $r2Host = parse_url($r2Url, PHP_URL_HOST);
     @endphp
     @if ($r2Host)
-        <link rel="preconnect" href="{{ $r2Url }}" crossorigin>
+        <link rel="preconnect" href="{{ $r2Url }}">
         <link rel="dns-prefetch" href="{{ $r2Url }}">
     @endif
 

@@ -364,4 +364,69 @@ MARKDOWN;
             'Access-Control-Allow-Origin' => '*',
         ]);
     }
+
+    /**
+     * MCP server card (SEP-2127 / RFC 9728). Served from the controller so the
+     * Content-Type is always application/json regardless of the web server's
+     * static-file mime mapping.
+     */
+    public function mcpServerCard(): JsonResponse
+    {
+        $base = url('/');
+
+        return response()->json([
+            '$schema' => 'https://static.modelcontextprotocol.io/schemas/v1/server-card.schema.json',
+            'name' => 'com.amanprice/main',
+            'title' => 'AmanPrice',
+            'description' => 'Deals and offers catalog for AmanPrice.',
+            'version' => '1.0.0',
+            'serverInfo' => [
+                'name' => 'amanprice',
+                'version' => '1.0.0',
+            ],
+            'endpoint' => [
+                'type' => 'streamable-http',
+                'url' => $base.'/mcp',
+            ],
+            'capabilities' => [
+                'tools' => new \stdClass(),
+                'resources' => new \stdClass(),
+                'prompts' => new \stdClass(),
+            ],
+            'remotes' => [
+                [
+                    'type' => 'streamable-http',
+                    'url' => $base.'/mcp',
+                    'supportedProtocolVersions' => ['2025-03-26', '2025-06-18'],
+                ],
+            ],
+        ], 200, [
+            'Content-Type' => 'application/json; charset=utf-8',
+            'Access-Control-Allow-Origin' => '*',
+        ]);
+    }
+
+    /**
+     * Web Bot Auth (RFC 9421) verification-key directory for the site's
+     * cryptographic agent identity. Content-Type served as application/json.
+     */
+    public function webBotAuthDirectory(): JsonResponse
+    {
+        return response()->json([
+            'keys' => [
+                [
+                    'kty' => 'EC',
+                    'crv' => 'P-256',
+                    'x' => 'szpI1SspJrf10mBpBXWKxjvp5I0_4lmipTWSbXFn9ZE',
+                    'y' => 'gSfbZG8WBR4fqX_ECTJ_G_MmuBkX3T4OdX_fwwOhKSs',
+                    'kid' => 'I4gdxn4pAhjYKDcaYWeWmbN-dj13U6jD0tcBdMltQDo',
+                    'alg' => 'ES256',
+                    'use' => 'sig',
+                ],
+            ],
+        ], 200, [
+            'Content-Type' => 'application/json; charset=utf-8',
+            'Access-Control-Allow-Origin' => '*',
+        ]);
+    }
 }

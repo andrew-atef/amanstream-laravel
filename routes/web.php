@@ -50,9 +50,20 @@ Route::get('/.well-known/agent-skills/{skill}/SKILL.md', [WellKnownController::c
     ->where('skill', '[A-Za-z0-9_-]+')
     ->name('agent.skills.skill');
 
+// Served from the controller (not public/) so Content-Type is always
+// application/json and the Link header's `type="application/json"` stays true.
+Route::get('/.well-known/mcp/server-card.json', [WellKnownController::class, 'mcpServerCard'])
+    ->name('mcp.server-card');
+Route::get('/.well-known/http-message-signatures-directory', [WellKnownController::class, 'webBotAuthDirectory'])
+    ->name('web-bot-auth.directory');
+
 Route::get('/robots.txt', function () {
     $sitemapUrl = config('app.url').'/sitemap.xml';
 
+    // ملاحظة: في الإنتاج تُسبَق هذه القواعد بكتلة "Cloudflare Managed"
+    // تُدار على الحافة (edge) للتحكم في روبوتات الذكاء الاصطناعي (GPTBot,
+    // ClaudeBot, Bytespider, Google-Extended وغيرها). نكتفي هنا بقواعد
+    // محركات البحث الأساسية مع حماية /admin و /cart لأي روبوت آخر.
     $robots = <<<TXT
 User-agent: Googlebot
 Disallow:
@@ -60,13 +71,7 @@ Disallow:
 User-agent: Bingbot
 Disallow:
 
-User-agent: GPTBot
-Allow: /
-
-User-agent: PerplexityBot
-Allow: /
-
-User-agent: *
+User-agent: * 
 Disallow: /admin
 Disallow: /cart
 

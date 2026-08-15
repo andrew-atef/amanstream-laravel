@@ -89,8 +89,11 @@ class ServeMarkdownForAgents
     {
         $base = url('/');
 
+        // RFC 8288 Link headers matching the Cloudflare/agent-readiness
+        // reference format: api-catalog + MCP server card + sitemap + llms.txt.
         $response->headers->set('Link', sprintf(
-            '<%s/.well-known/api-catalog>; rel="api-catalog"; type="application/linkset+json", <%s/sitemap.xml>; rel="sitemap"; type="application/xml", <%s/llms.txt>; rel="describedby"; type="text/markdown"',
+            '<%s/.well-known/api-catalog>; rel="api-catalog"; type="application/linkset+json", <%s/.well-known/mcp/server-card.json>; rel="describedby"; type="application/json", <%s/sitemap.xml>; rel="sitemap"; type="application/xml", <%s/llms.txt>; rel="describedby"; type="text/markdown"',
+            $base,
             $base,
             $base,
             $base
