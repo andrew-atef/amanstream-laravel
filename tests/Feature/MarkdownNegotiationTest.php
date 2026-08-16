@@ -206,6 +206,14 @@ class MarkdownNegotiationTest extends TestCase
         $this->assertStringContainsString('**الخلاصة والتقييم:**', $content);
         $this->assertStringNotContainsString('[summary_box]', $content);
 
+        // The default verdict must be data-grounded per product — never the
+        // old templated "موازنة ملموسة بين الثمن والجودة" sentence that AI
+        // agents mistook for an independent assessment.
+        $this->assertStringContainsString('تقييم 4.1 من 5 بناءً على 24 مراجعة حقيقية على أمازون مصر', $content);
+        $this->assertStringContainsString('بخصم 23% عن السعر الأصلي', $content);
+        $this->assertStringNotContainsString('موازنة ملموسة بين الثمن والجودة', $content);
+        $this->assertStringNotContainsString('خيار ممتاز يستحق الشراء', $content);
+
         // [price] still interpolated alongside.
         $this->assertStringContainsString('**1000.00 ج.م** (سعر محدث اليوم)', $content);
     }
@@ -284,5 +292,66 @@ class MarkdownNegotiationTest extends TestCase
         $this->assertStringNotContainsString('1000', $content);
         $this->assertStringNotContainsString('1200', $content);
         $this->assertStringContainsString('/articles/md-llms-price', $content);
+    }
+
+    public function test_frontmatter_exposes_rating_review_count_and_last_updated(): void
+    {
+        $article = $this->makePublishedArticle('md-meta');
+
+        $response = $this->get('/articles/md-meta', ['Accept' => 'text/markdown']);
+
+        $response->assertOk();
+        $content = $response->getContent();
+
+        // Agent can read the rating/review data from the YAML header instead of
+        // having to parse the free-form body.
+        $this->assertStringContainsString('rating:', $content);
+        $this->assertStringContainsString('review_count:', $content);
+        $this->assertStringContainsString('last_updated:', $content);
+
+        // The ISO timestamp must match the article's own updated_at, so the
+        // frontmatter never lies about freshness.
+        $this->assertStringContainsString('last_updated: '.$article->updated_at->toIso8601String(), $content);
+    }
+
+    public function test_rating_and_review_count_in_frontmatter_match_body_facts(): void
+    {
+        $category = Category::query()->firstOrCreate(['slug' => 'md-consist-cat'], ['name' => 'فئة']);
+
+        $product = Product::create([
+            'category_id' => $category->id,
+            'title' => 'منتج متّسق',
+            'asin' => 'MDCMISTNT',
+            'brand' => 'فريش',
+            'price' => 900,
+            'rating' => 4.7,
+            'review_count' => 82,
+            'affiliate_url' => 'https://www.amazon.eg/dp/MDCMISTNT',
+            'in_stock' => true,
+            'is_active' => true,
+            'platform' => 'amazon',
+        ]);
+
+        Article::create([
+            'product_id' => $product->id,
+            'category_id' => $category->id,
+            'title' => 'منتج متّسق',
+            'slug' => 'md-consistent',
+            'content' => "## مراجعة\n\n[rating]\n\n[summary_box]",
+            'is_published' => true,
+        ]);
+
+        $content = $this->get('/articles/md-consistent', ['Accept' => 'text/markdown'])->getContent();
+
+        // rating: 4.7 in frontmatter === "4.7 من 5 نجوم" in body === verdict.
+        $this->assertStringContainsString('rating: 4.7', $content);
+        $this->assertStringContainsString('**4.7 من 5 نجوم** (82 مراجعة حقيقية)', $content);
+        $this->assertStringContainsString('تقييم 4.7 من 5 بناءً على 82 مراجعة حقيقية', $content);
+
+        // Not the planted mismatch (277 in prose vs 284 in summary) from the
+        // legacy batch — the summary never quotes a different number than the
+        // live review_count.
+        $this->assertStringNotContainsString('277', $content);
+        $this->assertStringNotContainsString('284', $content);
     }
 }

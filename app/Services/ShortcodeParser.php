@@ -303,7 +303,7 @@ class ShortcodeParser
                 'يتطلب تفريغ وعاء مياه التكثيف (حوالي 2-3 لتر طوال الليل).',
                 'مناسب للغرف المغلقة الصغرى حتى 12-14 متر مربع.',
             ];
-            $verdict = $customVerdict ?? 'اختيار مثالي لمن يعيشون في شقق بالإيجار أو سكن مؤقت ويريدون تبريداً فورياً بدون تكاليف تركيب أو تكسير في الحوائط.';
+            $verdict = $customVerdict ?? $this->dataGroundedVerdict($product);
         } else {
             $pros = $customPros;
             if (! is_array($pros) || $pros === []) {
@@ -345,19 +345,7 @@ class ShortcodeParser
                 $cons[] = 'تتفاوت الأسعار وتتغير العروض دورياً حسب توفر المخزون.';
             }
 
-            $verdict = $customVerdict;
-            if (! is_string($verdict) || trim($verdict) === '') {
-                $rating = (float) $product->rating;
-                if ($rating >= 4.3) {
-                    $base = 'خيار ممتاز يستحق الشراء اعتماداً على أداء الجهاز المرتفع';
-                } elseif ($rating >= 3.8) {
-                    $base = 'خيار جيد ومتوازن ضمن فئته السعرية';
-                } else {
-                    $base = 'اختيار اقتصادي يلبي الاحتياجات الأساسية اليومية';
-                }
-
-                $verdict = sprintf('%s (%s بتقييم %s من 5). يوفر موازنة ملموسة بين الثمن والجودة.', $base, $title, number_format($rating, 1));
-            }
+            $verdict = $customVerdict ?? $this->dataGroundedVerdict($product);
         }
 
         $markdown = '### 💡 ملخص التقييم: '.$title."\n\n";
@@ -372,6 +360,58 @@ class ShortcodeParser
         $markdown .= "\n**الخلاصة والتقييم:** ".trim((string) $verdict)."\n";
 
         return trim($markdown);
+    }
+
+    /**
+     * A factual per-product verdict assembled entirely from live database
+     * fields. Unlike the old templated sentence ("يوفر موازنة ملموسة بين
+     * الثمن والجودة") this never repeats the same phrasing across different
+     * products, and any number quoted (rating, reviews, price, discount) is
+     * guaranteed to agree with the YAML frontmatter an LLM cross-checks.
+     *
+     * Custom author verdicts (quick_verdict / [summary_box verdict=".."])
+     * always win — this is only the default fallback.
+     */
+    protected function dataGroundedVerdict(Product $product): string
+    {
+        $facts = [];
+
+        $rating = (float) $product->rating;
+        $reviews = (int) $product->review_count;
+
+        if ($rating > 0 && $reviews > 0) {
+            $facts[] = 'تقييم '.number_format($rating, 1).' من 5 بناءً على '.$reviews.' مراجعة حقيقية على أمازون مصر';
+        } elseif ($rating > 0) {
+            $facts[] = 'تقييم '.number_format($rating, 1).' من 5 على أمازون مصر';
+        }
+
+        $price = (float) $product->price;
+        $original = (float) $product->original_price;
+
+        if ($price > 0) {
+            if ($original > $price && $original > 0) {
+                $discount = round((($original - $price) / $original) * 100);
+                $facts[] = 'يُباع بسعر '.$this->formatPrice($price).' ج.م بخصم '.$discount.'% عن السعر الأصلي ('.$this->formatPrice($original).' ج.م)';
+            } else {
+                $facts[] = 'يُباع حالياً بسعر '.$this->formatPrice($price).' ج.م';
+            }
+        }
+
+        if ($product->supports_installment) {
+            $facts[] = 'متاح بالتقسيط عبر البنوك المصرية';
+        }
+
+        if ($product->in_stock) {
+            $facts[] = 'متوفر في المخزون';
+        } else {
+            $facts[] = 'غير متوفر في المخزون حالياً';
+        }
+
+        if ($facts === []) {
+            return 'تتفاوت المواصفات والأسعار حسب توفر المخزون، ويُنصح بمقارنة العروض قبل الشراء.';
+        }
+
+        return implode('، ', $facts).'.';
     }
 
     /**

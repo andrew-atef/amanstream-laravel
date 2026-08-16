@@ -139,9 +139,20 @@ class ServeMarkdownForAgents
             if ((float) $product->original_price > (float) $product->price) {
                 $frontmatter[] = 'original_price_egp: ' . number_format((float) $product->original_price, 2, '.', '');
             }
+            if ((float) $product->rating > 0) {
+                $frontmatter[] = 'rating: ' . number_format((float) $product->rating, 1);
+            }
+            if ((int) $product->review_count > 0) {
+                $frontmatter[] = 'review_count: ' . (int) $product->review_count;
+            }
             if (filled($product->image_url)) {
                 $frontmatter[] = 'image: ' . $product->image_url;
             }
+        }
+
+        $lastUpdated = $product?->last_synced_at ?? $article->updated_at;
+        if ($lastUpdated !== null) {
+            $frontmatter[] = 'last_updated: ' . $lastUpdated->toIso8601String();
         }
 
         $frontmatter[] = 'url: ' . \App\Services\SEOHelper::canonical('articles/' . $article->slug);
