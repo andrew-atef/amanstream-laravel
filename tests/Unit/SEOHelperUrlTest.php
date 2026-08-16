@@ -3,7 +3,7 @@
 namespace Tests\Unit;
 
 use App\Services\SEOHelper;
-use PHPUnit\Framework\TestCase;
+use Tests\TestCase;
 
 class SEOHelperUrlTest extends TestCase
 {

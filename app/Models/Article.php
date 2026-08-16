@@ -209,11 +209,38 @@ class Article extends Model
             ->orderBy('article_product.sort_order');
     }
 
+    /**
+     * Enforce dynamic pricing exclusively (GEO / AI-RAG correctness).
+     *
+     * Hardcoded price figures typed into prose (e.g. "بتكلفة اقتصادية تلامس
+     * 1,475 جنيهاً مصرياً") go stale the moment the [price] shortcode price or
+     * YAML frontmatter updates, and Google AI Overviews / Perplexity flag that
+     * mismatch as inaccurate data. Any Egyptian-currency figure found in body
+     * text is rewritten to the live [price] token so the rendered number always
+     * tracks the database — a reverse-desync guard next to the generation
+     * prompt rule ("no manual price numbers in paragraphs").
+     *
+     * Only numbers that are explicitly followed by an EGP currency marker are
+     * touched, so real specs like "1.5 حصان" or "284 مراجعة" are never harmed.
+     */
+    public static function normalizeHardcodedPrices(string $content): string
+    {
+        return preg_replace_callback(
+            '/(?<![\d])\d[\d.,]*\s*(?:ج\.?\s?م\.?|جنيهاً\s*مصرياً|جنيهات\s*مصرية|جنيهات\s*مصرياً|جنيه\s*مصرياً|جنيه\s*مصري|جنيهات|جنيهاً|جنيه|EGP|LE|£)/iu',
+            fn (): string => '[price]',
+            $content
+        ) ?? $content;
+    }
+
     protected static function booted(): void
     {
         static::saving(function (Article $article) {
             if ($article->title !== null) {
                 $article->title = \App\Services\SEOHelper::cleanTitle((string) $article->title);
+            }
+
+            if ($article->content !== null && $article->isDirty('content')) {
+                $article->content = static::normalizeHardcodedPrices((string) $article->content);
             }
         });
     }

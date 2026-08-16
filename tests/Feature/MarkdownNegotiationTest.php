@@ -35,7 +35,7 @@ class MarkdownNegotiationTest extends TestCase
             'title' => 'مقال تجريبي',
             'slug' => $slug,
             'meta_description' => 'وصف تجريبي للمقال',
-            'content' => "## مقدمة\nنص المقال [price] [rating] [buy_button]",
+            'content' => "## مقدمة\nنص المقال [price] [rating] [installment] [buy_button]",
             'is_published' => true,
         ]);
     }
