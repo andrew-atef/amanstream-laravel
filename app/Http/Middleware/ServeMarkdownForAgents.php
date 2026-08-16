@@ -60,7 +60,7 @@ class ServeMarkdownForAgents
 
         if (preg_match('#^articles/([^/]+)$#', $path, $matches)) {
             $article = Article::query()
-                ->with('product')
+                ->with(['product', 'category', 'articleProducts.product'])
                 ->where('slug', $matches[1])
                 ->where('is_published', true)
                 ->first();
@@ -113,12 +113,13 @@ class ServeMarkdownForAgents
 
     private function renderArticle(Article $article): string
     {
-        $siteUrl = url('/');
+        $siteUrl = \App\Services\SEOHelper::url();
+        $cleanTitle = \App\Services\SEOHelper::cleanTitle($article->title);
         $product = $article->product;
         $description = trim((string) $article->meta_description);
 
         $frontmatter = [
-            'title: ' . $article->title,
+            'title: ' . $cleanTitle,
         ];
 
         if ($description !== '') {
@@ -143,16 +144,19 @@ class ServeMarkdownForAgents
             }
         }
 
-        $frontmatter[] = 'url: ' . $siteUrl . '/articles/' . $article->slug;
+        $frontmatter[] = 'url: ' . \App\Services\SEOHelper::canonical('articles/' . $article->slug);
+
+        $parser = app(ShortcodeParser::class);
+        $parsedMarkdownContent = $parser->parseForMarkdown($article);
 
         return implode(PHP_EOL, [
             '---',
             ...$frontmatter,
             '---',
             '',
-            '# ' . $article->title,
+            '# ' . $cleanTitle,
             '',
-            ShortcodeParser::stripShortcodes($article->content),
+            $parsedMarkdownContent,
             '',
         ]) . PHP_EOL;
     }
@@ -160,7 +164,7 @@ class ServeMarkdownForAgents
     private function renderHome(): string
     {
         $siteName = config('app.name', 'أمان برايس');
-        $siteUrl = url('/');
+        $siteUrl = \App\Services\SEOHelper::url();
 
         $articles = Article::query()
             ->with(['product', 'category'])

@@ -8,6 +8,7 @@ use App\Models\InstallmentPlan;
 use App\Models\Product;
 use Illuminate\Support\Collection;
 use Illuminate\Support\HtmlString;
+use Illuminate\Support\Str;
 use League\CommonMark\CommonMarkConverter;
 
 class ShortcodeParser
@@ -26,6 +27,442 @@ class ShortcodeParser
         $content = $this->replaceAdaptiveShortcodes($content, $article);
 
         return new HtmlString($content);
+    }
+
+    /**
+     * Render article content as clean, fully-populated Markdown for AI agents
+     * / LLMs (the `Accept: text/markdown` variant). Every shortcode is
+     * translated into dynamic text — live price, rating, installment, CTA link,
+     * pros/cons verdict, comparison table or rank-ordered cards — instead of
+     * being deleted, so agents never see empty bold labels like
+     * "**السعر الحالي على أمازون مصر:** " or lose comparison data.
+     *
+     * Prices use the exact same formatting as the YAML frontmatter
+     * (dot decimal, two digits, no thousands separator) so the two always
+     * match 100% when an LLM cross-checks them.
+     */
+    public function parseForMarkdown(Article $article): string
+    {
+        $content = (string) $article->content;
+
+        // [buy_button position="N"] — positional CTA for the Nth product.
+        $content = preg_replace_callback(
+            '/\[buy_button\s+position\s*=\s*["\']?(\d+)["\']?\]/i',
+            function (array $matches) use ($article): string {
+                $position = (int) $matches[1];
+                $product = $this->productByPosition($article, $position);
+
+                return $product !== null
+                    ? $this->buyButtonMarkdown($product)
+                    : '';
+            },
+            $content
+        ) ?? $content;
+
+        $single = $article->product;
+        $compared = $this->comparedProducts($article);
+
+        // [summary_box pros=".." cons=".." verdict=".."] — custom copy per
+        // product, translated to Markdown. Runs while the token still exists.
+        $content = preg_replace_callback(
+            '/\[summary_box([^\]]*)\]/u',
+            function (array $matches) use ($single, $compared): string {
+                $args = trim($matches[1]);
+
+                if ($args === '') {
+                    return $matches[0];
+                }
+
+                $pros = $this->extractAttribute($args, 'pros');
+                $cons = $this->extractAttribute($args, 'cons');
+                $verdict = $this->extractAttribute($args, 'verdict');
+
+                if ($pros === null && $cons === null && $verdict === null) {
+                    return $matches[0];
+                }
+
+                $prosArray = $pros !== null ? $this->splitList($pros) : null;
+                $consArray = $cons !== null ? $this->splitList($cons) : null;
+
+                return $single !== null
+                    ? $this->summaryBoxMarkdown($single, $prosArray, $consArray, $verdict)
+                    : $this->summaryBoxesMarkdown($compared, $prosArray, $consArray, $verdict);
+            },
+            $content
+        ) ?? $content;
+
+        // Plain [summary_box] — adaptive: single => its own story, multi => one
+        // per compared product.
+        if (str_contains($content, '[summary_box]')) {
+            $markdown = $single !== null
+                ? $this->summaryBoxMarkdown($single)
+                : $this->summaryBoxesMarkdown($compared);
+            $content = str_replace('[summary_box]', $markdown, $content);
+        }
+
+        if (str_contains($content, '[price]')) {
+            $markdown = $single !== null
+                ? $this->priceMarkdown($single)
+                : $this->pricesMarkdown($compared);
+            $content = str_replace('[price]', $markdown, $content);
+        }
+
+        if (str_contains($content, '[rating]')) {
+            $markdown = $single !== null
+                ? $this->ratingMarkdown($single)
+                : $this->ratingsMarkdown($compared);
+            $content = str_replace('[rating]', $markdown, $content);
+        }
+
+        if (str_contains($content, '[installment]')) {
+            $markdown = $single !== null
+                ? $this->installmentMarkdown($single)
+                : $this->installmentsMarkdown($compared);
+            $content = str_replace('[installment]', $markdown, $content);
+        }
+
+        if (str_contains($content, '[interactive_installment]')) {
+            $markdown = $single !== null
+                ? $this->installmentMarkdown($single)
+                : $this->installmentsMarkdown($compared);
+            $content = str_replace('[interactive_installment]', $markdown, $content);
+        }
+
+        if (str_contains($content, '[price_history]')) {
+            $markdown = $single !== null
+                ? $this->priceHistoryMarkdown($single)
+                : $this->priceHistoriesMarkdown($compared);
+            $content = str_replace('[price_history]', $markdown, $content);
+        }
+
+        if (str_contains($content, '[buy_button]')) {
+            $markdown = $single !== null
+                ? $this->buyButtonMarkdown($single)
+                : $this->buyButtonsMarkdown($compared);
+            $content = str_replace('[buy_button]', $markdown, $content);
+        }
+
+        if (str_contains($content, '[comparison_table]')) {
+            $content = str_replace('[comparison_table]', $this->comparisonTableMarkdown($article), $content);
+        }
+
+        if (str_contains($content, '[product_cards]')) {
+            $content = str_replace('[product_cards]', $this->productCardsMarkdown($article), $content);
+        }
+
+        return trim($content);
+    }
+
+    /**
+     * Split a pipe-separated shortcode attribute ("a|b|c") into a clean array.
+     *
+     * @return array<int, string>
+     */
+    protected function splitList(string $value): array
+    {
+        return array_values(array_filter(array_map('trim', explode('|', $value))));
+    }
+
+    /**
+     * Frontmatter-aligned price formatting: "1000.00" — never "1,000.00".
+     */
+    protected function formatPrice(float $value): string
+    {
+        return number_format($value, 2, '.', '');
+    }
+
+    protected function priceMarkdown(Product $product): string
+    {
+        return (float) $product->price > 0
+            ? '**'.$this->formatPrice((float) $product->price).' ج.م** (سعر محدث اليوم)'
+            : 'السعر قيد التحديث ⏳';
+    }
+
+    protected function ratingMarkdown(Product $product): string
+    {
+        return (float) $product->rating > 0
+            ? '**'.number_format((float) $product->rating, 1).' من 5 نجوم** ('.(int) $product->review_count.' مراجعة حقيقية)'
+            : 'تقييم حديث 🌟';
+    }
+
+    /**
+     * Cheapest eligible monthly payment (real bank plans when available, else a
+     * 12-month straight split), always labelled as 0% interest.
+     */
+    protected function installmentMarkdown(Product $product): string
+    {
+        if ((float) $product->price <= 0) {
+            return '';
+        }
+
+        $plans = $product->getEligibleInstallmentPlans();
+        $monthly = $plans->isNotEmpty()
+            ? $plans->map(fn (InstallmentPlan $plan) => $plan->calculateMonthlyPayment((float) $product->price))->min()
+            : (float) $product->price / 12;
+
+        return '**قسط شهري '.$this->formatPrice((float) $monthly).' ج.م** عبر البنوك المصرية (0% فائدة)';
+    }
+
+    protected function buyButtonMarkdown(Product $product): string
+    {
+        return filled($product->affiliate_url)
+            ? '[🛒 اشترِ الآن بأقل سعر من أمازون مصر]('.$product->affiliate_url.')'
+            : '';
+    }
+
+    /**
+     * Compact trailing price window from price_history_json, newest last.
+     */
+    protected function priceHistoryMarkdown(Product $product): string
+    {
+        $points = array_slice((array) ($product->price_history_json ?? []), -5);
+
+        if ($points === []) {
+            return 'تتبع الأسعار اليومية متاح عبر صفحة المنتج.';
+        }
+
+        $lines = [];
+        foreach ($points as $point) {
+            $lines[] = '- '.($point['d'] ?? '').' : '.$this->formatPrice((float) ($point['p'] ?? 0)).' ج.م';
+        }
+
+        return "**آخر تحديثات السعر:**\n".implode("\n", $lines);
+    }
+
+    /**
+     * @param  Collection<int, Product>  $products
+     */
+    protected function pricesMarkdown(Collection $products): string
+    {
+        return $products->map(fn (Product $p) => '- **'.$p->title.':** '.$this->priceMarkdown($p))->implode("\n");
+    }
+
+    /**
+     * @param  Collection<int, Product>  $products
+     */
+    protected function ratingsMarkdown(Collection $products): string
+    {
+        return $products->map(fn (Product $p) => '- **'.$p->title.':** '.$this->ratingMarkdown($p))->implode("\n");
+    }
+
+    /**
+     * @param  Collection<int, Product>  $products
+     */
+    protected function installmentsMarkdown(Collection $products): string
+    {
+        return $products
+            ->map(fn (Product $p) => '- **'.$p->title.':** '.$this->installmentMarkdown($p))
+            ->filter()
+            ->implode("\n");
+    }
+
+    /**
+     * @param  Collection<int, Product>  $products
+     */
+    protected function buyButtonsMarkdown(Collection $products): string
+    {
+        return $products
+            ->map(fn (Product $p) => '- **'.$p->title.':** '.$this->buyButtonMarkdown($p))
+            ->filter()
+            ->implode("\n");
+    }
+
+    /**
+     * @param  Collection<int, Product>  $products
+     */
+    protected function priceHistoriesMarkdown(Collection $products): string
+    {
+        return $products
+            ->map(fn (Product $p) => "**{$p->title}:**\n".$this->priceHistoryMarkdown($p))
+            ->implode("\n\n");
+    }
+
+    /**
+     * Pros/cons/verdict summary as Markdown. Mirrors the summary-box component:
+     * author-supplied copy wins, otherwise portable-aware defaults derived from
+     * the live product data (brand, discount, rating, installment).
+     *
+     * @param  array<int, string>|null  $customPros
+     * @param  array<int, string>|null  $customCons
+     */
+    protected function summaryBoxMarkdown(Product $product, ?array $customPros = null, ?array $customCons = null, ?string $customVerdict = null): string
+    {
+        $title = (string) $product->title;
+        $isPortable = Str::contains(mb_strtolower($title), ['محمول', 'متنقل', 'portable']);
+
+        if ($isPortable) {
+            $pros = $customPros ?? [
+                'مثالي للشقق الإيجار والسكن المؤقت بدون أي تكسير في الحوائط.',
+                'يوفر مصاريف فني التركيب وحوامل الجدار الخارجية (توفير أكثر من 700 ج).',
+                'تصميم على 4 عجلات لسهولة التحريك والتنقل بين الغرف.',
+                'جاهز للتشغيل المباشر بمجرد التوصيل بالفيشة وإخراج الخرطوم.',
+            ];
+            $cons = $customCons ?? [
+                'يتطلب تثبيت خرطوم طرد الهواء الساخن المرفق في الشباك أو النافذة.',
+                'مستوى الصوت أعلى قليلاً من الاسبليت بسبب وجود الكباس داخل الغرفة (54dB).',
+                'يتطلب تفريغ وعاء مياه التكثيف (حوالي 2-3 لتر طوال الليل).',
+                'مناسب للغرف المغلقة الصغرى حتى 12-14 متر مربع.',
+            ];
+            $verdict = $customVerdict ?? 'اختيار مثالي لمن يعيشون في شقق بالإيجار أو سكن مؤقت ويريدون تبريداً فورياً بدون تكاليف تركيب أو تكسير في الحوائط.';
+        } else {
+            $pros = $customPros;
+            if (! is_array($pros) || $pros === []) {
+                $pros = [];
+                if (filled($product->brand)) {
+                    $pros[] = 'علامة تجارية موثوقة داخل السوق المصري ('.$product->brand.').';
+                }
+
+                $price = (float) $product->price;
+                $original = (float) $product->original_price;
+
+                if ($original > $price && $original > 0) {
+                    $pros[] = 'يتوفر عليه خصم حالياً بقيمة '.round((($original - $price) / $original) * 100).'% عن السعر الأصلي.';
+                }
+
+                if ((float) $product->rating >= 4.0) {
+                    $pros[] = 'تقييم مرتفع ('.number_format((float) $product->rating, 1).' من 5) وإشادات إيجابية من المشتريين.';
+                }
+
+                if ($product->supports_installment) {
+                    $pros[] = 'خيارات تقسيط مريحة بدون فوائد على 12 شهر مع البنوك المصرية.';
+                }
+
+                $pros[] = 'متاح مع خدمة الشحن المباشر والسريع عبر أمازون مصر.';
+            }
+
+            $cons = $customCons;
+            if (! is_array($cons) || $cons === []) {
+                $cons = [];
+                if ((float) $product->price >= 15000) {
+                    $cons[] = 'سعر الجهاز ينتمي للفئة المتوسطة/العالية ويستلزم ميزانية مخصصة أو تقسيط.';
+                }
+
+                if ((float) $product->rating > 0 && (float) $product->rating < 4.0) {
+                    $cons[] = 'تقييم المستخدمين متوسط ('.number_format((float) $product->rating, 1).' من 5) مما يستدعي مراجعة تفاصيل الاستخدام.';
+                }
+
+                $cons[] = 'يتطلب التركيب عبر فنيين معتمدين لضمان سريان الضمان المحلي.';
+                $cons[] = 'تتفاوت الأسعار وتتغير العروض دورياً حسب توفر المخزون.';
+            }
+
+            $verdict = $customVerdict;
+            if (! is_string($verdict) || trim($verdict) === '') {
+                $rating = (float) $product->rating;
+                if ($rating >= 4.3) {
+                    $base = 'خيار ممتاز يستحق الشراء اعتماداً على أداء الجهاز المرتفع';
+                } elseif ($rating >= 3.8) {
+                    $base = 'خيار جيد ومتوازن ضمن فئته السعرية';
+                } else {
+                    $base = 'اختيار اقتصادي يلبي الاحتياجات الأساسية اليومية';
+                }
+
+                $verdict = sprintf('%s (%s بتقييم %s من 5). يوفر موازنة ملموسة بين الثمن والجودة.', $base, $title, number_format($rating, 1));
+            }
+        }
+
+        $markdown = '### 💡 ملخص التقييم: '.$title."\n\n";
+        $markdown .= "**المميزات الرئيسية:**\n";
+        foreach ($pros as $item) {
+            $markdown .= '- ✅ '.trim((string) $item)."\n";
+        }
+        $markdown .= "\n**ملاحظات قبل الشراء:**\n";
+        foreach ($cons as $item) {
+            $markdown .= '- ❌ '.trim((string) $item)."\n";
+        }
+        $markdown .= "\n**الخلاصة والتقييم:** ".trim((string) $verdict)."\n";
+
+        return trim($markdown);
+    }
+
+    /**
+     * @param  Collection<int, Product>  $products
+     * @param  array<int, string>|null  $customPros
+     * @param  array<int, string>|null  $customCons
+     */
+    protected function summaryBoxesMarkdown(Collection $products, ?array $customPros = null, ?array $customCons = null, ?string $customVerdict = null): string
+    {
+        return $products
+            ->map(fn (Product $p) => $this->summaryBoxMarkdown($p, $customPros, $customCons, $customVerdict))
+            ->implode("\n\n---\n\n");
+    }
+
+    /**
+     * [comparison_table] — a Markdown comparison matrix for listicles.
+     */
+    protected function comparisonTableMarkdown(Article $article): string
+    {
+        $rows = $this->listicleProducts($article);
+
+        if ($rows->isEmpty()) {
+            return '';
+        }
+
+        $markdown = "| المنتج | السعر الحالي | رابط الشراء |\n| :--- | :--- | :--- |\n";
+
+        foreach ($rows as $row) {
+            $product = $row->product;
+
+            if ($product === null) {
+                continue;
+            }
+
+            $title = str_replace('|', '\\|', \App\Services\SEOHelper::cleanTitle((string) $product->title));
+
+            $markdown .= sprintf(
+                "| %s | %s ج.م | [اشترِ من أمازون](%s) |\n",
+                $title,
+                $this->formatPrice((float) $product->price),
+                $product->affiliate_url
+            );
+        }
+
+        return trim($markdown);
+    }
+
+    /**
+     * [product_cards] — rank-ordered (#1, #2 ...) product list for listicles.
+     */
+    protected function productCardsMarkdown(Article $article): string
+    {
+        $rows = $this->listicleProducts($article);
+
+        if ($rows->isEmpty()) {
+            return '';
+        }
+
+        $markdown = "### قائمة المنتجات المقارنة:\n\n";
+
+        foreach ($rows as $index => $row) {
+            $product = $row->product;
+
+            if ($product === null) {
+                continue;
+            }
+
+            $rank = $index + 1;
+            $markdown .= '#### #'.$rank.' '.\App\Services\SEOHelper::cleanTitle((string) $product->title)."\n";
+            $markdown .= '- **السعر:** '.$this->formatPrice((float) $product->price)." ج.م\n";
+
+            if ((float) $product->rating > 0) {
+                $markdown .= '- **التقييم:** '.number_format((float) $product->rating, 1).'/5 ('.(int) $product->review_count." مراجعة)\n";
+            }
+
+            if (filled($row->badge_label)) {
+                $markdown .= '- **الشارة:** '.$row->badge_label."\n";
+            }
+
+            if (filled($row->quick_verdict)) {
+                $markdown .= '- **الحكم السريع:** '.$row->quick_verdict."\n";
+            }
+
+            if (filled($product->affiliate_url)) {
+                $markdown .= '- [🛒 اشترِ الآن من أمازون]('.$product->affiliate_url.")\n";
+            }
+
+            $markdown .= "\n";
+        }
+
+        return trim($markdown);
     }
 
     /**

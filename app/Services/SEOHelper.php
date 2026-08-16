@@ -60,6 +60,10 @@ class SEOHelper
             return $baseUrl;
         }
 
+        // Collapse any remaining run of slashes inside the path (and the classic
+        // "//?q=" residue) so a trailing "//" can never be emitted after the host.
+        $path = preg_replace('#/{2,}#', '/', $path) ?? $path;
+
         return $baseUrl.'/'.$path;
     }
 

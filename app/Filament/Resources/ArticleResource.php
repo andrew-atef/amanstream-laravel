@@ -99,7 +99,7 @@ class ArticleResource extends Resource
                     ])
                     ->columns(2),
                 Section::make('محتوى المقال')
-                    ->description('استخدم الأكواد الديناميكية التالية داخل النص لتوليد مكونات SEO جاهزة تلقائيًا:')
+                    ->description('استخدم الأكواد الديناميكية التالية داخل النص لتوليد مكونات SEO جاهزة تلقائيًا (تُترجم أيضاً إلى Markdown نظيف للوكلاء الذكية):')
                     ->schema([
                         MarkdownEditor::make('content')
                             ->label('المحتوى')
@@ -116,7 +116,7 @@ class ArticleResource extends Resource
                                 'redo',
                             ])
                             ->helperText(
-                                'اكتب بمحرر Markdown (يدعم HTML أيضاً). الأكواد المتاحة: [price] السعر | [rating] التقييم | [installment] التقسيط | [buy_button] زر الشراء | [summary_box] ملخص مميزات وعيوب | [comparison_table] جدول المقارنة | [product_cards] كروت المنتجات'
+                                'الأكواد: [price] السعر | [rating] التقييم | [installment] التقسيط (أو [installment]) | [interactive_installment] حاسبة التقسيط التفاعلية | [price_history] مخطط الأسعار | [buy_button] زر الشراء | [buy_button position="1"] لزر منتج محدد بالمقارنة | [summary_box] ملخص مميزات وعيوب | [summary_box pros="أ|ب" cons="ج|د" verdict="الحكم"] نسخة مخصصة | [comparison_table] جدول المقارنة | [product_cards] كروت المنتجات'
                             )
                             ->columnSpanFull(),
                     ]),
