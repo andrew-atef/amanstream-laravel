@@ -101,7 +101,7 @@
     @endpush
 
     <!-- 1. Hero Search Banner -->
-    <x-hero-search :search-query="$searchQuery" :deals-only="$dealsOnly" :categories="$categories" :selected-category="$categoryPage ? $selectedCategory : null" />
+    <x-hero-search :search-query="$searchQuery" :deals-only="$dealsOnly" :trending-categories="$trendingCategories" :selected-category="$categoryPage ? $selectedCategory : null" />
 
     <!-- 2. Top Deals Slider -->
     @if ($topDeals->isNotEmpty() && ! $searchQuery && ! $selectedCategory && ! $comparisonsOnly)

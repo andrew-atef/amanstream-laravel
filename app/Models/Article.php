@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\ArticleMediaService;
 use App\Services\SEOHelper;
 use App\Services\ShortcodeParser;
 use Illuminate\Database\Eloquent\Builder;
@@ -31,6 +32,27 @@ class Article extends Model
         return [
             'is_published' => 'boolean',
         ];
+    }
+
+    /**
+     * Editorial cover image used by OG/Schema on content types with no product
+     * card: product image first, then the first in-article R2 image, then the
+     * brand fallback. Never the favicon — a tiny icon fails Facebook cards and
+     * the Google Discover image pool.
+     */
+    public function getFeaturedImageUrlAttribute(): string
+    {
+        if (filled((string) ($this->product?->image_url))) {
+            return (string) $this->product->image_url;
+        }
+
+        $contentImages = ArticleMediaService::extractR2Images($this->content);
+
+        if ($contentImages !== []) {
+            return $contentImages[0];
+        }
+
+        return SEOHelper::url('img/og-image.png');
     }
 
     /**

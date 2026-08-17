@@ -7,7 +7,9 @@
     $description = $post->meta_description ?: \Illuminate\Support\Str::limit(strip_tags($cleanContent), 160);
     $categoryName = $post->category?->name ?? 'المدونة';
     $categoryUrl = $post->category ? $seoHelper::canonical('category/'.$post->category->slug) : $siteUrl;
-    $imageUrl = $siteUrl.'/favicon.svg';
+    // Pull the editorial cover from in-article R2 media (never the favicon),
+    // falling back to the shared OG placeholder when the post has no images.
+    $imageUrl = $post->featured_image_url;
 @endphp
 
 <x-layouts.app
@@ -48,15 +50,27 @@
                 ],
             ];
 
+            // Breadcrumb must mirror the visible DOM exactly (الرئيسية → المدونة
+            // → [القسم] → العنوان). The category level only exists when the DOM
+            // shows it, so an uncategorized post never emits a duplicate "المدونة"
+            // node pointing back at the homepage (a breadcrumb loop Google flags).
+            $breadcrumbItems = [
+                ['@type' => 'ListItem', 'position' => 1, 'name' => 'الرئيسية', 'item' => $siteUrl],
+                ['@type' => 'ListItem', 'position' => 2, 'name' => 'المدونة', 'item' => $seoHelper::canonical('blog')],
+            ];
+
+            $position = 3;
+
+            if ($post->category) {
+                $breadcrumbItems[] = ['@type' => 'ListItem', 'position' => $position++, 'name' => $post->category->name, 'item' => $categoryUrl];
+            }
+
+            $breadcrumbItems[] = ['@type' => 'ListItem', 'position' => $position, 'name' => $cleanTitle, 'item' => $pageUrl];
+
             $breadcrumbSchema = [
                 '@context' => 'https://schema.org',
                 '@type' => 'BreadcrumbList',
-                'itemListElement' => [
-                    ['@type' => 'ListItem', 'position' => 1, 'name' => 'الرئيسية', 'item' => $siteUrl],
-                    ['@type' => 'ListItem', 'position' => 2, 'name' => 'المدونة والمقالات الإرشادية', 'item' => $seoHelper::canonical('blog')],
-                    ['@type' => 'ListItem', 'position' => 3, 'name' => $categoryName, 'item' => $categoryUrl],
-                    ['@type' => 'ListItem', 'position' => 4, 'name' => $cleanTitle, 'item' => $pageUrl],
-                ],
+                'itemListElement' => $breadcrumbItems,
             ];
         @endphp
 

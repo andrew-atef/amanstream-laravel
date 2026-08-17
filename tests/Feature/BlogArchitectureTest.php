@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Article;
 use App\Models\Category;
 use App\Models\Product;
+use App\Services\SEOHelper;
 use App\Services\ShortcodeParser;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -272,6 +273,33 @@ class BlogArchitectureTest extends TestCase
         $this->assertStringContainsString('<del>', $parsed);
     }
 
+    private function schemaObjects(string $html): array
+    {
+        preg_match_all('/<script type="application\/ld\+json">(.*?)<\/script>/s', $html, $matches);
+
+        $objects = [];
+
+        foreach ($matches[1] ?? [] as $raw) {
+            $decoded = json_decode($raw, true);
+            if (is_array($decoded)) {
+                $objects[] = $decoded;
+            }
+        }
+
+        return $objects;
+    }
+
+    private function schemaByType(string $html, string $type): ?array
+    {
+        foreach ($this->schemaObjects($html) as $object) {
+            if (($object['@type'] ?? null) === $type) {
+                return $object;
+            }
+        }
+
+        return null;
+    }
+
     public function test_home_feed_excludes_blog_posts_from_product_cards(): void
     {
         $blogPost = $this->makeBlogPost(['slug' => 'home-leak-blog', 'title' => 'بدائل كان بكام في مصر']);
@@ -357,6 +385,87 @@ class BlogArchitectureTest extends TestCase
 
         $response->assertOk();
         $response->assertDontSee($comparison->title);
+    }
+
+    public function test_blog_show_uses_first_content_image_as_og_and_blogposting_image(): void
+    {
+        $cover = 'https://bucket.r2.dev/articles/art-badael-kanbkam-20260817223618-b585b491.webp';
+        $post = $this->makeBlogPost([
+            'slug' => 'og-content-image',
+            'content' => "![غلاف المقارنة]({$cover})\n\n## تابع القراءة\n\nمحتوى المقال هنا.",
+        ]);
+
+        $html = $this->get('/blog/'.$post->slug)->getContent();
+
+        $this->assertStringContainsString('<meta property="og:image" content="'.$cover.'">', $html);
+        $this->assertStringContainsString('<meta name="twitter:image" content="'.$cover.'">', $html);
+
+        $posting = $this->schemaByType($html, 'BlogPosting');
+        $this->assertNotNull($posting);
+        $this->assertSame([$cover], $posting['image']);
+
+        // The favicon must never leak into social/schema image fields.
+        $this->assertStringNotContainsString('og:image" content="'.url('/favicon.svg').'"', $html);
+        $this->assertStringNotContainsString('favicon.svg', implode(',', (array) $posting['image']));
+    }
+
+    public function test_blog_show_image_falls_back_to_og_placeholder_when_no_content_image(): void
+    {
+        $post = $this->makeBlogPost(['slug' => 'og-placeholder-image']);
+
+        $html = $this->get('/blog/'.$post->slug)->getContent();
+
+        $expected = SEOHelper::url('img/og-image.png');
+
+        $this->assertStringContainsString('<meta property="og:image" content="'.$expected.'">', $html);
+
+        $posting = $this->schemaByType($html, 'BlogPosting');
+        $this->assertNotNull($posting);
+        $this->assertSame([$expected], $posting['image']);
+    }
+
+    public function test_blog_show_breadcrumb_schema_matches_dom_for_uncategorized_post(): void
+    {
+        $post = $this->makeBlogPost(['slug' => 'breadcrumb-flat']);
+
+        $html = $this->get('/blog/'.$post->slug)->getContent();
+
+        $breadcrumb = $this->schemaByType($html, 'BreadcrumbList');
+        $this->assertNotNull($breadcrumb);
+
+        $items = $breadcrumb['itemListElement'];
+        $this->assertCount(3, $items);
+        $this->assertSame('الرئيسية', $items[0]['name']);
+        $this->assertSame('المدونة', $items[1]['name']);
+        $this->assertSame(SEOHelper::canonical('blog'), $items[1]['item']);
+        $this->assertSame($post->title, $items[2]['name']);
+        $this->assertSame(3, $items[2]['position']);
+
+        // No duplicate "المدونة" node pointing back at the homepage (loop).
+        $this->assertStringNotContainsString('"name":"المدونة","@type":"ListItem","position":3,"item":"'.SEOHelper::url().'"', $html);
+        $this->assertStringNotContainsString('"name":"المدونة","@type":"ListItem","position":3', $html);
+    }
+
+    public function test_blog_show_breadcrumb_schema_adds_category_level_when_dom_has_it(): void
+    {
+        $post = $this->makeBlogPost([
+            'slug' => 'breadcrumb-categorized',
+            'category_id' => $this->makeCategory()->id,
+        ]);
+        $post->refresh();
+
+        $html = $this->get('/blog/'.$post->slug)->getContent();
+
+        $breadcrumb = $this->schemaByType($html, 'BreadcrumbList');
+        $this->assertNotNull($breadcrumb);
+
+        $items = $breadcrumb['itemListElement'];
+        $this->assertCount(4, $items);
+        $this->assertSame('المدونة', $items[1]['name']);
+        $this->assertSame($post->category->name, $items[2]['name']);
+        $this->assertSame(SEOHelper::canonical('category/'.$post->category->slug), $items[2]['item']);
+        $this->assertSame($post->title, $items[3]['name']);
+        $this->assertSame(4, $items[3]['position']);
     }
 
     public function test_model_scopes_and_helpers_partition_content(): void

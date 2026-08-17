@@ -80,6 +80,16 @@ class HomeController extends Controller
         $totalArticlesCount = Article::where('is_published', true)->count();
         $selectedCategory = $categorySlug ? Category::where('slug', $categorySlug)->first() : null;
 
+        // The four product-heavy sections behind the "الأكثر بحثاً" quick pills.
+        // Ranked live by active product count so the pills never hardcode a
+        // section that drifted away from the catalog.
+        $trendingCategories = Category::query()
+            ->withCount(['products' => fn ($query) => $query->where('is_active', true)])
+            ->whereHas('products', fn ($query) => $query->where('is_active', true))
+            ->orderByDesc('products_count')
+            ->take(4)
+            ->get();
+
         // Top 8 deals: ranking and limit computed 100% inside the SQL engine
         // (join + discount_percentage alias), so we never hydrate every deal
         // article into RAM on a 2,000+ article catalog.
@@ -110,6 +120,7 @@ class HomeController extends Controller
         return view('home', [
             'articles' => $articles,
             'categories' => $categories,
+            'trendingCategories' => $trendingCategories,
             'totalArticlesCount' => $totalArticlesCount,
             'selectedCategory' => $selectedCategory,
             'searchQuery' => $search,

@@ -163,9 +163,26 @@ final class HomePageDynamicsTest extends TestCase
     }
 
     #[Test]
-    public function it_points_trending_pills_to_category_hubs_or_search(): void
+    public function it_lists_top_categories_by_product_count_as_trending_pills(): void
     {
         $this->seedCatalog();
+
+        // Make everything dynamic: a heavier "غسالات" section (3 active products)
+        // must climb above the single-product تكييفات/شاشات.
+        $washers = Category::create(['name' => 'غسالات', 'slug' => 'washers']);
+        foreach (range(1, 3) as $i) {
+            Product::create([
+                'category_id' => $washers->id,
+                'title' => "غسالة $i",
+                'asin' => "B0WSH0000$i",
+                'brand' => 'LG',
+                'price' => 10000 + $i,
+                'rating' => 4.0,
+                'review_count' => 50,
+                'affiliate_url' => "https://www.amazon.eg/dp/B0WSH0000$i",
+                'in_stock' => true,
+            ]);
+        }
 
         $html = $this->get('/')->getContent();
 
@@ -173,15 +190,28 @@ final class HomePageDynamicsTest extends TestCase
         // us assert on the pill specifically (header/sidebar link the same hubs).
         $pillSuffix = '" class="rounded-lg bg-white/10';
 
-        // تكييفات/شاشات exist as sections, so those pills resolve to their
-        // category hubs — not to a search query.
-        $this->assertStringContainsString('href="'.route('categories.show', 'air-conditioners').$pillSuffix, $html);
-        $this->assertStringContainsString('href="'.route('categories.show', 'tvs').$pillSuffix, $html);
+        $airPill = 'href="'.route('categories.show', 'air-conditioners').$pillSuffix;
+        $tvPill = 'href="'.route('categories.show', 'tvs').$pillSuffix;
+        $washerPill = 'href="'.route('categories.show', 'washers').$pillSuffix;
 
-        // غسالات/فريش have no category section, so those pills fall back to
-        // live search instead of dead-end hubs.
-        $this->assertStringContainsString('href="'.route('home', ['q' => 'غسالة']).$pillSuffix, $html);
-        $this->assertStringContainsString('href="'.route('home', ['q' => 'فريش']).$pillSuffix, $html);
+        $this->assertStringContainsString($airPill, $html);
+        $this->assertStringContainsString($tvPill, $html);
+
+        // Heavy section appears as a hub pill…
+        $this->assertStringContainsString($washerPill, $html);
+
+        // …and it ranks before the lighter ones (ordered by product count).
+        $this->assertLessThan(
+            strpos($html, $airPill),
+            strpos($html, $washerPill)
+        );
+
+        // Every pill must point at a real section — never a faceted search
+        // query (the page-level schema still owns the ?q= SearchAction template).
+        $start = strpos($html, 'الأكثر بحثاً:');
+        $end = strpos($html, '<!-- 2. Top Deals Slider -->', $start);
+        $trendingRegion = substr($html, $start, $end - $start);
+        $this->assertStringNotContainsString('?q=', $trendingRegion);
     }
 
     #[Test]
