@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Article;
 use App\Models\Category;
 use App\Models\Product;
+use App\Services\ShortcodeParser;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -177,6 +178,37 @@ class BlogArchitectureTest extends TestCase
         $this->assertStringContainsString('/articles/llms-review', $response->getContent());
         $this->assertStringContainsString('/blog/llms-blog', $response->getContent());
         $this->assertStringNotContainsString('/blog/llms-review', $response->getContent());
+    }
+
+    public function test_blog_show_renders_markdown_tables_as_html_tables(): void
+    {
+        $post = $this->makeBlogPost([
+            'slug' => 'table-render',
+            'content' => "## جدول مقارنة\n\n| الأداة | السعر |\n| :--- | :--- |\n| أمان برايس | مجاني |\n| كان بكام | مجاني |",
+        ]);
+
+        $parsed = (string) app(ShortcodeParser::class)->parse($post);
+
+        $this->assertStringContainsString('<table>', $parsed);
+        $this->assertStringContainsString('<th', $parsed);
+        $this->assertStringContainsString('<td', $parsed);
+        $this->assertStringNotContainsString('| :---', $parsed);
+
+        $this->get('/blog/'.$post->slug)
+            ->assertOk()
+            ->assertSee('<table>', false);
+    }
+
+    public function test_markdown_strikethrough_renders_in_article_content(): void
+    {
+        $post = $this->makeBlogPost([
+            'slug' => 'strike-render',
+            'content' => 'سعر **500 ج.م** ~~700 ج.م~~ كان.',
+        ]);
+
+        $parsed = (string) app(ShortcodeParser::class)->parse($post);
+
+        $this->assertStringContainsString('<del>', $parsed);
     }
 
     public function test_model_scopes_and_helpers_partition_content(): void

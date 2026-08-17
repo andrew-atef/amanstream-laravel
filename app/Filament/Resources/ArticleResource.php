@@ -134,11 +134,14 @@ class ArticleResource extends Resource
                             ->toolbarButtons([
                                 'bold',
                                 'italic',
+                                'strike',
                                 'heading',
                                 'bulletList',
                                 'orderedList',
                                 'codeBlock',
                                 'link',
+                                'table',
+                                'attachFiles',
                                 'undo',
                                 'redo',
                             ])

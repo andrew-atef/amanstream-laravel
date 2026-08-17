@@ -9,7 +9,11 @@ use App\Models\Product;
 use Illuminate\Support\Collection;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
-use League\CommonMark\CommonMarkConverter;
+use League\CommonMark\Environment\Environment;
+use League\CommonMark\Extension\CommonMark\CommonMarkCoreExtension;
+use League\CommonMark\Extension\Strikethrough\StrikethroughExtension;
+use League\CommonMark\Extension\Table\TableExtension;
+use League\CommonMark\MarkdownConverter;
 
 class ShortcodeParser
 {
@@ -235,7 +239,7 @@ class ShortcodeParser
     protected function buyButtonMarkdown(Product $product): string
     {
         return filled($product->affiliate_url)
-            ? '[صفحة العرض والضمان المعتمد لـ '.\App\Services\SEOHelper::cleanTitle((string) $product->title).' على أمازون مصر]('.$product->affiliate_url.')'
+            ? '[صفحة العرض والضمان المعتمد لـ '.SEOHelper::cleanTitle((string) $product->title).' على أمازون مصر]('.$product->affiliate_url.')'
             : '';
     }
 
@@ -475,7 +479,7 @@ class ShortcodeParser
                 continue;
             }
 
-            $title = str_replace('|', '\\|', \App\Services\SEOHelper::cleanTitle((string) $product->title));
+            $title = str_replace('|', '\\|', SEOHelper::cleanTitle((string) $product->title));
 
             $markdown .= sprintf(
                 "| %s | %s ج.م | [صفحة الشراء والضمان](%s) |\n",
@@ -509,7 +513,7 @@ class ShortcodeParser
             }
 
             $rank = $index + 1;
-            $markdown .= '#### #'.$rank.' '.\App\Services\SEOHelper::cleanTitle((string) $product->title)."\n";
+            $markdown .= '#### #'.$rank.' '.SEOHelper::cleanTitle((string) $product->title)."\n";
             $markdown .= '- **السعر:** '.$this->formatPrice((float) $product->price)." ج.م\n";
 
             if ((float) $product->rating > 0) {
@@ -940,10 +944,20 @@ class ShortcodeParser
 
     protected function markdownToHtml(string $content): string
     {
-        return (new CommonMarkConverter([
+        // Environment is built manually so GFM tables (piped "| a | b |" rows)
+        // and strikethrough render properly in article bodies — plain CommonMark
+        // does not include the Table extension and would leak raw pipes into the
+        // published page.
+        $environment = new Environment([
             'html_input' => 'allow',
             'allow_unsafe_links' => false,
-        ]))->convert($content)->getContent();
+        ]);
+
+        $environment->addExtension(new CommonMarkCoreExtension);
+        $environment->addExtension(new TableExtension);
+        $environment->addExtension(new StrikethroughExtension);
+
+        return (new MarkdownConverter($environment))->convert($content)->getContent();
     }
 
     /**
