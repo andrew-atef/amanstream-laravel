@@ -91,6 +91,69 @@ class AffiliatePlatformTest extends TestCase
         $this->assertStringNotContainsString('[summary_box]', $html);
     }
 
+    public function test_summary_box_position_renders_per_product_copy_in_comparison(): void
+    {
+        $category = Category::create([
+            'name' => 'تكييفات',
+            'slug' => 'positional-accs',
+            'description' => 'أجهزة التكييف',
+        ]);
+
+        $haier = Product::create([
+            'category_id' => $category->id,
+            'title' => 'تكييف هاير الموضعي',
+            'asin' => 'B0POSHAIER',
+            'brand' => 'Haier',
+            'price' => 19440.00,
+            'rating' => 4.6,
+            'review_count' => 46,
+            'affiliate_url' => 'https://www.amazon.eg/dp/B0POSHAIER?tag=demo-21',
+            'in_stock' => true,
+        ]);
+
+        $fresh = Product::create([
+            'category_id' => $category->id,
+            'title' => 'تكييف فريش الموضعي',
+            'asin' => 'B0POSFRESH',
+            'brand' => 'Fresh',
+            'price' => 18288.00,
+            'rating' => 3.8,
+            'review_count' => 281,
+            'affiliate_url' => 'https://www.amazon.eg/dp/B0POSFRESH?tag=demo-21',
+            'in_stock' => true,
+        ]);
+
+        $article = Article::create([
+            'category_id' => $category->id,
+            'title' => 'مقارنة موضعية للأقسام',
+            'slug' => 'mkarn-mwdh-yaqsam',
+            'content' => "## الأول\n\n[summary_box position=\"1\" pros=\"قوة تبريد عالية للهاير\" cons=\"سعر أعلى قليلاً\" verdict=\"الأقوى أداءً للهاير.\"]\n\n## الثاني\n\n[summary_box position=\"2\" pros=\"سعر اقتصادي للفريش\" cons=\"صوت أعلى قليلاً\" verdict=\"الأوفر قيمة للفريش.\"]",
+            'is_published' => true,
+        ]);
+
+        $article->articleProducts()->create(['product_id' => $haier->id, 'sort_order' => 1]);
+        $article->articleProducts()->create(['product_id' => $fresh->id, 'sort_order' => 2]);
+
+        $response = $this->get('/articles/'.$article->slug)->assertOk();
+
+        $html = $response->getContent();
+
+        // Each position renders under its own product heading with its own copy.
+        $this->assertStringContainsString('تكييف هاير الموضعي', $html);
+        $this->assertStringContainsString('قوة تبريد عالية للهاير', $html);
+        $this->assertStringContainsString('سعر أعلى قليلاً', $html);
+        $this->assertStringContainsString('الأقوى أداءً للهاير.', $html);
+
+        $this->assertStringContainsString('تكييف فريش الموضعي', $html);
+        $this->assertStringContainsString('سعر اقتصادي للفريش', $html);
+        $this->assertStringContainsString('صوت أعلى قليلاً', $html);
+        $this->assertStringContainsString('الأوفر قيمة للفريش.', $html);
+
+        // The adaptive fallback copy must not leak in when position+copy given.
+        $this->assertStringNotContainsString('علامة تجارية موثوقة داخل السوق المصري', $html);
+        $this->assertStringNotContainsString('[summary_box', $html);
+    }
+
     public function test_unpublished_article_returns_404(): void
     {
         $article = $this->seedArticle();

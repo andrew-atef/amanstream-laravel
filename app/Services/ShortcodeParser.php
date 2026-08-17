@@ -554,16 +554,16 @@ class ShortcodeParser
 
     /**
      * [summary_box pros="a|b" cons="x|y" verdict="z"] — custom copy per product.
+     * [summary_box position="N" pros="a|b" cons="x|y" verdict="z"] — custom copy
+     * for ONE compared product (N = 1-based pivot position), rendered with a
+     * product heading so readers know which device.
      * Runs BEFORE markdown (quotes in attr values would be HTML-encoded).
      * Tokens without recognized attributes are left untouched for the adaptive
      * single/multi logic in replaceAdaptiveShortcodes().
      */
     protected function replaceCustomSummaryBoxes(string $content, Article $article): string
     {
-        $single = $article->product;
-        $compared = $this->comparedProducts($article);
-
-        return preg_replace_callback('/\[summary_box([^\]]*)\]/u', function (array $matches) use ($single, $compared): string {
+        return preg_replace_callback('/\[summary_box([^\]]*)\]/u', function (array $matches) use ($article): string {
             $args = trim($matches[1]);
 
             if ($args === '') {
@@ -573,6 +573,22 @@ class ShortcodeParser
             $pros = $this->extractAttribute($args, 'pros');
             $cons = $this->extractAttribute($args, 'cons');
             $verdict = $this->extractAttribute($args, 'verdict');
+            $position = $this->extractAttribute($args, 'position');
+
+            if ($position !== null) {
+                $product = $this->productByPosition($article, (int) $position);
+
+                if ($product === null) {
+                    return '';
+                }
+
+                return $this->summaryBoxWithTitle(
+                    $product,
+                    $pros !== null ? array_values(array_filter(array_map('trim', explode('|', $pros)))) : null,
+                    $cons !== null ? array_values(array_filter(array_map('trim', explode('|', $cons)))) : null,
+                    $verdict
+                );
+            }
 
             if ($pros === null && $cons === null && $verdict === null) {
                 return $matches[0];
@@ -581,11 +597,12 @@ class ShortcodeParser
             $prosArray = $pros !== null ? array_values(array_filter(array_map('trim', explode('|', $pros)))) : null;
             $consArray = $cons !== null ? array_values(array_filter(array_map('trim', explode('|', $cons)))) : null;
 
+            $single = $article->product;
             if ($single !== null) {
                 return $this->summaryBox($single, $prosArray, $consArray, $verdict);
             }
 
-            return $this->summaryBoxes($compared, $prosArray, $consArray, $verdict);
+            return $this->summaryBoxes($this->comparedProducts($article), $prosArray, $consArray, $verdict);
         }, $content) ?? $content;
     }
 

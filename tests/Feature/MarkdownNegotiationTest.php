@@ -218,6 +218,79 @@ class MarkdownNegotiationTest extends TestCase
         $this->assertStringContainsString('**1000.00 ج.م** (سعر محدث اليوم)', $content);
     }
 
+    public function test_comparison_article_markdown_supports_per_product_summary_box(): void
+    {
+        $category = Category::query()->firstOrCreate(['slug' => 'md-pos-cat'], ['name' => 'فئة مقارنة']);
+
+        $first = Product::create([
+            'category_id' => $category->id,
+            'title' => 'المنتج الأول الموضعي',
+            'asin' => 'MDPOS00001',
+            'brand' => 'فريش',
+            'price' => 1500,
+            'rating' => 4.5,
+            'review_count' => 30,
+            'affiliate_url' => 'https://www.amazon.eg/dp/MDPOS00001',
+            'in_stock' => true,
+            'is_active' => true,
+            'platform' => 'amazon',
+        ]);
+
+        $second = Product::create([
+            'category_id' => $category->id,
+            'title' => 'المنتج الثاني الموضعي',
+            'asin' => 'MDPOS00002',
+            'brand' => 'هاير',
+            'price' => 1200,
+            'rating' => 3.8,
+            'review_count' => 12,
+            'affiliate_url' => 'https://www.amazon.eg/dp/MDPOS00002',
+            'in_stock' => true,
+            'is_active' => true,
+            'platform' => 'amazon',
+        ]);
+
+        $article = Article::create([
+            'product_id' => null,
+            'category_id' => $category->id,
+            'title' => 'مقارنة موضعية',
+            'slug' => 'md-positional',
+            'content' => "## المنتج الأول\n\n[summary_box position=\"1\" pros=\"ميزة أولى|ميزة ثانية\" cons=\"عيب أول\" verdict=\"أفضل اختيار للأول\"]\n\n## المنتج الثاني\n\n[summary_box position=\"2\" pros=\"ميزة ثالثة\" cons=\"عيب ثان|عيب ثالث\" verdict=\"الأوفر من حيث السعر\"]",
+            'is_published' => true,
+        ]);
+
+        $article->articleProducts()->create(['product_id' => $first->id, 'sort_order' => 1]);
+        $article->articleProducts()->create(['product_id' => $second->id, 'sort_order' => 2]);
+
+        $response = $this->get('/articles/md-positional', ['Accept' => 'text/markdown']);
+
+        $response->assertOk();
+        $content = $response->getContent();
+
+        // Each position resolves to its OWN product with ITS OWN copy — never
+        // the same pros/cons duplicated for every compared product.
+        $this->assertStringContainsString('### 💡 ملخص التقييم: المنتج الأول الموضعي', $content);
+        $this->assertStringContainsString('- ✅ ميزة أولى', $content);
+        $this->assertStringContainsString('- ✅ ميزة ثانية', $content);
+        $this->assertStringContainsString('- ❌ عيب أول', $content);
+        $this->assertStringContainsString('**الخلاصة والتقييم:** أفضل اختيار للأول', $content);
+
+        $this->assertStringContainsString('### 💡 ملخص التقييم: المنتج الثاني الموضعي', $content);
+        $this->assertStringContainsString('- ✅ ميزة ثالثة', $content);
+        $this->assertStringContainsString('- ❌ عيب ثان', $content);
+        $this->assertStringContainsString('- ❌ عيب ثالث', $content);
+        $this->assertStringContainsString('**الخلاصة والتقييم:** الأوفر من حيث السعر', $content);
+
+        // Each product's copy appears exactly once — the first box never
+        // carries the second's verdict and vice versa (per-position isolation).
+        $this->assertSame(1, substr_count($content, 'أفضل اختيار للأول'));
+        $this->assertSame(1, substr_count($content, 'الأوفر من حيث السعر'));
+        $this->assertSame(1, substr_count($content, 'ميزة أولى'));
+        $this->assertSame(1, substr_count($content, 'عيب ثالث'));
+
+        $this->assertStringNotContainsString('[summary_box', $content);
+    }
+
     public function test_browser_without_markdown_accept_still_gets_html(): void
     {
         $article = $this->makePublishedArticle('md-article');

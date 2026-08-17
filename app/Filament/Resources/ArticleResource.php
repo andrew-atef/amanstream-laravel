@@ -116,7 +116,7 @@ class ArticleResource extends Resource
                                 'redo',
                             ])
                             ->helperText(
-                                'الأكواد: [price] السعر | [rating] التقييم | [installment] التقسيط (أو [installment]) | [interactive_installment] حاسبة التقسيط التفاعلية | [price_history] مخطط الأسعار | [buy_button] زر الشراء | [buy_button position="1"] لزر منتج محدد بالمقارنة | [summary_box] ملخص مميزات وعيوب | [summary_box pros="أ|ب" cons="ج|د" verdict="الحكم"] نسخة مخصصة | [comparison_table] جدول المقارنة | [product_cards] كروت المنتجات'
+                                'الأكواد: [price] السعر | [rating] التقييم | [installment] التقسيط (أو [installment]) | [interactive_installment] حاسبة التقسيط التفاعلية | [price_history] مخطط الأسعار | [buy_button] زر الشراء | [buy_button position="1"] لزر منتج محدد بالمقارنة | [summary_box] ملخص مميزات وعيوب | [summary_box pros="أ|ب" cons="ج|د" verdict="الحكم"] نسخة مخصصة | [summary_box position="1" pros="أ|ب" cons="ج|د" verdict="الحكم"] لملخص منتج محدد بالمقارنة | [comparison_table] جدول المقارنة | [product_cards] كروت المنتجات'
                             )
                             ->columnSpanFull(),
                     ]),
