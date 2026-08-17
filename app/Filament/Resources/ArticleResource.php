@@ -101,11 +101,14 @@ class ArticleResource extends Resource
                             })
                             ->columnSpanFull(),
                         Select::make('category_id')
-                            ->label('التصنيف')
+                            ->label('التصنيف (للمراجعات والمقارنات فقط)')
                             ->relationship('category', 'name')
                             ->preload()
                             ->searchable()
-                            ->required(),
+                            ->required()
+                            ->reactive()
+                            ->visible(fn (Get $get): bool => $get('type') === 'review')
+                            ->helperText('المقالات الإرشادية والمدونة لا تُنسب إلى تصنيف — يظهر هذا الحقل فقط عندما يكون النوع "مراجعة / مقارنة منتج".'),
                         Toggle::make('is_published')
                             ->label('منشور')
                             ->default(true),

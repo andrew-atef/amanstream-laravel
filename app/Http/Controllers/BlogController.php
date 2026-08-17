@@ -50,12 +50,19 @@ class BlogController extends Controller
 
         $parsedContent = $this->shortcodeParser->parse($post);
 
-        $relatedPosts = Article::query()
+        $relatedQuery = Article::query()
             ->with('category')
             ->where('type', 'blog')
             ->where('is_published', true)
-            ->where('id', '!=', $post->id)
-            ->where('category_id', $post->category_id)
+            ->where('id', '!=', $post->id);
+
+        // Category is optional for blog posts: only narrow by it when present,
+        // otherwise fall back to the latest editorial posts site-wide.
+        if ($post->category_id !== null) {
+            $relatedQuery->where('category_id', $post->category_id);
+        }
+
+        $relatedPosts = $relatedQuery
             ->latest()
             ->limit(6)
             ->get();

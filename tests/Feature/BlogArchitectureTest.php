@@ -24,10 +24,7 @@ class BlogArchitectureTest extends TestCase
 
     private function makeBlogPost(array $overrides = []): Article
     {
-        $category = $overrides['category_id'] ?? $this->makeCategory()->id;
-
         return Article::create(array_merge([
-            'category_id' => $category,
             'type' => 'blog',
             'title' => 'دليل اختيار غسالة بالحجم المناسب',
             'slug' => 'choosing-washer-size',
@@ -110,7 +107,7 @@ class BlogArchitectureTest extends TestCase
 
     public function test_blog_markdown_variant_omits_commerce_frontmatter(): void
     {
-        $post = $this->makeBlogPost(['slug' => 'blog-md-post']);
+        $post = $this->makeBlogPost(['slug' => 'blog-md-post', 'category_id' => $this->makeCategory()->id]);
 
         $response = $this->get('/blog/'.$post->slug, ['Accept' => 'text/markdown']);
 
@@ -121,6 +118,24 @@ class BlogArchitectureTest extends TestCase
         $this->assertStringContainsString('/blog/blog-md-post', $response->getContent());
         $this->assertStringNotContainsString('asin', $response->getContent());
         $this->assertStringNotContainsString('offer_url', $response->getContent());
+    }
+
+    public function test_blog_posts_do_not_require_a_category(): void
+    {
+        $post = $this->makeBlogPost(['slug' => 'blog-uncategorized']);
+
+        $this->assertNull($post->category_id);
+
+        $this->get('/blog')->assertOk()->assertSee($post->title);
+
+        $this->get('/blog/'.$post->slug)
+            ->assertOk()
+            ->assertSee($post->title)
+            ->assertSee('BlogPosting', false);
+
+        $md = $this->get('/blog/'.$post->slug, ['Accept' => 'text/markdown']);
+        $md->assertOk();
+        $this->assertStringContainsString('category: المدونة', $md->getContent());
     }
 
     public function test_blog_index_markdown_variant_lists_posts(): void
