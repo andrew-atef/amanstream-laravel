@@ -68,6 +68,17 @@ class ServeMarkdownForAgents
             return $article ? $this->renderArticle($article) : null;
         }
 
+        if (preg_match('#^blog/([^/]+)$#', $path, $matches)) {
+            $article = Article::query()
+                ->with(['category'])
+                ->where('slug', $matches[1])
+                ->where('type', 'blog')
+                ->where('is_published', true)
+                ->first();
+
+            return $article ? $this->renderBlogArticle($article) : null;
+        }
+
         return null;
     }
 
@@ -115,6 +126,13 @@ class ServeMarkdownForAgents
 
     private function renderArticle(Article $article): string
     {
+        // Blog posts requested via the review URL (or any /articles slug) are
+        // served with the editorial renderer so product entities never leak
+        // into an agent's view of a non-commercial post.
+        if ($article->isBlog()) {
+            return $this->renderBlogArticle($article);
+        }
+
         $siteUrl = \App\Services\SEOHelper::url();
         $cleanTitle = \App\Services\SEOHelper::cleanTitle($article->title);
         $product = $article->product;
@@ -201,6 +219,45 @@ class ServeMarkdownForAgents
         ]) . PHP_EOL;
     }
 
+    /**
+     * Editorial Markdown variant for blog posts/guides: title + description +
+     * category + freshness frontmatter and the parsed body. Product commerce
+     * keys (asin, offer_url, merchant, currency, availability) are deliberately
+     * omitted because blog posts carry no buyable entity.
+     */
+    private function renderBlogArticle(Article $article): string
+    {
+        $cleanTitle = \App\Services\SEOHelper::cleanTitle($article->title);
+        $description = trim((string) $article->meta_description);
+
+        $frontmatter = [
+            'title: ' . $cleanTitle,
+        ];
+
+        if ($description !== '') {
+            $frontmatter[] = 'description: ' . $description;
+        }
+
+        $frontmatter[] = 'type: blog';
+        $frontmatter[] = 'category: ' . ($article->category?->name ?? 'المدونة');
+        $frontmatter[] = 'last_updated: ' . $article->updated_at->toIso8601String();
+        $frontmatter[] = 'url: ' . \App\Services\SEOHelper::canonical('blog/' . $article->slug);
+
+        $parser = app(ShortcodeParser::class);
+        $parsedMarkdownContent = $parser->parseForMarkdown($article);
+
+        return implode(PHP_EOL, [
+            '---',
+            ...$frontmatter,
+            '---',
+            '',
+            '# ' . $cleanTitle,
+            '',
+            $parsedMarkdownContent,
+            '',
+        ]) . PHP_EOL;
+    }
+
     private function renderHome(): string
     {
         $siteName = config('app.name', 'أمان برايس');
@@ -228,9 +285,13 @@ class ServeMarkdownForAgents
         ];
 
         foreach ($articles as $article) {
-            $lines[] = '- [' . $article->title . '](' . $siteUrl . '/articles/' . $article->slug . ')';
+            $isBlog = $article->isBlog();
+            $lines[] = '- [' . $article->title . '](' . $siteUrl . ($isBlog ? '/blog/' : '/articles/') . $article->slug . ')';
         }
 
+        $lines[] = '';
+        $lines[] = '## المدونة والمقالات الإرشادية';
+        $lines[] = '- [' . $siteName . ' المدونة](' . $siteUrl . '/blog)';
         $lines[] = '';
         $lines[] = '## موارد إضافية';
         $lines[] = '- [خريطة الموقع XML](' . $siteUrl . '/sitemap.xml)';

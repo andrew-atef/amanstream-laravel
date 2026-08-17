@@ -18,6 +18,7 @@ class ArticleController extends Controller
         $article = Article::query()
             ->with(['product.category', 'category', 'products', 'articleProducts.product'])
             ->where('slug', $slug)
+            ->where('type', 'review')
             ->where('is_published', true)
             ->firstOrFail();
 

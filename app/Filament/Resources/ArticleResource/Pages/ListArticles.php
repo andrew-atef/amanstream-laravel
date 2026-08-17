@@ -25,6 +25,16 @@ class ListArticles extends ListRecords
             'all' => Tab::make('جميع المقالات')
                 ->badge($this->getTableQuery()->count()),
 
+            'reviews' => Tab::make('مراجعات ومقارنات 🛍️')
+                ->modifyQueryUsing(fn (Builder $query) => $query->where('type', 'review'))
+                ->badge($this->getTableQuery()->where('type', 'review')->count())
+                ->badgeColor('primary'),
+
+            'blog' => Tab::make('المدونة ومقالات إرشادية ✍️')
+                ->modifyQueryUsing(fn (Builder $query) => $query->where('type', 'blog'))
+                ->badge($this->getTableQuery()->where('type', 'blog')->count())
+                ->badgeColor('info'),
+
             'published' => Tab::make('منشور 🚀')
                 ->modifyQueryUsing(fn (Builder $query) => $query->where('is_published', true))
                 ->badge($this->getTableQuery()->where('is_published', true)->count())

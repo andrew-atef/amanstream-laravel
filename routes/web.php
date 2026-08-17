@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\ArticleController;
+use App\Http\Controllers\BlogController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\LlmsTxtController;
 use App\Http\Controllers\McpController;
@@ -25,6 +26,12 @@ Route::get('/about', function () {
 
 Route::get('/articles/{slug}', [ArticleController::class, 'show'])
     ->name('articles.show');
+
+// Editorial blog / guides hub (dual-article architecture: blog posts are not
+// reviews, so they live under /blog and never render product components).
+Route::get('/blog', [BlogController::class, 'index'])->name('blog.index');
+
+Route::get('/blog/{slug}', [BlogController::class, 'show'])->name('blog.show');
 
 Route::get('/llms.txt', [LlmsTxtController::class, 'index'])
     ->name('llms.txt');

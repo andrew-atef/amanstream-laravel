@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,6 +14,7 @@ class Article extends Model
     protected $fillable = [
         'product_id',
         'category_id',
+        'type',
         'title',
         'slug',
         'content',
@@ -26,6 +28,45 @@ class Article extends Model
         return [
             'is_published' => 'boolean',
         ];
+    }
+
+    /**
+     * Dual-article architecture helper: is this a product review/comparison?
+     */
+    public function isReview(): bool
+    {
+        return $this->type === 'review';
+    }
+
+    /**
+     * Dual-article architecture helper: is this a general blog post/guide?
+     */
+    public function isBlog(): bool
+    {
+        return $this->type === 'blog';
+    }
+
+    public function scopeReviews(Builder $query): Builder
+    {
+        return $query->where('type', 'review');
+    }
+
+    public function scopeBlog(Builder $query): Builder
+    {
+        return $query->where('type', 'blog');
+    }
+
+    /**
+     * Estimated editorial read time in minutes, derived from the whitespace-
+     * separated word count of the content body (shortcodes stripped). Arabic
+     * reading speed ~180-220 wpm; never returns 0 for a published post.
+     */
+    public function readMinutes(): int
+    {
+        $content = \App\Services\ShortcodeParser::stripShortcodes((string) $this->content);
+        $words = \Illuminate\Support\Str::of(strip_tags($content))->squish()->split('/\s+/')->filter()->count();
+
+        return max(1, (int) ceil($words / 200));
     }
 
     /**

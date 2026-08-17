@@ -13,6 +13,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Forms\Components\ToggleButtons;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
@@ -43,6 +44,16 @@ class ArticleResource extends Resource
             ->schema([
                 Section::make('بيانات المقال')
                     ->schema([
+                        ToggleButtons::make('type')
+                            ->label('نوع المقال')
+                            ->options([
+                                'review' => '🛍️ مراجعة / مقارنة منتج',
+                                'blog' => '✍️ مقال عام / مدونة إرشادية',
+                            ])
+                            ->default('review')
+                            ->live()
+                            ->columnSpanFull()
+                            ->helperText('مراجعات المنتجات تُعرض تحت /articles، بينما تظهر المقالات الإرشادية والمدونة تحت /blog.'),
                         TextInput::make('title')
                             ->label('عنوان المقال')
                             ->required()
@@ -67,10 +78,12 @@ class ArticleResource extends Resource
                             ->searchable()
                             ->nullable()
                             ->reactive()
+                            ->visible(fn (Get $get): bool => $get('type') === 'review')
                             ->helperText('اختر منتجاً في حالة المقال الفردي (مراجعة منتج واحد). اتركه فارغاً إذا كان هذا مقال مقارنة أو تجميعة وتستخدم [comparison_table] أو [product_cards].'),
                         Placeholder::make('product_links')
                             ->label('روابط المنتج')
                             ->reactive()
+                            ->visible(fn (Get $get): bool => $get('type') === 'review')
                             ->content(function (Get $get, ?Article $record) {
                                 $product = Product::query()->find($get('product_id'));
 
@@ -122,6 +135,7 @@ class ArticleResource extends Resource
                     ]),
                 Section::make('المنتجات المقارنة في المقال (Listicle Products)')
                     ->description('أضف منتجات متعددة هنا لتصنيع مقالات "أفضل X" والمقارنات. تظهر عبر [comparison_table] و [product_cards] داخل المحتوى.')
+                    ->visible(fn (Get $get): bool => $get('type') === 'review')
                     ->schema([
                         Repeater::make('articleProducts')
                             ->relationship()
@@ -187,6 +201,7 @@ class ArticleResource extends Resource
                     ->columns(2),
                 Section::make('آراء وتقييمات المشتريين في أمازون (لصياغة المقال)')
                     ->description('هذه التقييمات تم سحبها مرة واحدة فقط للاستعانة بها أثناء كتابة المقال ولا تتحدث تلقائياً لتوفير البروكسي.')
+                    ->visible(fn (Get $get): bool => $get('type') === 'review')
                     ->schema([
                         Textarea::make('product.raw_reviews_text')
                             ->label('نصوص مراجعات العملاء الأصلين')
