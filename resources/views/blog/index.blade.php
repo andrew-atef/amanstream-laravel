@@ -28,7 +28,7 @@
         <!-- Page Header -->
         <div class="border-b border-primary-600/20 pb-6">
             <h1 class="text-2xl font-extrabold text-ink sm:text-3xl">المدونة والمقالات الإرشادية ✍️</h1>
-            <p class="mt-3 max-w-2xl text-sm leading-7 text-mist">
+            <p class="mt-3 max-w-2xl text-sm leading-7 text-ink-soft">
                 أدلة ونصائح عملية قبل الشراء: كيف تختار الجهاز المناسب، كيفية المقارنة بين الخيارات،
                 نصائح التركيب والتشغيل، وأحدث اتجاهات السوق — محتوى مستقل غير مربوط بمنتج وحيد.
             </p>
@@ -61,13 +61,13 @@
                             <span class="text-5xl font-extrabold text-white/90 drop-shadow-sm">{{ mb_substr($post->title, 0, 1) }}</span>
                         </a>
                         <div class="flex flex-1 flex-col gap-3 p-5">
-                            <div class="flex items-center gap-2 text-[11px] font-semibold text-mist">
+                            <div class="flex items-center gap-2 text-[11px] font-semibold text-ink-soft">
                                 @if ($post->category)
                                     <a href="{{ $seoHelper::canonical('category/'.$post->category->slug) }}" class="rounded-full bg-primary-600/10 px-2.5 py-1 text-primary-700 transition hover:bg-primary-600 hover:text-white">
                                         {{ $post->category->name }}
                                     </a>
                                 @endif
-                                <span class="text-mist/70">•</span>
+                                <span class="text-ink-soft/60">•</span>
                                 <span>{{ $post->readMinutes() }} دقيقة قراءة</span>
                             </div>
                             <h2 class="text-base font-bold leading-7 text-ink">
@@ -76,9 +76,9 @@
                                 </a>
                             </h2>
                             @if ($post->meta_description)
-                                <p class="text-xs leading-6 text-mist">{{ \Illuminate\Support\Str::limit($post->meta_description, 110) }}</p>
+                                <p class="text-xs leading-6 text-ink-soft">{{ \Illuminate\Support\Str::limit($post->meta_description, 110) }}</p>
                             @endif
-                            <div class="mt-auto flex items-center justify-between pt-2 text-[11px] text-mist/80">
+                            <div class="mt-auto flex items-center justify-between pt-2 text-[11px] text-ink-soft/80">
                                 <time datetime="{{ $post->updated_at?->toIso8601String() }}">{{ $post->updated_at?->translatedFormat('d F Y') }}</time>
                                 <a href="{{ route('blog.show', $post->slug) }}" class="font-bold text-primary-700 transition hover:text-primary-800">
                                     اقرأ المقال ←
@@ -94,7 +94,7 @@
             </div>
         @else
             <div class="rounded-2xl border border-dashed border-primary-600/30 bg-primary-600/5 p-10 text-center">
-                <p class="text-sm font-semibold text-mist">لا توجد مقالات إرشادية منشورة بعد — عد قريباً!</p>
+                <p class="text-sm font-semibold text-ink-soft">لا توجد مقالات إرشادية منشورة بعد — عد قريباً!</p>
             </div>
         @endif
     </div>

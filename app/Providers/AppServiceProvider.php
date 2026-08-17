@@ -10,6 +10,7 @@ use App\Observers\ProductObserver;
 use App\Services\Amazon\Contracts\AmazonProductDataFetcher;
 use App\Services\Amazon\PlaceholderAmazonProductDataFetcher;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
@@ -33,6 +34,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Render dates/times in the site language (Carbon defaults to English
+        // and would otherwise print "17 August 2026" even with APP_LOCALE=ar).
+        Carbon::setLocale((string) config('app.locale', 'ar'));
+
         Blade::anonymousComponentPath(resource_path('views'));
 
         Article::observe(ArticleObserver::class);
@@ -63,12 +68,12 @@ class AppServiceProvider extends ServiceProvider
      * Using `Cache::get` + only caching when non-empty keeps the header live
      * within one request after data becomes available.
      *
-     * @return \Illuminate\Database\Eloquent\Collection<int, Category>
+     * @return Collection<int, Category>
      */
     protected function headerCategories(): Collection
     {
         if (! Schema::hasTable('categories')) {
-            return new Collection();
+            return new Collection;
         }
 
         $headerCategories = Cache::get('header_categories');

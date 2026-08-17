@@ -65,7 +65,7 @@
     @endpush
 
     <article class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-10">
-        <nav class="mb-6 text-sm text-slate-500" aria-label="Breadcrumb">
+        <nav class="mb-6 text-sm text-ink-soft" aria-label="Breadcrumb">
             <ol class="flex flex-wrap items-center gap-1">
                 <li><a href="/" class="hover:text-primary-600">الرئيسية</a></li>
                 <li><span aria-hidden="true">/</span> <a href="{{ route('blog.index') }}" class="hover:text-primary-600">المدونة</a></li>
@@ -86,7 +86,7 @@
 
             <h1 class="mt-4 text-3xl font-black leading-snug text-ink sm:text-4xl">{{ $cleanTitle }}</h1>
 
-            <div class="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-medium text-slate-500 sm:text-sm">
+            <div class="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-medium text-ink-soft sm:text-sm">
                 <span class="inline-flex items-center gap-1.5">
                     <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                     <time datetime="{{ $post->updated_at?->toIso8601String() }}">آخر تحديث: {{ $post->updated_at?->translatedFormat('d F Y') }}</time>
@@ -116,14 +116,14 @@
                 @foreach ($relatedPosts as $related)
                     <a href="{{ route('blog.show', $related->slug) }}"
                        class="group flex flex-col justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-primary-600/40 hover:shadow-md">
-                        <div class="flex items-center gap-2 text-[11px] font-semibold text-mist">
+                        <div class="flex items-center gap-2 text-[11px] font-semibold text-ink-soft">
                             @if ($related->category)
                                 <span class="rounded-full bg-primary-600/10 px-2.5 py-1 text-primary-700">{{ $related->category->name }}</span>
                             @endif
                             <span>{{ $related->readMinutes() }} دقيقة قراءة</span>
                         </div>
                         <h3 class="text-sm font-bold leading-6 text-ink transition group-hover:text-primary-700">{{ $related->title }}</h3>
-                        <time datetime="{{ $related->updated_at?->toIso8601String() }}" class="text-[11px] text-mist/80">
+                        <time datetime="{{ $related->updated_at?->toIso8601String() }}" class="text-[11px] text-ink-soft/80">
                             {{ $related->updated_at?->translatedFormat('d F Y') }}
                         </time>
                     </a>
