@@ -154,6 +154,78 @@ class AffiliatePlatformTest extends TestCase
         $this->assertStringNotContainsString('[summary_box', $html);
     }
 
+    public function test_comparison_article_uses_product_image_and_category_in_meta_and_breadcrumbs(): void
+    {
+        $category = Category::create([
+            'name' => 'تكييفات',
+            'slug' => 'tkyyfat',
+            'description' => 'أجهزة التكييف',
+        ]);
+
+        $first = Product::create([
+            'category_id' => $category->id,
+            'title' => 'تكييف كاريير الموضعي',
+            'asin' => 'B0CARRIER01',
+            'brand' => 'Carrier',
+            'price' => 19440.00,
+            'rating' => 4.6,
+            'review_count' => 46,
+            'affiliate_url' => 'https://www.amazon.eg/dp/B0CARRIER01?tag=demo-21',
+            'image_url' => 'https://r2.example.com/carrier-cover.jpg',
+            'in_stock' => true,
+        ]);
+
+        $second = Product::create([
+            'category_id' => $category->id,
+            'title' => 'تكييف ميديا الموضعي',
+            'asin' => 'B0MIDEA0001',
+            'brand' => 'Midea',
+            'price' => 18288.00,
+            'rating' => 4.2,
+            'review_count' => 90,
+            'affiliate_url' => 'https://www.amazon.eg/dp/B0MIDEA0001?tag=demo-21',
+            'image_url' => 'https://r2.example.com/midea-cover.jpg',
+            'in_stock' => true,
+        ]);
+
+        $article = Article::create([
+            'category_id' => $category->id,
+            'title' => 'مقارنة بين تكييف كاريير وميديا',
+            'slug' => 'mkarn-byn-karyr-w-mydya',
+            'content' => "## الأول\n\nبتكلفة تقريبية تتراوح بين 500 إلى [price] ج.م\n\n[summary_box position=\"1\" verdict=\"الأفضل للأداء\"]",
+            'is_published' => true,
+        ]);
+
+        $article->articleProducts()->create(['product_id' => $first->id, 'sort_order' => 1]);
+        $article->articleProducts()->create(['product_id' => $second->id, 'sort_order' => 2]);
+
+        $response = $this->get('/articles/'.$article->slug)->assertOk();
+        $html = $response->getContent();
+
+        // 1) Mid-sentence [price] must render inline spans — never a block <div>
+        // that splits the paragraph (breaks layout / CLS).
+        $this->assertStringContainsString('بتكلفة تقريبية تتراوح بين 500 إلى', $html);
+        $this->assertStringNotContainsString('my-6 space-y-3', $html);
+
+        // 2) og:image / twitter:image use the FIRST compared product's image,
+        // never the default og-image.png.
+        $this->assertStringContainsString('property="og:image" content="https://r2.example.com/carrier-cover.jpg"', $html);
+        $this->assertStringContainsString('name="twitter:image" content="https://r2.example.com/carrier-cover.jpg"', $html);
+        $this->assertStringNotContainsString('/img/og-image.png', $html);
+
+        // 3) Article schema image must be the real product image, not favicon.
+        $this->assertStringContainsString('"image":["https://r2.example.com/carrier-cover.jpg"]', $html);
+        $this->assertStringNotContainsString('"image":["http://127.0.0.1:8000/favicon.svg"]', $html);
+        $this->assertStringNotContainsString('"image":["https://127.0.0.1:8000/favicon.svg"]', $html);
+
+        // 4) Breadcrumb DOM and BreadcrumbList schema must both carry the
+        // category (الرئيسية ➔ تكييفات ➔ المقال), matching each other.
+        $this->assertStringContainsString('/category/tkyyfat', $html);
+        $this->assertStringContainsString('تكييفات', $html);
+        $this->assertStringContainsString('"name":"تكييفات"', $html);
+        $this->assertStringContainsString('"name":"مقارنة بين تكييف كاريير وميديا"', $html);
+    }
+
     public function test_unpublished_article_returns_404(): void
     {
         $article = $this->seedArticle();

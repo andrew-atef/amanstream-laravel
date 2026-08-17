@@ -1,9 +1,17 @@
+@php
+    // For OpenGraph/Twitter/Discover: comparison articles have no single
+    // $product, so use the first ranked compared product's image instead of
+    // the site favicon/default og-image.
+    $primaryImage = $product?->image_url
+        ?? $article->articleProducts->sortBy('sort_order')->first()?->product?->image_url;
+@endphp
+
 <x-layouts.app
     :meta-title="isset($article) ? \App\Services\SEOHelper::cleanTitle($article->meta_title ?: $article->title) : null"
     :meta-description="$article->meta_description"
     :og-title="isset($article) ? \App\Services\SEOHelper::cleanTitle($article->title) : null"
     :og-description="$article->meta_description"
-    :og-image="$product?->image_url"
+    :og-image="$primaryImage"
     og-type="article"
 >
     @push('schema')
@@ -101,7 +109,7 @@
                 ...$buildProductNode($product),
             ] : null;
 
-            $articleImageUrl = $product?->image_url ?: $siteUrl.'/favicon.svg';
+            $articleImageUrl = $primaryImage ?: $siteUrl.'/favicon.svg';
             $brandName = config('app.name', 'أمان برايس');
 
             $articleSchema = [
@@ -130,8 +138,8 @@
                 ],
             ];
 
-            $categoryName = $product?->category?->name ?? 'مقالات';
-            $categoryUrl = $product?->category ? route('categories.show', $product->category->slug) : $siteUrl;
+            $categoryName = $article->category?->name ?? 'مقالات';
+            $categoryUrl = $article->category ? route('categories.show', $article->category->slug) : $siteUrl;
 
             $breadcrumbSchema = [
                 '@context' => 'https://schema.org',
@@ -202,8 +210,8 @@
         <nav class="mb-6 text-sm text-slate-500" aria-label="Breadcrumb">
             <ol class="flex flex-wrap items-center gap-1">
                 <li><a href="/" class="hover:text-primary-600">الرئيسية</a></li>
-                @if ($product?->category)
-                    <li><span aria-hidden="true">/</span> <a href="{{ route('categories.show', $product->category->slug) }}" class="hover:text-primary-600">{{ $product->category->name }}</a></li>
+                @if ($article->category)
+                    <li><span aria-hidden="true">/</span> <a href="{{ route('categories.show', $article->category->slug) }}" class="hover:text-primary-600">{{ $article->category->name }}</a></li>
                 @endif
                 <li aria-current="page"><span aria-hidden="true">/</span> <span class="text-ink">{{ \App\Services\SEOHelper::cleanTitle($article->title) }}</span></li>
             </ol>

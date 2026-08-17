@@ -890,7 +890,12 @@ class ShortcodeParser
     }
 
     /**
-     * Stacked [price] badges, one per compared product.
+     * Inline-safe stacked [price] badges, one per compared product.
+     *
+     * Each row is an inline <span> (never a block <div>) so an author who
+     * writes "[price]" in the middle of a sentence — e.g. "من 500 إلى [price]"
+     * — never breaks the paragraph or shifts layout (CLS). The price badge
+     * component itself is already inline-flex; only the wrapper was block.
      *
      * @param  Collection<int, Product>  $products
      */
@@ -900,16 +905,14 @@ class ShortcodeParser
             return '';
         }
 
-        $html = '';
-
-        foreach ($products as $product) {
-            $html .= '<div>'
-                .'<span class="mb-1 block text-xs font-bold text-slate-600">'.e($product->title).'</span>'
+        $badges = $products->map(function (Product $product): string {
+            return '<span class="inline-flex flex-wrap items-center gap-1.5">'
+                .'<span class="text-sm font-bold text-slate-600">'.e($product->title).':</span>'
                 .$this->priceBadge($product)
-                .'</div>';
-        }
+                .'</span>';
+        });
 
-        return '<div class="my-6 space-y-3" dir="rtl">'.$html.'</div>';
+        return '<span class="inline-flex flex-wrap items-center gap-x-3 gap-y-2" dir="rtl">'.$badges->implode('').'</span>';
     }
 
     /**
