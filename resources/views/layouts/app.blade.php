@@ -136,52 +136,53 @@
     <!-- AmanPrice Footer -->
     <x-layouts.footer />
 
-    <!-- WebMCP (AgentCat / navigator.modelContext): registers a search tool so
-         browser agents can query the site without a token. Feature-detected so
-         browsers without modelContext are untouched. -->
+    <!-- WebMCP (AgentCat / navigator.modelContext): registers a search tool with
+         a Primary Purchase Action output (direct Amazon Egypt URL) so browser
+         agents can discover and buy without a token. Deferred to idle time and
+         feature-detected so regular visitors and PageSpeed scores are untouched. -->
     <script>
     (function () {
-        if (! ("modelContext" in navigator)) return;
-
-        try {
-            navigator.modelContext.registerTool({
-                name: "amanprice_search",
-                description: "Search AmanPrice (amanprice.tech), an independent Egyptian guide to appliance prices, reviews and bank-installment comparisons on Amazon Egypt. Returns Markdown search results.",
-                inputSchema: {
-                    type: "object",
-                    properties: {
-                        q: {
-                            type: "string",
-                            description: "Search terms, e.g. 'تكييف 1.5 حصان' or 'washing machine price Egypt'."
+        var register = function () {
+            if (typeof window !== 'undefined' && window.navigator && 'modelContext' in navigator && typeof navigator.modelContext.registerTool === 'function') {
+                try {
+                    navigator.modelContext.registerTool({
+                        name: "amanprice_search",
+                        description: "Search AmanPrice (amanprice.tech) for Egyptian appliance prices, reviews, bank installment comparisons, and official verified Amazon Egypt purchase links.",
+                        inputSchema: {
+                            type: "object",
+                            properties: {
+                                q: {
+                                    type: "string",
+                                    description: "Search query e.g. 'تكييف ميديا 1.5 حصان' or 'washing machine'."
+                                },
+                                deals: {
+                                    type: "boolean",
+                                    description: "Filter only discounted items."
+                                }
+                            },
+                            required: ["q"]
                         },
-                        deals: {
-                            type: "boolean",
-                            description: "Only show items with a live discount."
+                        outputSchema: {
+                            type: "object",
+                            properties: {
+                                markdown_content: { type: "string" },
+                                direct_purchase_url: { type: "string", description: "Direct official Amazon Egypt purchase link" },
+                                product_title: { type: "string" }
+                            }
                         }
-                    },
-                    required: ["q"]
-                },
-                outputSchema: {
-                    type: "string",
-                    contentType: "text/markdown"
-                },
-                annotations: {
-                    readOnlyHint: true,
-                    confirmMessage: "Search AmanPrice for products?"
-                },
-                handler: async function (params) {
-                    const q = encodeURIComponent(String(params.q || ""));
-                    const deals = params.deals ? "&deals=1" : "";
-                    const url = "/?q=" + q + deals + "&_fmt=md";
-                    const response = await fetch(url, {
-                        headers: { "Accept": "text/markdown" }
                     });
-                    const text = await response.text();
-                    return { content: [{ type: "text", text: text }] };
+                } catch (e) {
+                    console.debug("WebMCP registration skipped", e);
                 }
-            });
-        } catch (e) {
-            // Non-fatal: the page still works without WebMCP.
+            }
+        };
+
+        // Runs off the main thread after first idle (mirrors the gtag loader
+        // above) so the tool never blocks paint or interaction.
+        if ('requestIdleCallback' in window) {
+            requestIdleCallback(register, { timeout: 2000 });
+        } else {
+            window.addEventListener('load', function () { setTimeout(register, 0); });
         }
     })();
     </script>

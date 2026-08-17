@@ -120,8 +120,8 @@ class ArticlePriceNormalizationTest extends TestCase
         $content = $response->getContent();
 
         // url frontmatter must be a single clean join — no "//" anywhere.
-        $this->assertStringNotContainsString('//', str_replace('http://', '', $content));
+        $this->assertStringNotContainsString('//', str_replace(['http://', 'https://'], '', $content));
         $this->assertStringContainsString('url: '.config('app.url').'/articles/price-url', $content);
-        $this->assertStringContainsString('**1479.00 ج.م** (سعر محدث اليوم)', $content);
+        $this->assertStringContainsString('**1479.00 ج.م** (سعر محدث اليوم — [التحقق من السعر والضمان على أمازون مصر](https://www.amazon.eg/dp/PRICE00001))', $content);
     }
 }

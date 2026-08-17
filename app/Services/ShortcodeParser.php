@@ -203,7 +203,7 @@ class ShortcodeParser
     protected function priceMarkdown(Product $product): string
     {
         return (float) $product->price > 0
-            ? '**'.$this->formatPrice((float) $product->price).' ج.م** (سعر محدث اليوم)'
+            ? '**'.$this->formatPrice((float) $product->price).' ج.م** (سعر محدث اليوم — [التحقق من السعر والضمان على أمازون مصر]('.$product->affiliate_url.'))'
             : 'السعر قيد التحديث ⏳';
     }
 
@@ -235,7 +235,7 @@ class ShortcodeParser
     protected function buyButtonMarkdown(Product $product): string
     {
         return filled($product->affiliate_url)
-            ? '[🛒 اشترِ الآن بأقل سعر من أمازون مصر]('.$product->affiliate_url.')'
+            ? '[صفحة العرض والضمان المعتمد لـ '.\App\Services\SEOHelper::cleanTitle((string) $product->title).' على أمازون مصر]('.$product->affiliate_url.')'
             : '';
     }
 
@@ -478,7 +478,7 @@ class ShortcodeParser
             $title = str_replace('|', '\\|', \App\Services\SEOHelper::cleanTitle((string) $product->title));
 
             $markdown .= sprintf(
-                "| %s | %s ج.م | [اشترِ من أمازون](%s) |\n",
+                "| %s | %s ج.م | [صفحة الشراء والضمان](%s) |\n",
                 $title,
                 $this->formatPrice((float) $product->price),
                 $product->affiliate_url
@@ -525,7 +525,7 @@ class ShortcodeParser
             }
 
             if (filled($product->affiliate_url)) {
-                $markdown .= '- [🛒 اشترِ الآن من أمازون]('.$product->affiliate_url.")\n";
+                $markdown .= '- [🔗 رابط العرض والضمان المعتمد على أمازون مصر]('.$product->affiliate_url.")\n";
             }
 
             $markdown .= "\n";

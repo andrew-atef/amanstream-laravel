@@ -76,6 +76,8 @@ class ServeMarkdownForAgents
         $path = $request->path();
 
         return $path === 'up'
+            || $path === 'mcp'
+            || str_starts_with($path, 'mcp/')
             || str_starts_with($path, 'admin')
             || str_starts_with($path, 'api/')
             || str_starts_with($path, 'livewire/')
@@ -148,6 +150,23 @@ class ServeMarkdownForAgents
             if (filled($product->image_url)) {
                 $frontmatter[] = 'image: ' . $product->image_url;
             }
+
+            // Explicit commercial entity metadata so AI agents (Perplexity,
+            // AutoGPT, ChatGPT/Search) can resolve the buyable offer straight
+            // from the frontmatter without treating the CTA as boilerplate.
+            if (filled($product->affiliate_url)) {
+                $frontmatter[] = 'offer_url: ' . $product->affiliate_url;
+                $frontmatter[] = 'merchant: أمازون مصر';
+                $frontmatter[] = 'currency: EGP';
+                $frontmatter[] = 'availability: ' . ($product->in_stock ? 'in_stock' : 'out_of_stock');
+            }
+
+            // Brand-level warranty facts (e.g. merchant/agency hotline) can be
+            // attached ONLY when real data is stored — never synthesized, so the
+            // E-E-A-T fact-check stays truthful for every brand.
+            if (filled($product->brand) && filled($product->warranty_provider)) {
+                $frontmatter[] = 'warranty_provider: ' . $product->warranty_provider;
+            }
         }
 
         $lastUpdated = $product?->last_synced_at ?? $article->updated_at;
@@ -160,6 +179,15 @@ class ServeMarkdownForAgents
         $parser = app(ShortcodeParser::class);
         $parsedMarkdownContent = $parser->parseForMarkdown($article);
 
+        // Verified-entity hook paragraph: embeds the affiliate URL inside a
+        // factual warranty/merchant phrase (before the shortcode body) instead
+        // of leaving a lone isolated CTA at the bottom that LLM summarizers
+        // classify as boilerplate and drop.
+        $introParagraph = null;
+        if ($product && filled($product->affiliate_url)) {
+            $introParagraph = 'يمكنك الاطلاع على المواصفات والطلب مباشرة عبر [صفحة العرض والضمان المعتمد على أمازون مصر](' . $product->affiliate_url . ') مع تفعيل خيارات التقسيط البنكي 0% فائدة.';
+        }
+
         return implode(PHP_EOL, [
             '---',
             ...$frontmatter,
@@ -167,6 +195,7 @@ class ServeMarkdownForAgents
             '',
             '# ' . $cleanTitle,
             '',
+            ...($introParagraph !== null ? [$introParagraph, ''] : []),
             $parsedMarkdownContent,
             '',
         ]) . PHP_EOL;

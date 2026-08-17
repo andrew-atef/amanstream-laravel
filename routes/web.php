@@ -3,11 +3,18 @@
 use App\Http\Controllers\ArticleController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\LlmsTxtController;
+use App\Http\Controllers\McpController;
 use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\WellKnownController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
+
+// JSON-RPC 2.0 Model Context Protocol endpoint consumed by the in-browser
+// WebMCP bridge (document.modelContext) — POST only, CSRF-exempt, CORS-enabled.
+Route::match(['post', 'options'], '/mcp', [McpController::class, 'handle'])
+    ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class])
+    ->name('mcp');
 
 // Clean, crawlable category hub URLs (replaces the faceted `?category=` links).
 Route::get('/category/{slug}', [HomeController::class, 'index'])->name('categories.show');
