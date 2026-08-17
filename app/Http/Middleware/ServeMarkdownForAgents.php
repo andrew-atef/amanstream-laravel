@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\Article;
+use App\Services\SEOHelper;
 use App\Services\ShortcodeParser;
 use Closure;
 use Illuminate\Http\Request;
@@ -79,6 +80,10 @@ class ServeMarkdownForAgents
             return $article ? $this->renderBlogArticle($article) : null;
         }
 
+        if ($path === 'blog') {
+            return $this->renderBlogIndex();
+        }
+
         return null;
     }
 
@@ -133,66 +138,66 @@ class ServeMarkdownForAgents
             return $this->renderBlogArticle($article);
         }
 
-        $siteUrl = \App\Services\SEOHelper::url();
-        $cleanTitle = \App\Services\SEOHelper::cleanTitle($article->title);
+        $siteUrl = SEOHelper::url();
+        $cleanTitle = SEOHelper::cleanTitle($article->title);
         $product = $article->product;
         $description = trim((string) $article->meta_description);
 
         $frontmatter = [
-            'title: ' . $cleanTitle,
+            'title: '.$cleanTitle,
         ];
 
         if ($description !== '') {
-            $frontmatter[] = 'description: ' . $description;
+            $frontmatter[] = 'description: '.$description;
         }
 
         if ($product) {
             if (filled($product->asin)) {
-                $frontmatter[] = 'asin: ' . $product->asin;
+                $frontmatter[] = 'asin: '.$product->asin;
             }
             if (filled($product->brand)) {
-                $frontmatter[] = 'brand: ' . $product->brand;
+                $frontmatter[] = 'brand: '.$product->brand;
             }
             if ((float) $product->price > 0) {
-                $frontmatter[] = 'price_egp: ' . number_format((float) $product->price, 2, '.', '');
+                $frontmatter[] = 'price_egp: '.number_format((float) $product->price, 2, '.', '');
             }
             if ((float) $product->original_price > (float) $product->price) {
-                $frontmatter[] = 'original_price_egp: ' . number_format((float) $product->original_price, 2, '.', '');
+                $frontmatter[] = 'original_price_egp: '.number_format((float) $product->original_price, 2, '.', '');
             }
             if ((float) $product->rating > 0) {
-                $frontmatter[] = 'rating: ' . number_format((float) $product->rating, 1);
+                $frontmatter[] = 'rating: '.number_format((float) $product->rating, 1);
             }
             if ((int) $product->review_count > 0) {
-                $frontmatter[] = 'review_count: ' . (int) $product->review_count;
+                $frontmatter[] = 'review_count: '.(int) $product->review_count;
             }
             if (filled($product->image_url)) {
-                $frontmatter[] = 'image: ' . $product->image_url;
+                $frontmatter[] = 'image: '.$product->image_url;
             }
 
             // Explicit commercial entity metadata so AI agents (Perplexity,
             // AutoGPT, ChatGPT/Search) can resolve the buyable offer straight
             // from the frontmatter without treating the CTA as boilerplate.
             if (filled($product->affiliate_url)) {
-                $frontmatter[] = 'offer_url: ' . $product->affiliate_url;
+                $frontmatter[] = 'offer_url: '.$product->affiliate_url;
                 $frontmatter[] = 'merchant: أمازون مصر';
                 $frontmatter[] = 'currency: EGP';
-                $frontmatter[] = 'availability: ' . ($product->in_stock ? 'in_stock' : 'out_of_stock');
+                $frontmatter[] = 'availability: '.($product->in_stock ? 'in_stock' : 'out_of_stock');
             }
 
             // Brand-level warranty facts (e.g. merchant/agency hotline) can be
             // attached ONLY when real data is stored — never synthesized, so the
             // E-E-A-T fact-check stays truthful for every brand.
             if (filled($product->brand) && filled($product->warranty_provider)) {
-                $frontmatter[] = 'warranty_provider: ' . $product->warranty_provider;
+                $frontmatter[] = 'warranty_provider: '.$product->warranty_provider;
             }
         }
 
         $lastUpdated = $product?->last_synced_at ?? $article->updated_at;
         if ($lastUpdated !== null) {
-            $frontmatter[] = 'last_updated: ' . $lastUpdated->toIso8601String();
+            $frontmatter[] = 'last_updated: '.$lastUpdated->toIso8601String();
         }
 
-        $frontmatter[] = 'url: ' . \App\Services\SEOHelper::canonical('articles/' . $article->slug);
+        $frontmatter[] = 'url: '.SEOHelper::canonical('articles/'.$article->slug);
 
         $parser = app(ShortcodeParser::class);
         $parsedMarkdownContent = $parser->parseForMarkdown($article);
@@ -203,7 +208,7 @@ class ServeMarkdownForAgents
         // classify as boilerplate and drop.
         $introParagraph = null;
         if ($product && filled($product->affiliate_url)) {
-            $introParagraph = 'يمكنك الاطلاع على المواصفات والطلب مباشرة عبر [صفحة العرض والضمان المعتمد على أمازون مصر](' . $product->affiliate_url . ') مع تفعيل خيارات التقسيط البنكي 0% فائدة.';
+            $introParagraph = 'يمكنك الاطلاع على المواصفات والطلب مباشرة عبر [صفحة العرض والضمان المعتمد على أمازون مصر]('.$product->affiliate_url.') مع تفعيل خيارات التقسيط البنكي 0% فائدة.';
         }
 
         return implode(PHP_EOL, [
@@ -211,12 +216,12 @@ class ServeMarkdownForAgents
             ...$frontmatter,
             '---',
             '',
-            '# ' . $cleanTitle,
+            '# '.$cleanTitle,
             '',
             ...($introParagraph !== null ? [$introParagraph, ''] : []),
             $parsedMarkdownContent,
             '',
-        ]) . PHP_EOL;
+        ]).PHP_EOL;
     }
 
     /**
@@ -227,21 +232,21 @@ class ServeMarkdownForAgents
      */
     private function renderBlogArticle(Article $article): string
     {
-        $cleanTitle = \App\Services\SEOHelper::cleanTitle($article->title);
+        $cleanTitle = SEOHelper::cleanTitle($article->title);
         $description = trim((string) $article->meta_description);
 
         $frontmatter = [
-            'title: ' . $cleanTitle,
+            'title: '.$cleanTitle,
         ];
 
         if ($description !== '') {
-            $frontmatter[] = 'description: ' . $description;
+            $frontmatter[] = 'description: '.$description;
         }
 
         $frontmatter[] = 'type: blog';
-        $frontmatter[] = 'category: ' . ($article->category?->name ?? 'المدونة');
-        $frontmatter[] = 'last_updated: ' . $article->updated_at->toIso8601String();
-        $frontmatter[] = 'url: ' . \App\Services\SEOHelper::canonical('blog/' . $article->slug);
+        $frontmatter[] = 'category: '.($article->category?->name ?? 'المدونة');
+        $frontmatter[] = 'last_updated: '.$article->updated_at->toIso8601String();
+        $frontmatter[] = 'url: '.SEOHelper::canonical('blog/'.$article->slug);
 
         $parser = app(ShortcodeParser::class);
         $parsedMarkdownContent = $parser->parseForMarkdown($article);
@@ -251,17 +256,60 @@ class ServeMarkdownForAgents
             ...$frontmatter,
             '---',
             '',
-            '# ' . $cleanTitle,
+            '# '.$cleanTitle,
             '',
             $parsedMarkdownContent,
             '',
-        ]) . PHP_EOL;
+        ]).PHP_EOL;
+    }
+
+    /**
+     * Markdown variant for the /blog hub: plain index of recent editorial
+     * posts so crawlers can enumerate the blog feed without HTML.
+     */
+    private function renderBlogIndex(): string
+    {
+        $siteUrl = SEOHelper::url();
+
+        $posts = Article::query()
+            ->with('category')
+            ->where('type', 'blog')
+            ->where('is_published', true)
+            ->latest()
+            ->limit(50)
+            ->get();
+
+        $lines = [
+            '---',
+            'title: المدونة والمقالات الإرشادية — أمان برايس',
+            'description: دلائل ونصائح عملية قبل الشراء من الأمان برايس — محتوى إرشادي غير مربوط بمنتج وحيد.',
+            'type: blog-index',
+            '---',
+            '',
+            '# المدونة والمقالات الإرشادية',
+            '',
+            'دلائل ونصائح عملية قبل الشراء من الأمان برايس — محتوى إرشادي غير مربوط بمنتج وحيد.',
+            '',
+        ];
+
+        $index = 0;
+        foreach ($posts as $post) {
+            $index++;
+            $lines[] = ($index < 10 ? '0'.$index : (string) $index).'. ['.$post->title.']('.$siteUrl.'/blog/'.$post->slug.')';
+        }
+
+        $lines[] = '';
+        $lines[] = '## أقسام';
+        $lines[] = '- [الرئيسية والمراجعات]('.$siteUrl.'/)';
+        $lines[] = '- [llms.txt]('.$siteUrl.'/llms.txt)';
+
+        return implode(PHP_EOL, $lines).PHP_EOL;
     }
 
     private function renderHome(): string
     {
         $siteName = config('app.name', 'أمان برايس');
-        $siteUrl = \App\Services\SEOHelper::url();
+        $siteUrl = SEOHelper::url();
 
         $articles = Article::query()
             ->with(['product', 'category'])
@@ -272,11 +320,11 @@ class ServeMarkdownForAgents
 
         $lines = [
             '---',
-            'title: ' . $siteName . ' — دليل مراجعات وأسعار الأجهزة في مصر',
+            'title: '.$siteName.' — دليل مراجعات وأسعار الأجهزة في مصر',
             'description: بوابتك المباشرة لمراجعة أسعار الأجهزة المنزلية والتكنولوجيا على أمازون مصر مع حاسبة التقسيط.',
             '---',
             '',
-            '# ' . $siteName,
+            '# '.$siteName,
             '',
             'بوابتك المباشرة لمراجعة أسعار الأجهزة المنزلية والتكنولوجيا على أمازون مصر، مع حاسبة التقسيط والمقارنات والأسعار المحدثة يوميًا.',
             '',
@@ -286,17 +334,17 @@ class ServeMarkdownForAgents
 
         foreach ($articles as $article) {
             $isBlog = $article->isBlog();
-            $lines[] = '- [' . $article->title . '](' . $siteUrl . ($isBlog ? '/blog/' : '/articles/') . $article->slug . ')';
+            $lines[] = '- ['.$article->title.']('.$siteUrl.($isBlog ? '/blog/' : '/articles/').$article->slug.')';
         }
 
         $lines[] = '';
         $lines[] = '## المدونة والمقالات الإرشادية';
-        $lines[] = '- [' . $siteName . ' المدونة](' . $siteUrl . '/blog)';
+        $lines[] = '- ['.$siteName.' المدونة]('.$siteUrl.'/blog)';
         $lines[] = '';
         $lines[] = '## موارد إضافية';
-        $lines[] = '- [خريطة الموقع XML](' . $siteUrl . '/sitemap.xml)';
-        $lines[] = '- [llms.txt](' . $siteUrl . '/llms.txt)';
+        $lines[] = '- [خريطة الموقع XML]('.$siteUrl.'/sitemap.xml)';
+        $lines[] = '- [llms.txt]('.$siteUrl.'/llms.txt)';
 
-        return implode(PHP_EOL, $lines) . PHP_EOL;
+        return implode(PHP_EOL, $lines).PHP_EOL;
     }
 }

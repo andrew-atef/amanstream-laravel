@@ -2,12 +2,15 @@
 
 namespace App\Models;
 
+use App\Services\SEOHelper;
+use App\Services\ShortcodeParser;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Str;
 
 class Article extends Model
 {
@@ -63,8 +66,8 @@ class Article extends Model
      */
     public function readMinutes(): int
     {
-        $content = \App\Services\ShortcodeParser::stripShortcodes((string) $this->content);
-        $words = \Illuminate\Support\Str::of(strip_tags($content))->squish()->split('/\s+/')->filter()->count();
+        $content = ShortcodeParser::stripShortcodes((string) $this->content);
+        $words = Str::of(strip_tags($content))->squish()->split('/\s+/')->filter()->count();
 
         return max(1, (int) ceil($words / 200));
     }
@@ -76,7 +79,7 @@ class Article extends Model
     protected function title(): Attribute
     {
         return Attribute::make(
-            get: fn (?string $value): ?string => $value === null ? null : \App\Services\SEOHelper::cleanTitle($value),
+            get: fn (?string $value): ?string => $value === null ? null : SEOHelper::cleanTitle($value),
         );
     }
 
@@ -92,7 +95,7 @@ class Article extends Model
      */
     public function getFaqSchemaData(): array
     {
-        $content = \App\Services\ShortcodeParser::stripShortcodes((string) $this->content);
+        $content = ShortcodeParser::stripShortcodes((string) $this->content);
 
         $faqs = [];
 
@@ -135,6 +138,7 @@ class Article extends Model
                 if (preg_match('/^#{2,3}\s+(.+)$/u', $line, $headingMatch)) {
                     $flushCurrent();
                     $currentQuestion = trim($headingMatch[1]);
+
                     continue;
                 }
 
@@ -277,7 +281,7 @@ class Article extends Model
     {
         static::saving(function (Article $article) {
             if ($article->title !== null) {
-                $article->title = \App\Services\SEOHelper::cleanTitle((string) $article->title);
+                $article->title = SEOHelper::cleanTitle((string) $article->title);
             }
 
             if ($article->content !== null && $article->isDirty('content')) {

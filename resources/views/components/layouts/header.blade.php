@@ -16,6 +16,11 @@
             'active' => $routeCategorySlug === $category->slug,
         ]),
         [
+            'label' => 'المدونة',
+            'href' => '/blog',
+            'active' => request()->is('blog', 'blog/*'),
+        ],
+        [
             'label' => 'عن أمان برايس',
             'href' => '/about',
             'active' => request()->is('about'),

@@ -35,6 +35,15 @@ class SitemapController extends Controller
                 'priority' => '0.3',
             ];
 
+            // Editorial blog hub — the index page itself deserves an entry so
+            // crawlers discover feed updates even if individual posts rotate.
+            $urls[] = [
+                'loc' => route('blog.index'),
+                'lastmod' => now(),
+                'changefreq' => 'daily',
+                'priority' => '0.8',
+            ];
+
             // Clean /category/{slug} hubs — the Category Hubs Google should
             // treat as top-level destinations (was missing from the sitemap).
             // Only real categories that already have published articles qualify,
@@ -61,19 +70,23 @@ class SitemapController extends Controller
                 ->with('product')
                 ->where('is_published', true)
                 ->whereNotNull('slug')
-                ->select('id', 'product_id', 'title', 'slug', 'updated_at')
+                ->select('id', 'product_id', 'type', 'title', 'slug', 'updated_at')
                 ->cursor()
                 ->each(function (Article $article) use (&$urls): void {
+                    $isBlog = $article->isBlog();
+
                     $item = [
-                        'loc' => route('articles.show', $article->slug),
+                        'loc' => $isBlog
+                            ? route('blog.show', $article->slug)
+                            : route('articles.show', $article->slug),
                         'lastmod' => $article->updated_at,
-                        'changefreq' => 'weekly',
-                        'priority' => '0.9',
+                        'changefreq' => $isBlog ? 'monthly' : 'weekly',
+                        'priority' => $isBlog ? '0.7' : '0.9',
                     ];
 
-                    // Google Images extension: expose the product visual with a
-                    // cleaned title so images quality for image search.
-                    $imageUrl = $article->product?->image_url;
+                    // Google Images extension: only available for review
+                    // articles that carry a linked product visual.
+                    $imageUrl = $isBlog ? null : $article->product?->image_url;
 
                     if (filled($imageUrl)) {
                         $item['image'] = [

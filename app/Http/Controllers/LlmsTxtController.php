@@ -53,8 +53,21 @@ class LlmsTxtController extends Controller
             '',
         ]);
 
-        foreach ($articles as $article) {
+        $reviews = $articles->filter(fn (Article $article) => $article->isReview());
+        $blogPosts = $articles->filter(fn (Article $article) => $article->isBlog());
+
+        foreach ($reviews as $article) {
             $lines[] = '- ['.$article->title.']('.$siteUrl.'/articles/'.$article->slug.')';
+        }
+
+        $lines = array_merge($lines, [
+            '',
+            '## المدونة والمقالات الإرشادية',
+            '',
+        ]);
+
+        foreach ($blogPosts as $article) {
+            $lines[] = '- ['.$article->title.']('.$siteUrl.'/blog/'.$article->slug.')';
         }
 
         $lines[] = '';
