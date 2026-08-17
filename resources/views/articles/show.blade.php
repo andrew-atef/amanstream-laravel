@@ -303,6 +303,7 @@
         :articles="$relatedArticles"
         title="منتجات ومراجعات من نفس القسم ({{ $article->category?->name ?: 'التصنيف' }})"
         accent="blue"
+        :more-href="$article->category ? route('categories.show', $article->category->slug) : route('home', ['deals' => 1])"
     />
 
     <!-- SLIDER 2: أقوى عروض وتخفيضات اليوم في مصر -->
@@ -310,6 +311,7 @@
         :articles="$topDeals"
         title="أقوى عروض وتخفيضات اليوم على أمازون مصر"
         accent="red"
+        :more-href="route('home', ['deals' => 1])"
     />
 
     @if ($product)

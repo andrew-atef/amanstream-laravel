@@ -35,6 +35,22 @@ class BlogArchitectureTest extends TestCase
         ], $overrides));
     }
 
+    private function makeProduct(string $asin, string $title, int $price = 8900): Product
+    {
+        return Product::create([
+            'category_id' => $this->makeCategory()->id,
+            'title' => $title,
+            'asin' => $asin,
+            'brand' => 'فريش',
+            'price' => $price,
+            'original_price' => 9900,
+            'affiliate_url' => 'https://www.amazon.eg/dp/'.$asin,
+            'in_stock' => true,
+            'is_active' => true,
+            'platform' => 'amazon',
+        ]);
+    }
+
     private function makeReviewArticle(string $slug = 'review-washer'): Article
     {
         $category = $this->makeCategory('review-cat', 'توصيل كهرباء');
@@ -61,6 +77,51 @@ class BlogArchitectureTest extends TestCase
             'content' => "## المميزات\n\nمراجعة واقعية للمنتج [price].",
             'is_published' => true,
         ]);
+    }
+
+    private function makeComparisonArticle(string $slug = 'compare-ac'): Article
+    {
+        $category = $this->makeCategory('compare-cat', 'تكييفات');
+
+        $first = Product::create([
+            'category_id' => $category->id,
+            'title' => 'تكييف كاريير إكس كول',
+            'asin' => 'CMPASIN001',
+            'brand' => 'كاريير',
+            'price' => 27270,
+            'original_price' => 28774,
+            'affiliate_url' => 'https://www.amazon.eg/dp/CMPASIN001',
+            'in_stock' => true,
+            'is_active' => true,
+            'platform' => 'amazon',
+        ]);
+
+        $second = Product::create([
+            'category_id' => $category->id,
+            'title' => 'تكييف ميديا إيكو ماستر',
+            'asin' => 'CMPASIN002',
+            'brand' => 'ميديا',
+            'price' => 23100,
+            'original_price' => 25000,
+            'affiliate_url' => 'https://www.amazon.eg/dp/CMPASIN002',
+            'in_stock' => true,
+            'is_active' => true,
+            'platform' => 'amazon',
+        ]);
+
+        $article = Article::create([
+            'category_id' => $category->id,
+            'type' => 'review',
+            'title' => 'مقارنة بين تكييف كاريير وميديا: أيهما أوفر في الكهرباء؟',
+            'slug' => $slug,
+            'meta_description' => 'مقارنة شاملة بين جهازين.',
+            'content' => "## نظرة عامة\n\nقارن الجهازين قبل الشراء.",
+            'is_published' => true,
+        ]);
+
+        $article->products()->attach([$first->id, $second->id]);
+
+        return $article;
     }
 
     public function test_blog_index_lists_only_published_blog_posts(): void
@@ -209,6 +270,93 @@ class BlogArchitectureTest extends TestCase
         $parsed = (string) app(ShortcodeParser::class)->parse($post);
 
         $this->assertStringContainsString('<del>', $parsed);
+    }
+
+    public function test_home_feed_excludes_blog_posts_from_product_cards(): void
+    {
+        $blogPost = $this->makeBlogPost(['slug' => 'home-leak-blog', 'title' => 'بدائل كان بكام في مصر']);
+        $review = $this->makeReviewArticle('home-leak-review');
+        $review->title = 'مراجعة للتأكد من وجودها';
+        $review->save();
+
+        $response = $this->get('/');
+
+        $response->assertOk();
+        $response->assertSee($review->title);
+        $response->assertDontSee($blogPost->title);
+        $response->assertDontSee('بدائل كان بكام');
+    }
+
+    public function test_related_reviews_exclude_blog_posts_from_same_category(): void
+    {
+        $blogPost = $this->makeBlogPost(['slug' => 'related-leak-blog', 'category_id' => $this->makeCategory()->id]);
+        $review = $this->makeReviewArticle('related-leak-review');
+        $review->category_id = $blogPost->category_id;
+        $review->save();
+
+        $response = $this->get('/articles/'.$review->slug);
+
+        $response->assertOk();
+        $response->assertSee($review->title);
+        $response->assertDontSee($blogPost->title);
+    }
+
+    public function test_home_renders_comparisons_in_dedicated_slider_not_in_product_grid(): void
+    {
+        $comparison = $this->makeComparisonArticle('home-compare');
+        $review = $this->makeReviewArticle('home-compare-review');
+
+        $response = $this->get('/');
+
+        $response->assertOk();
+        $response->assertSee($review->title);
+        $response->assertSee('المزيد', false);
+        $response->assertSee('?comparisons=1', false);
+
+        // The comparison renders once — in its dedicated slider (full title), it
+        // is never duplicated into the single-product card grid.
+        $this->assertSame(1, substr_count($response->getContent(), $comparison->title));
+    }
+
+    public function test_comparisons_listing_page_lists_all_comparisons(): void
+    {
+        $comparison = $this->makeComparisonArticle('list-compare');
+        $review = $this->makeReviewArticle('list-compare-review');
+
+        $response = $this->get('/?comparisons=1');
+
+        $response->assertOk();
+        $response->assertSee('مقارنة محدثة', false);
+        $response->assertSee('المقارنات', false);
+        $response->assertSee($comparison->title);
+        $response->assertDontSee($review->title);
+    }
+
+    public function test_comparison_articles_still_show_in_category_hub_and_search(): void
+    {
+        $comparison = $this->makeComparisonArticle('hub-compare');
+        $review = $this->makeReviewArticle('hub-compare-review');
+
+        $this->get('/category/compare-cat')
+            ->assertOk()
+            ->assertSee($comparison->title)
+            ->assertDontSee($review->title);
+
+        $this->get('/?q='.urlencode('مقارنة'))
+            ->assertOk()
+            ->assertSee($comparison->title);
+    }
+
+    public function test_related_deals_on_review_page_exclude_comparisons(): void
+    {
+        $comparison = $this->makeComparisonArticle('related-compare');
+        $review = $this->makeReviewArticle('related-compare-review');
+        $comparison->update(['category_id' => $review->category_id]);
+
+        $response = $this->get('/articles/'.$review->slug);
+
+        $response->assertOk();
+        $response->assertDontSee($comparison->title);
     }
 
     public function test_model_scopes_and_helpers_partition_content(): void

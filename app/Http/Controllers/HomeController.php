@@ -17,10 +17,29 @@ class HomeController extends Controller
         $categoryPage = $request->route('slug') !== null;
 
         $dealsOnly = $request->boolean('deals', false);
+        $comparisonsOnly = $request->boolean('comparisons', false);
 
         $query = Article::query()
             ->with(['category', 'product', 'products'])
-            ->where('is_published', true);
+            ->where('is_published', true)
+            // The home feed is a product-review surface: editorial blog posts
+            // (type=blog) live on /blog and must never render as deal/product
+            // cards with a phantom "0 ج.م" price.
+            ->where('type', 'review');
+
+        // Multi-product comparison rounds have no single price or rating, so a
+        // plain browse feed must not pass one off as a deal card. They stay
+        // reachable in the dedicated "مقارنات" slider and (?comparisons=1)
+        // mode, category hubs (/category/{slug}) and on search.
+        if ($search === '' && $categorySlug === null && ! $comparisonsOnly) {
+            $query->whereNotNull('product_id');
+        }
+
+        // Dedicated comparisons listing (backed by the home "مقارنات" slider's
+        // "المزيد" link): browse every multi-product comparison round.
+        if ($comparisonsOnly) {
+            $query->comparisons();
+        }
 
         // Live search across title, content, product title, brand and ASIN.
         if (! empty($search)) {
@@ -67,6 +86,7 @@ class HomeController extends Controller
         $topDeals = Article::query()
             ->join('products', 'articles.product_id', '=', 'products.id')
             ->where('articles.is_published', true)
+            ->where('articles.type', 'review')
             ->where('products.in_stock', true)
             ->where('products.original_price', '>', 0)
             ->whereColumn('products.original_price', '>', 'products.price')
@@ -77,6 +97,16 @@ class HomeController extends Controller
             ->take(8)
             ->get();
 
+        // Latest comparison rounds for the dedicated home slider. Titles are
+        // long and decision-critical, so the slider renders them unclamped.
+        $comparisons = Article::query()
+            ->comparisons()
+            ->with(['category', 'products'])
+            ->where('is_published', true)
+            ->latest()
+            ->take(8)
+            ->get();
+
         return view('home', [
             'articles' => $articles,
             'categories' => $categories,
@@ -84,7 +114,9 @@ class HomeController extends Controller
             'selectedCategory' => $selectedCategory,
             'searchQuery' => $search,
             'dealsOnly' => $dealsOnly,
+            'comparisonsOnly' => $comparisonsOnly,
             'topDeals' => $topDeals,
+            'comparisons' => $comparisons,
             'categoryPage' => $categoryPage,
         ]);
     }

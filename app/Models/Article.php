@@ -60,6 +60,17 @@ class Article extends Model
     }
 
     /**
+     * Multi-product comparison rounds: a review with no primary product but at
+     * least two compared devices on the article_product pivot.
+     */
+    public function scopeComparisons(Builder $query): Builder
+    {
+        return $query->reviews()
+            ->whereNull('product_id')
+            ->has('articleProducts', '>=', 2);
+    }
+
+    /**
      * Estimated editorial read time in minutes, derived from the whitespace-
      * separated word count of the content body (shortcodes stripped). Arabic
      * reading speed ~180-220 wpm; never returns 0 for a published post.

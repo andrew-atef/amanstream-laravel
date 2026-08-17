@@ -27,6 +27,8 @@ class ArticleController extends Controller
         // مقالات من نفس القسم (مع استبعاد المقال الحالي) — للـ Dwell Time وعدم الارتداد
         $relatedArticles = Article::query()
             ->with(['product', 'products', 'category'])
+            ->where('type', 'review')
+            ->whereNotNull('product_id')
             ->where('category_id', $article->category_id)
             ->where('id', '!=', $article->id)
             ->where('is_published', true)
@@ -38,6 +40,7 @@ class ArticleController extends Controller
         $topDeals = Article::query()
             ->join('products', 'articles.product_id', '=', 'products.id')
             ->where('articles.is_published', true)
+            ->where('articles.type', 'review')
             ->where('articles.id', '!=', $article->id)
             ->where('products.in_stock', true)
             ->where('products.original_price', '>', 0)

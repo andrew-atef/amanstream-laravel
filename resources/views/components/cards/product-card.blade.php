@@ -7,7 +7,14 @@
     $primaryProduct = $article->product;
     $product = $primaryProduct ?: $article->products->first();
     $isComparison = ! $primaryProduct && $article->products->count() > 1;
-    $current = (float) ($product?->price ?? 0);
+
+    // No primary product and no comparison products: an editorial article must
+    // never render as a phantom deal ("لا توجد صورة"/"0 ج.م").
+    if ($product === null) {
+        return;
+    }
+
+    $current = (float) ($product->price ?? 0);
     $original = (float) ($product?->original_price ?? 0);
     $hasDiscount = $original > $current && $original > 0;
     $discountPct = $hasDiscount ? round((($original - $current) / $original) * 100) : 0;

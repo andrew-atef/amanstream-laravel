@@ -1,9 +1,9 @@
 @php
     $categoryPage ??= false;
     // Clean /category/{slug} pages are indexable Category Hubs. Search, deals,
-    // legacy `?category=` filtering and pagination stay noindex (near-duplicates
-    // of the canonical homepage — don't split index equity).
-    $robotsMeta = ($searchQuery !== '' || $dealsOnly || (! $categoryPage && $selectedCategory !== null) || request()->has('page'))
+    // comparisons, legacy `?category=` filtering and pagination stay noindex
+    // (near-duplicates of the canonical homepage — don't split index equity).
+    $robotsMeta = ($searchQuery !== '' || $dealsOnly || $comparisonsOnly || (! $categoryPage && $selectedCategory !== null) || request()->has('page'))
         ? 'noindex, follow'
         : 'index, follow';
 
@@ -101,19 +101,31 @@
     @endpush
 
     <!-- 1. Hero Search Banner -->
-    <x-hero-search :search-query="$searchQuery" :deals-only="$dealsOnly" :selected-category="$categoryPage ? $selectedCategory : null" />
+    <x-hero-search :search-query="$searchQuery" :deals-only="$dealsOnly" :categories="$categories" :selected-category="$categoryPage ? $selectedCategory : null" />
 
     <!-- 2. Top Deals Slider -->
-    @if ($topDeals->isNotEmpty() && ! $searchQuery && ! $selectedCategory)
+    @if ($topDeals->isNotEmpty() && ! $searchQuery && ! $selectedCategory && ! $comparisonsOnly)
         <x-sliders.deals-slider
             :articles="$topDeals"
             title="أكبر التخفيضات اليوم"
             accent="blue"
             leading
+            :more-href="route('home', ['deals' => 1])"
         />
     @endif
 
-    <!-- 3. Main Layout Grid -->
+    <!-- 3. Comparisons Slider -->
+    @if ($comparisons->isNotEmpty() && ! $searchQuery && ! $selectedCategory && ! $comparisonsOnly && ! $dealsOnly)
+        <x-sliders.deals-slider
+            :articles="$comparisons"
+            title="مقارنات"
+            accent="blue"
+            full-titles
+            :more-href="route('home', ['comparisons' => 1])"
+        />
+    @endif
+
+    <!-- 4. Main Layout Grid -->
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-4">
 
         <!-- Sidebar Filters -->
@@ -134,7 +146,7 @@
         <main class="space-y-4 lg:col-span-3">
 
             <!-- Active Filters Notification Bar -->
-            @if ($searchQuery || $selectedCategory)
+            @if ($searchQuery || $selectedCategory || $comparisonsOnly)
                 <div class="flex flex-wrap items-center justify-between rounded-xl border border-primary-100 bg-primary-50 px-4 py-3 text-xs text-primary-900 shadow-sm">
                     <div class="flex flex-wrap items-center gap-2">
                         <span class="font-bold">التصفية النشطة:</span>
@@ -143,6 +155,9 @@
                         @endif
                         @if ($searchQuery)
                             <span class="rounded-lg bg-primary-200/70 px-2.5 py-1 font-extrabold text-primary-900">البحث: "{{ $searchQuery }}"</span>
+                        @endif
+                        @if ($comparisonsOnly)
+                            <span class="rounded-lg bg-primary-600 px-2.5 py-1 font-extrabold text-white">المقارنات</span>
                         @endif
                         @if ($dealsOnly)
                             <span class="rounded-lg bg-primary-600 px-2.5 py-1 font-extrabold text-white">العروض فقط</span>
@@ -155,25 +170,27 @@
             <!-- Results Counter Header -->
             <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200/80 bg-white px-4 py-3 text-xs font-semibold text-ink/70 shadow-sm">
                 <div class="flex flex-wrap items-center gap-2">
-                    <span>تم العثور على <strong>{{ $articles->total() }}</strong> مراجعة محدثة</span>
+                    <span>تم العثور على <strong>{{ $articles->total() }}</strong> {{ $comparisonsOnly ? 'مقارنة محدثة' : 'مراجعة محدثة' }}</span>
                     <span class="text-slate-500">|</span>
                     @php
                         // Deals toggle preserves the current clean path (home or
                         // /category/{slug}) while only flipping the deals flag.
                         $dealsToggleHref = $dealsOnly
-                            ? request()->fullUrlWithoutQuery(['deals', 'page'])
+                            ? request()->fullUrlWithoutQuery(['deals', 'page', 'comparisons'])
                             : url(request()->path().'?'.http_build_query(array_merge(
-                                array_filter(request()->except(['deals', 'page', 'category'])),
+                                array_filter(request()->except(['deals', 'page', 'comparisons', 'category'])),
                                 ['deals' => 1]
                             )));
                     @endphp
-                    <a href="{{ $dealsToggleHref }}"
-                       class="inline-flex items-center gap-1 rounded-lg px-2.5 py-1 font-bold transition {{ $dealsOnly ? 'bg-primary-600 text-white shadow-sm' : 'border border-primary-200 bg-primary-50 text-primary-600 hover:bg-primary-100' }}">
-                        العروض فقط
-                        @if ($dealsOnly)
-                            <span class="mr-0.5">✕</span>
-                        @endif
-                    </a>
+                    @if (! $comparisonsOnly)
+                        <a href="{{ $dealsToggleHref }}"
+                           class="inline-flex items-center gap-1 rounded-lg px-2.5 py-1 font-bold transition {{ $dealsOnly ? 'bg-primary-600 text-white shadow-sm' : 'border border-primary-200 bg-primary-50 text-primary-600 hover:bg-primary-100' }}">
+                            العروض فقط
+                            @if ($dealsOnly)
+                                <span class="mr-0.5">✕</span>
+                            @endif
+                        </a>
+                    @endif
                 </div>
                 <span class="text-ink/60">ترتيب حسب: الأحدث</span>
             </div>

@@ -163,6 +163,28 @@ final class HomePageDynamicsTest extends TestCase
     }
 
     #[Test]
+    public function it_points_trending_pills_to_category_hubs_or_search(): void
+    {
+        $this->seedCatalog();
+
+        $html = $this->get('/')->getContent();
+
+        // Pill anchors render attributes in href-then-class order, which lets
+        // us assert on the pill specifically (header/sidebar link the same hubs).
+        $pillSuffix = '" class="rounded-lg bg-white/10';
+
+        // تكييفات/شاشات exist as sections, so those pills resolve to their
+        // category hubs — not to a search query.
+        $this->assertStringContainsString('href="'.route('categories.show', 'air-conditioners').$pillSuffix, $html);
+        $this->assertStringContainsString('href="'.route('categories.show', 'tvs').$pillSuffix, $html);
+
+        // غسالات/فريش have no category section, so those pills fall back to
+        // live search instead of dead-end hubs.
+        $this->assertStringContainsString('href="'.route('home', ['q' => 'غسالة']).$pillSuffix, $html);
+        $this->assertStringContainsString('href="'.route('home', ['q' => 'فريش']).$pillSuffix, $html);
+    }
+
+    #[Test]
     public function it_shows_search_chip_and_clear_bar_when_searching(): void
     {
         $this->seedCatalog();
@@ -218,8 +240,11 @@ final class HomePageDynamicsTest extends TestCase
         $this->assertStringNotContainsString('aria-disabled', $html);
         // Interaction state is still exposed to assistive tech via the nav's
         // aria-label and the active page's aria-current.
-        $this->assertStringContainsString('aria-label="Pagination Navigation"', $html);
+        $this->assertStringContainsString('aria-label="التنقل بين الصفحات"', $html);
         $this->assertStringContainsString('aria-current="page"', $html);
         $this->assertStringContainsString('rel="next"', $html);
+        // The results counter and nav labels render in Arabic for the RTL site.
+        $this->assertStringContainsString('نتيجة', $html);
+        $this->assertStringContainsString('السابق', $html);
     }
 }

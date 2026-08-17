@@ -2,7 +2,21 @@
     'searchQuery' => null,
     'dealsOnly' => false,
     'selectedCategory' => null,
+    'categories' => [],
 ])
+
+@php
+    $categories = collect($categories);
+    // Route a trending pill to its category hub when that section exists, and
+    // fall back to live search otherwise (e.g. a brand like "فريش").
+    $hubOrSearch = function (string $name, string $query) use ($categories) {
+        $category = $categories->first(fn ($c) => mb_strtolower((string) $c->name) === mb_strtolower($name));
+
+        return $category
+            ? route('categories.show', $category->slug)
+            : route('home', ['q' => $query]);
+    };
+@endphp
 
 <section class="-mx-4 -mt-8 mb-8 bg-[#0f172a] px-4 py-10 text-white shadow-md sm:-mx-6 sm:px-8 lg:-mx-8">
     <div class="mx-auto max-w-4xl text-center">
@@ -49,10 +63,10 @@
         <!-- Trending Pills -->
         <div class="mt-4 flex flex-wrap items-center justify-center gap-2 text-xs text-mist">
             <span class="font-bold text-mist/60">الأكثر بحثاً:</span>
-            <a href="{{ route('home', ['q' => 'تكييف']) }}" class="rounded-lg bg-white/10 px-2.5 py-1 transition hover:bg-white/20">تكييفات</a>
-            <a href="{{ route('home', ['q' => 'فريش']) }}" class="rounded-lg bg-white/10 px-2.5 py-1 transition hover:bg-white/20">منتجات فريش</a>
-            <a href="{{ route('home', ['q' => 'شاشة']) }}" class="rounded-lg bg-white/10 px-2.5 py-1 transition hover:bg-white/20">شاشات</a>
-            <a href="{{ route('home', ['q' => 'غسالة']) }}" class="rounded-lg bg-white/10 px-2.5 py-1 transition hover:bg-white/20">غسالات</a>
+            <a href="{{ $hubOrSearch('تكييفات', 'تكييف') }}" class="rounded-lg bg-white/10 px-2.5 py-1 transition hover:bg-white/20">تكييفات</a>
+            <a href="{{ $hubOrSearch('فريش', 'فريش') }}" class="rounded-lg bg-white/10 px-2.5 py-1 transition hover:bg-white/20">منتجات فريش</a>
+            <a href="{{ $hubOrSearch('شاشات', 'شاشة') }}" class="rounded-lg bg-white/10 px-2.5 py-1 transition hover:bg-white/20">شاشات</a>
+            <a href="{{ $hubOrSearch('غسالات', 'غسالة') }}" class="rounded-lg bg-white/10 px-2.5 py-1 transition hover:bg-white/20">غسالات</a>
         </div>
     </div>
 </section>

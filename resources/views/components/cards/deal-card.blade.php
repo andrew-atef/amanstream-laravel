@@ -2,13 +2,21 @@
     'article',
     'accent' => 'blue',
     'eager' => false,
+    'clampTitle' => true,
 ])
 
 @php
     $primaryProduct = $article->product;
     $product = $primaryProduct ?: $article->products->first();
     $isComparison = ! $primaryProduct && $article->products->count() > 1;
-    $current = (float) ($product?->price ?? 0);
+
+    // Editorial blog posts carry no product: never render a phantom deal
+    // ("لا توجد صورة"/"0 ج.م") — the entity below is a product deal, not a page.
+    if ($product === null) {
+        return;
+    }
+
+    $current = (float) ($product->price ?? 0);
     $original = (float) ($product?->original_price ?? 0);
     $discount = $original > $current && $original > 0
         ? round((($original - $current) / $original) * 100)
@@ -41,7 +49,7 @@
     </a>
 
     <!-- Title -->
-    <h3 class="mt-3 line-clamp-3 text-xs font-bold leading-snug text-ink transition {{ $accent === 'red' ? 'group-hover:text-primary-600' : 'group-hover:text-primary-600' }}">
+    <h3 class="mt-3 text-xs font-bold leading-relaxed text-ink transition {{ $clampTitle ? 'line-clamp-3' : '' }} {{ $accent === 'red' ? 'group-hover:text-primary-600' : 'group-hover:text-primary-600' }}">
         <a href="{{ route('articles.show', $article->slug) }}">
             {{ $article->title }}
         </a>
