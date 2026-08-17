@@ -43,6 +43,7 @@ class Product extends Model
         'affiliate_url',
         'image_url',
         'raw_reviews_text',
+        'raw_amazon_data',
         'reviews_scraped_at',
         'in_stock',
         'supports_installment',

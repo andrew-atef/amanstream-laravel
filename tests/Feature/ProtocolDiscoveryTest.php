@@ -200,4 +200,25 @@ class ProtocolDiscoveryTest extends TestCase
 
         $this->assertNull($response->headers->get('Link'));
     }
+
+    public function test_agent_skill_payload_is_served_as_markdown(): void
+    {
+        $response = $this->get('/.well-known/agent-skills/browse-amanprice/SKILL.md');
+
+        $response->assertOk();
+        $this->assertStringStartsWith('text/markdown', (string) $response->headers->get('Content-Type'));
+        $this->assertNotEmpty($response->getContent());
+    }
+
+    public function test_agent_skill_path_traversal_payloads_return_404(): void
+    {
+        foreach ([
+            '/.well-known/agent-skills/'.urlencode('../../.env').'/SKILL.md',
+            '/.well-known/agent-skills/'.urlencode('..%2f..%2f.env').'/SKILL.md',
+            '/.well-known/agent-skills/%2e%2e%2f%2e%2e%2f.env/SKILL.md',
+            '/.well-known/agent-skills/nonexistent-skill/SKILL.md',
+        ] as $uri) {
+            $this->get($uri)->assertNotFound();
+        }
+    }
 }

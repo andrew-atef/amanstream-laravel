@@ -33,16 +33,19 @@ class ArticleController extends Controller
             ->limit(8)
             ->get();
 
-        // أقوى العروض الجارية (منتجات لها خصم حقيقي) — لتقوية lid Search Intent
+        // أقوى العروض الجارية عبر SQL Join لتنفيذ فائق السرعة وبدون استعلامات فرعية
         $topDeals = Article::query()
-            ->with(['product', 'products', 'category'])
-            ->where('is_published', true)
-            ->where('id', '!=', $article->id)
-            ->whereHas('product', function ($q) {
-                $q->whereColumn('original_price', '>', 'price');
-            })
-            ->latest()
-            ->limit(8)
+            ->join('products', 'articles.product_id', '=', 'products.id')
+            ->where('articles.is_published', true)
+            ->where('articles.id', '!=', $article->id)
+            ->where('products.in_stock', true)
+            ->where('products.original_price', '>', 0)
+            ->whereColumn('products.original_price', '>', 'products.price')
+            ->with(['category', 'product', 'products'])
+            ->select('articles.*')
+            ->selectRaw('((products.original_price - products.price) / products.original_price) * 100 as discount_percentage')
+            ->orderByDesc('discount_percentage')
+            ->take(8)
             ->get();
 
         return view('articles.show', [

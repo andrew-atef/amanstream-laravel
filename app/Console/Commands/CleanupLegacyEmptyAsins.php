@@ -9,15 +9,16 @@ use Illuminate\Support\Facades\DB;
 
 class CleanupLegacyEmptyAsins extends Command
 {
-    protected $signature = 'products:cleanup-legacy-empty-asins {--dry-run : List what would be deleted without deleting}';
+    protected $signature = 'products:cleanup-legacy-empty-asins {--dry-run : List what would be modified without executing}';
 
-    protected $description = 'Delete legacy products stored with an empty ASIN when a real-ASIN twin already exists';
+    protected $description = 'Safely re-link articles to real-ASIN twin products and delete legacy empty-ASIN product rows';
 
     public function handle(): int
     {
         $dryRun = (bool) $this->option('dry-run');
         $deleted = 0;
         $skipped = 0;
+        $relinkedArticles = 0;
 
         $legacy = Product::query()
             ->whereRaw('TRIM(COALESCE(asin, \'\')) = \'\'')
@@ -45,6 +46,7 @@ class CleanupLegacyEmptyAsins extends Command
 
             $twin = Product::query()
                 ->whereRaw('UPPER(asin) = ?', [$realAsin])
+                ->where('id', '!=', $product->id)
                 ->first();
 
             if (! $twin) {
@@ -62,7 +64,7 @@ class CleanupLegacyEmptyAsins extends Command
 
             if ($dryRun) {
                 $this->line(sprintf(
-                    '[dry-run] WOULD delete legacy #%d (asin=[%s]) -> keeping twin #%d (asin=%s), removing %d linked article(s)',
+                    '[dry-run] WOULD delete legacy #%d (asin=[%s]) -> keeping twin #%d (asin=%s), re-linking %d linked article(s)',
                     $product->id,
                     $product->asin,
                     $twin->id,
@@ -70,28 +72,33 @@ class CleanupLegacyEmptyAsins extends Command
                     $articleCount
                 ));
                 $deleted++;
+                $relinkedArticles += $articleCount;
 
                 continue;
             }
 
-            DB::transaction(function () use ($product, $articleCount): void {
-                Article::query()->where('product_id', $product->id)->delete();
-
+            DB::transaction(function () use ($product, $twin, $articleCount, &$relinkedArticles): void {
+                // Safely re-link articles to the real-ASIN twin product instead of deleting published content!
                 if ($articleCount > 0) {
-                    $this->info('  deleted '.$articleCount.' linked article(s)');
+                    Article::query()
+                        ->where('product_id', $product->id)
+                        ->update(['product_id' => $twin->id]);
+
+                    $relinkedArticles += $articleCount;
+                    $this->info("  re-linked {$articleCount} article(s) to twin #{$twin->id}");
                 }
 
                 $product->delete();
             });
 
-            $this->info(sprintf('Deleted legacy #%d (asin was empty), kept twin #%d (asin=%s)', $product->id, $twin->id, $realAsin));
+            $this->info(sprintf('Deleted legacy product #%d (empty ASIN), kept twin #%d (ASIN=%s)', $product->id, $twin->id, $realAsin));
             $deleted++;
         }
 
         $this->newLine();
         $this->info($dryRun
-            ? "Dry-run complete: $deleted legacy product(s) would be deleted, $skipped skipped."
-            : "Done: deleted $deleted legacy product(s), skipped $skipped.");
+            ? "Dry-run complete: {$deleted} legacy product(s) would be deleted, {$relinkedArticles} article(s) would be re-linked, {$skipped} skipped."
+            : "Done: deleted {$deleted} legacy product(s), re-linked {$relinkedArticles} article(s), skipped {$skipped}.");
 
         return self::SUCCESS;
     }

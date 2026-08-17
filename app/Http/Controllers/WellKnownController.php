@@ -350,9 +350,15 @@ MARKDOWN;
     /**
      * Serve a registered skill payload as text/markdown. The bytes are returned
      * verbatim from the resource file so the digest in the index stays exact.
+     * Only lowercase/uppercase alphanumerics and hyphens are accepted so the
+     * route parameter can never be used for a path-traversal read.
      */
     public function agentSkill(string $skill): SymfonyResponse
     {
+        if (! preg_match('/^[a-z0-9-]+$/i', $skill)) {
+            abort(404);
+        }
+
         $skillFile = resource_path('agent-skills/'.$skill.'/SKILL.md');
 
         if (! is_file($skillFile)) {

@@ -208,6 +208,17 @@ class ProductResource extends Resource
                     ])
                     ->collapsible()
                     ->collapsed(),
+                Section::make('بيانات ونصوص أمازون الخام (مرجع الأدمن)')
+                    ->description('نصوص وتفاصيل منسوخة مباشرة من صفحة أمازون للاستعانة بها أثناء كتابة المراجعة والمقارنة.')
+                    ->schema([
+                        Textarea::make('raw_amazon_data')
+                            ->label('النص المنسوخ من أمازون')
+                            ->rows(10)
+                            ->columnSpanFull()
+                            ->placeholder('ضع هنا النصوص والأسعار والعروض المنسوخة من صفحة أمازون...'),
+                    ])
+                    ->collapsible()
+                    ->collapsed(),
             ]);
     }
 

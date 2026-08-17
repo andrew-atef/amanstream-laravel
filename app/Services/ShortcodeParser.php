@@ -62,6 +62,35 @@ class ShortcodeParser
         $single = $article->product;
         $compared = $this->comparedProducts($article);
 
+        // [summary_box position="N" pros=".." cons=".." verdict=".."] — custom
+        // Markdown box for a SINGLE compared product (N = 1-based pivot position),
+        // so each product gets its own features/cons/verdict. Runs while the
+        // token still exists so the adaptive [summary_box] below never sees it.
+        $content = preg_replace_callback(
+            '/\[summary_box\s+position\s*=\s*["\']?(\d+)["\']?([^\]]*)\]/iu',
+            function (array $matches) use ($article): string {
+                $position = (int) $matches[1];
+                $product = $this->productByPosition($article, $position);
+
+                if ($product === null) {
+                    return '';
+                }
+
+                $args = trim($matches[2]);
+                $pros = $this->extractAttribute($args, 'pros');
+                $cons = $this->extractAttribute($args, 'cons');
+                $verdict = $this->extractAttribute($args, 'verdict');
+
+                return $this->summaryBoxMarkdown(
+                    $product,
+                    $pros !== null ? $this->splitList($pros) : null,
+                    $cons !== null ? $this->splitList($cons) : null,
+                    $verdict
+                );
+            },
+            $content
+        ) ?? $content;
+
         // [summary_box pros=".." cons=".." verdict=".."] — custom copy per
         // product, translated to Markdown. Runs while the token still exists.
         $content = preg_replace_callback(
