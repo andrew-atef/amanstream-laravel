@@ -5,6 +5,7 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\ArticleResource\Pages;
 use App\Models\Article;
 use App\Models\Product;
+use App\Services\ArticleMediaService;
 use Filament\Forms\Components\MarkdownEditor;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
@@ -23,6 +24,7 @@ use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Support\Str;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 
 class ArticleResource extends Resource
 {
@@ -120,6 +122,15 @@ class ArticleResource extends Resource
                         MarkdownEditor::make('content')
                             ->label('المحتوى')
                             ->required()
+                            ->fileAttachmentsDisk('r2')
+                            ->fileAttachmentsDirectory('articles')
+                            ->fileAttachmentsVisibility('public')
+                            ->saveUploadedFileAttachmentsUsing(
+                                fn (TemporaryUploadedFile $file, ?Article $record): ?string => ArticleMediaService::uploadAndOptimize($file, $record)
+                            )
+                            ->getUploadedAttachmentUrlUsing(
+                                fn (?string $file): ?string => $file
+                            )
                             ->toolbarButtons([
                                 'bold',
                                 'italic',

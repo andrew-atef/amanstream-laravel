@@ -4,6 +4,7 @@ namespace App\Observers;
 
 use App\Jobs\PurgeCloudflareCacheJob;
 use App\Models\Article;
+use App\Services\ArticleMediaService;
 use App\Services\SEOHelper;
 use Illuminate\Support\Facades\Cache;
 
@@ -32,14 +33,46 @@ class ArticleObserver
     }
 
     /**
+     * Garbage-collect in-article R2 images whenever the article body changes:
+     * any image URL that was present before the save but is gone now is an
+     * orphaned object and is deleted from R2 right away.
+     */
+    public function updated(Article $article): void
+    {
+        if (! $article->wasChanged('content')) {
+            return;
+        }
+
+        $oldImages = ArticleMediaService::extractR2Images((string) $article->getOriginal('content'));
+        $newImages = ArticleMediaService::extractR2Images((string) $article->content);
+
+        foreach (array_diff($oldImages, $newImages) as $deletedUrl) {
+            ArticleMediaService::deleteFromR2($deletedUrl);
+        }
+    }
+
+    /**
      * Purge the old article URL when an article is deleted (published or not),
-     * so the 404 / homepage is served from a fresh cache.
+     * so the 404 / homepage is served from a fresh cache. Leaves zero orphaned
+     * files behind: every in-article R2 image is deleted from the bucket.
      */
     public function deleted(Article $article): void
     {
         Cache::forget('sitemap_xml_content');
 
+        $this->deleteArticleImages($article);
+
         PurgeCloudflareCacheJob::dispatch($this->collectUrls($article));
+    }
+
+    /**
+     * Delete every R2 image referenced by the given article body.
+     */
+    protected function deleteArticleImages(Article $article): void
+    {
+        foreach (ArticleMediaService::extractR2Images((string) $article->content) as $imageUrl) {
+            ArticleMediaService::deleteFromR2($imageUrl);
+        }
     }
 
     /**
