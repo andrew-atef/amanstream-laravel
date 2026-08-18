@@ -265,6 +265,11 @@ class ArticleResource extends Resource
                             ->readOnly()
                             ->rows(6)
                             ->columnSpanFull(),
+                        Textarea::make('product.raw_amazon_data')
+                            ->label('بيانات ونصوص أمازون الخام (مرجع الأدمن)')
+                            ->readOnly()
+                            ->rows(8)
+                            ->columnSpanFull(),
                     ])
                     ->collapsible()
                     ->collapsed(),

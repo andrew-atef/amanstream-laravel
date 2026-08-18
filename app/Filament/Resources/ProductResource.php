@@ -8,6 +8,7 @@ use App\Models\Product;
 use App\Services\Amazon\AmazonUrlDataFetcher;
 use App\Services\ImageUploaderService;
 use Filament\Forms\Components\Actions\Action;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -24,6 +25,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\App;
+use Illuminate\Support\HtmlString;
 use Throwable;
 
 class ProductResource extends Resource
@@ -44,6 +46,17 @@ class ProductResource extends Resource
     {
         return $form
             ->schema([
+                Section::make('سجل التغييرات المكتشفة في مواصفات أمازون ⚠️')
+                    ->description('التغييرات التي اكتشفها سكرابر السحب العميق بين آخر لقطة والآن.')
+                    ->icon('heroicon-m-clipboard-document-list')
+                    ->schema([
+                        Placeholder::make('spec_diff_summary')
+                            ->label('التغييرات المكتشفة')
+                            ->content(fn (?Product $record): HtmlString => static::renderSpecDiff((array) ($record?->spec_diff_json ?? []))),
+                    ])
+                    ->visible(fn (?Product $record = null): bool => filled($record?->spec_diff_json))
+                    ->columnSpanFull(),
+
                 TextInput::make('affiliate_url')
                     ->label('رابط الأمازون التابع')
                     ->placeholder('ضع رابط المنتج هنا ثم اضغط زر السحب')
@@ -270,6 +283,23 @@ class ProductResource extends Resource
                         default => 'warning',
                     })
                     ->sortable(),
+                TextColumn::make('deep_scrape_status')
+                    ->label('السحب العميق')
+                    ->badge()
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                        Product::DEEP_SCRAPE_STATUS_UPDATED_WITH_DIFF => 'تغيرت المواصفات ⚠️',
+                        Product::DEEP_SCRAPE_STATUS_PENDING => 'بانتظار السحب ⏳',
+                        Product::DEEP_SCRAPE_STATUS_SYNCED => 'البيانات محدثة ✅',
+                        Product::DEEP_SCRAPE_STATUS_FAILED => 'فشل السحب ❌',
+                        default => 'عادي',
+                    })
+                    ->color(fn (string $state): string => match ($state) {
+                        Product::DEEP_SCRAPE_STATUS_UPDATED_WITH_DIFF, Product::DEEP_SCRAPE_STATUS_FAILED => 'danger',
+                        Product::DEEP_SCRAPE_STATUS_PENDING => 'warning',
+                        Product::DEEP_SCRAPE_STATUS_SYNCED => 'success',
+                        default => 'gray',
+                    })
+                    ->sortable(),
                 TextColumn::make('sync_attempts')
                     ->label('المحاولات')
                     ->sortable(),
@@ -288,6 +318,42 @@ class ProductResource extends Resource
             ->actions([
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make(),
+                Tables\Actions\Action::make('requestDeepScrape')
+                    ->label('طلب سحب وتحديث المواصفات العميقة')
+                    ->icon('heroicon-m-arrow-down-tray')
+                    ->color('warning')
+                    ->visible(fn (Product $record): bool => $record->deep_scrape_status !== Product::DEEP_SCRAPE_STATUS_PENDING)
+                    ->requiresConfirmation()
+                    ->modalHeading('طلب سحب المواصفات العميقة؟')
+                    ->modalDescription('سيتم إدراج المنتج في قائمة السحب العميق ليقوم سكرابر Playwright بسحب كامل المواصفات والضمانات والخدمات من أمازون في الدورة القادمة.')
+                    ->action(function (Product $record) {
+                        $record->update(['deep_scrape_status' => Product::DEEP_SCRAPE_STATUS_PENDING]);
+
+                        Notification::make()
+                            ->success()
+                            ->title('تم طلب سحب المواصفات العميقة')
+                            ->body('سيقوم السكرابر بالسحب في الدورة القادمة.')
+                            ->send();
+                    }),
+                Tables\Actions\Action::make('approveDeepScrape')
+                    ->label('اعتماد التغييرات وإغلاق التنبيه')
+                    ->icon('heroicon-m-check-badge')
+                    ->color('success')
+                    ->visible(fn (Product $record): bool => $record->deep_scrape_status === Product::DEEP_SCRAPE_STATUS_UPDATED_WITH_DIFF)
+                    ->requiresConfirmation()
+                    ->modalHeading('اعتماد التغييرات المكتشفة؟')
+                    ->modalDescription('سيتم اعتماد مواصفات أمازون الأخيرة، إغلاق التنبيه، وحذف سجل الفروقات نهائياً.')
+                    ->action(function (Product $record) {
+                        $record->update([
+                            'deep_scrape_status' => Product::DEEP_SCRAPE_STATUS_SYNCED,
+                            'spec_diff_json' => null,
+                        ]);
+
+                        Notification::make()
+                            ->success()
+                            ->title('تم اعتماد التغييرات وإغلاق التنبيه')
+                            ->send();
+                    }),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
@@ -330,6 +396,25 @@ class ProductResource extends Resource
                                 ->body($inactive > 0
                                     ? "تم تجاوز {$inactive} منتج غير نشط — فعّلها أولاً لتزامنها."
                                     : null)
+                                ->send();
+                        }),
+                    Tables\Actions\BulkAction::make('requestDeepScrape')
+                        ->label('طلب سحب وتحديث المواصفات العميقة')
+                        ->icon('heroicon-m-arrow-down-tray')
+                        ->color('warning')
+                        ->deselectRecordsAfterCompletion()
+                        ->requiresConfirmation()
+                        ->modalHeading('طلب سحب المواصفات العميقة للمنتجات المحددة؟')
+                        ->modalDescription('سيتم إدراج المنتجات المحددة في قائمة السحب العميق لسحب كامل المواصفات والضمانات والخدمات من أمازون.')
+                        ->action(function (Collection $records) {
+                            $count = Product::query()
+                                ->whereIn('id', $records->pluck('id'))
+                                ->update(['deep_scrape_status' => Product::DEEP_SCRAPE_STATUS_PENDING]);
+
+                            Notification::make()
+                                ->success()
+                                ->title("تم طلب السحب العميق لـ {$count} منتج")
+                                ->body('ستُسحب بياناتها في أقرب دورة سحب عميق.')
                                 ->send();
                         }),
                     Tables\Actions\BulkAction::make('activate')
@@ -417,5 +502,36 @@ class ProductResource extends Resource
             'create' => Pages\CreateProduct::route('/create'),
             'edit' => Pages\EditProduct::route('/{record}/edit'),
         ];
+    }
+
+    /**
+     * Render the detected deep-scrape differences as a highlighted list for the
+     * admin alert. Every segment is escaped; only our own markup is trusted.
+     *
+     * @param  array<int, array{category?: string, change?: string}>  $diffs
+     */
+    protected static function renderSpecDiff(array $diffs): HtmlString
+    {
+        if ($diffs === []) {
+            return new HtmlString('');
+        }
+
+        $items = collect($diffs)
+            ->map(function (array $diff): string {
+                $category = e((string) ($diff['category'] ?? ''));
+                $change = e((string) ($diff['change'] ?? ''));
+
+                return sprintf(
+                    '<li class="flex items-start gap-3 py-1.5 text-sm leading-6 text-gray-800 dark:text-gray-200"><span class="shrink-0 rounded-md bg-danger-500/10 px-2 py-0.5 text-xs font-semibold text-danger-600 dark:bg-danger-400/10 dark:text-danger-400">%s</span><span>%s</span></li>',
+                    $category,
+                    $change
+                );
+            })
+            ->implode('');
+
+        return new HtmlString(sprintf(
+            '<div class="overflow-hidden rounded-xl bg-danger-50 p-4 ring-1 ring-danger-200 dark:bg-danger-950/30 dark:ring-danger-700/40"><ul class="space-y-1">%s</ul></div>',
+            $items
+        ));
     }
 }

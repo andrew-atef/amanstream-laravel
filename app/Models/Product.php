@@ -18,6 +18,16 @@ class Product extends Model
 
     public const SYNC_STATUS_FAILED = 'failed';
 
+    public const DEEP_SCRAPE_STATUS_IDLE = 'idle';
+
+    public const DEEP_SCRAPE_STATUS_PENDING = 'pending';
+
+    public const DEEP_SCRAPE_STATUS_SYNCED = 'synced';
+
+    public const DEEP_SCRAPE_STATUS_UPDATED_WITH_DIFF = 'updated_with_diff';
+
+    public const DEEP_SCRAPE_STATUS_FAILED = 'failed';
+
     /**
      * Maximum number of failed attempts before a product is flagged as failed.
      */
@@ -54,6 +64,10 @@ class Product extends Model
         'sync_attempts',
         'last_sync_error',
         'last_synced_at',
+        'deep_scrape_status',
+        'deep_data_json',
+        'spec_diff_json',
+        'deep_scraped_at',
     ];
 
     protected function casts(): array
@@ -73,6 +87,10 @@ class Product extends Model
             'last_sync_error' => 'string',
             'last_synced_at' => 'datetime',
             'reviews_scraped_at' => 'datetime',
+            'deep_scrape_status' => 'string',
+            'deep_data_json' => 'array',
+            'spec_diff_json' => 'array',
+            'deep_scraped_at' => 'datetime',
         ];
     }
 
@@ -169,6 +187,16 @@ class Product extends Model
             ->where('sync_status', self::SYNC_STATUS_PENDING)
             ->orderByRaw('last_synced_at IS NULL DESC')
             ->orderBy('last_synced_at');
+    }
+
+    /**
+     * Active products awaiting a full deep scrape by the Playwright worker.
+     */
+    public function scopePendingForDeepScrape($query)
+    {
+        return $query
+            ->where('is_active', true)
+            ->where('deep_scrape_status', self::DEEP_SCRAPE_STATUS_PENDING);
     }
 
     /**
