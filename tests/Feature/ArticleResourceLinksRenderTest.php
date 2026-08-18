@@ -53,6 +53,52 @@ class ArticleResourceLinksRenderTest extends TestCase
         $this->assertMatchesRegularExpression('/<a\s+href="[^"]*\/admin\/products\/[0-9]+\/edit"/', $html);
     }
 
+    public function test_edit_form_rerenders_with_stored_featured_image_url_without_error(): void
+    {
+        $category = Category::create([
+            'name' => 'تكييفات',
+            'slug' => 'air-conditioners',
+            'description' => 'أجهزة التكييف',
+        ]);
+
+        $product = Product::create([
+            'category_id' => $category->id,
+            'title' => 'منتج تجريبي',
+            'asin' => 'TESTASIN2',
+            'price' => 100,
+            'affiliate_url' => 'https://www.amazon.eg/dp/TESTASIN2?tag=demo',
+            'in_stock' => true,
+        ]);
+
+        $article = Article::create([
+            'category_id' => $category->id,
+            'product_id' => $product->id,
+            'title' => 'مقال تجريبي',
+            'slug' => 'test-article-featured',
+            'content' => 'body',
+            'is_published' => true,
+            'featured_image_url' => 'https://media.amanprice.tech/articles/cover.webp',
+        ]);
+
+        $component = Livewire::test(EditArticle::class, ['record' => $article->id])
+            ->set('data.title', 'عنوان جديد')
+            ->assertHasNoErrors()
+            ->instance();
+
+        $field = collect($component->getForm('form')->getFlatFields())->first(
+            fn ($candidate) => $candidate->getName() === 'featured_image_url'
+        );
+        $this->assertNotNull($field);
+
+        /** @var array $uploadedFiles */
+        $uploadedFiles = $field->getUploadedFiles();
+
+        $this->assertSame(
+            'https://media.amanprice.tech/articles/cover.webp',
+            $uploadedFiles[array_key_first($uploadedFiles)]['url'],
+        );
+    }
+
     public function test_create_form_renders_without_links_when_no_product_selected(): void
     {
         $html = Livewire::test(CreateArticle::class)

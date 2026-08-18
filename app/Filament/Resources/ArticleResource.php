@@ -7,6 +7,7 @@ use App\Models\Article;
 use App\Models\Product;
 use App\Services\ArticleMediaService;
 use App\Services\SEOHelper;
+use Filament\Forms\Components\BaseFileUpload;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\MarkdownEditor;
 use Filament\Forms\Components\Placeholder;
@@ -125,7 +126,28 @@ class ArticleResource extends Resource
                             ->directory('articles')
                             ->visibility('public')
                             ->imageEditor()
-                            ->formatStateUsing(fn (?string $state, ?Article $record): ?string => $record?->getRawOriginal('featured_image_url') ?? $state)
+                            ->fetchFileInformation(false)
+                            ->afterStateHydrated(static function (BaseFileUpload $component, ?Article $record): void {
+                                $raw = filled($record?->getRawOriginal('featured_image_url'))
+                                    ? [(string) $record->getRawOriginal('featured_image_url')]
+                                    : [];
+
+                                $component->state(collect($raw)->mapWithKeys(
+                                    static fn (string $file): array => [(string) Str::uuid() => $file],
+                                )->all());
+                            })
+                            ->getUploadedFileUsing(fn (string $file): array => [
+                                'name' => basename($file),
+                                'size' => 0,
+                                'type' => null,
+                                'url' => $file,
+                            ])
+                            ->saveUploadedFileUsing(
+                                fn (TemporaryUploadedFile $file, ?Article $record): ?string => ArticleMediaService::uploadAndOptimize($file, $record)
+                            )
+                            ->dehydrateStateUsing(fn ($state) => is_array($state) && filled($state)
+                                ? (string) reset($state)
+                                : null)
                             ->helperText('صورة اختيارية مخصصة للغلاف والمشاركة على السوشيال ميديا. إذا تُركت فارغة، سيتم استخدام صورة المنتج تلقائياً.')
                             ->columnSpanFull(),
                     ])

@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\ProductResource\Pages;
+use App\Jobs\SyncProductFromAmazonJob;
 use App\Models\Product;
 use App\Services\Amazon\AmazonUrlDataFetcher;
 use App\Services\ImageUploaderService;
@@ -21,6 +22,7 @@ use Filament\Tables;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\App;
 use Throwable;
 
@@ -289,6 +291,113 @@ class ProductResource extends Resource
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
+                    Tables\Actions\BulkAction::make('syncNow')
+                        ->label('سحب البيانات تلقائياً')
+                        ->icon('heroicon-m-arrow-path')
+                        ->color('success')
+                        ->deselectRecordsAfterCompletion()
+                        ->requiresConfirmation()
+                        ->modalHeading('سحب البيانات من أمازون؟')
+                        ->modalDescription('سيتم وضع المنتجات المحددة في قائمة المزامنة فوراً ليتم سحب آخر الأسعار والتوفر والتقييمات تلقائياً. قد يستغرق هذا عدة دقائق.')
+                        ->action(function (Collection $records) {
+                            $queued = 0;
+                            $inactive = 0;
+
+                            foreach ($records as $product) {
+                                if (! $product->is_active) {
+                                    $inactive++;
+
+                                    continue;
+                                }
+
+                                // Clearing last_synced_at puts each product at the
+                                // FRONT of the pending catalog sync queue
+                                // (NULLS FIRST), so the scraper pulls it immediately.
+                                $product->update([
+                                    'sync_status' => Product::SYNC_STATUS_PENDING,
+                                    'sync_attempts' => 0,
+                                    'last_sync_error' => null,
+                                    'last_synced_at' => null,
+                                ]);
+
+                                SyncProductFromAmazonJob::dispatch($product->id);
+                                $queued++;
+                            }
+
+                            Notification::make()
+                                ->success()
+                                ->title("تمت جدولة سحب البيانات لـ {$queued} منتج")
+                                ->body($inactive > 0
+                                    ? "تم تجاوز {$inactive} منتج غير نشط — فعّلها أولاً لتزامنها."
+                                    : null)
+                                ->send();
+                        }),
+                    Tables\Actions\BulkAction::make('activate')
+                        ->label('تفعيل المنتجات')
+                        ->icon('heroicon-m-check-circle')
+                        ->color('primary')
+                        ->deselectRecordsAfterCompletion()
+                        ->requiresConfirmation()
+                        ->modalHeading('تفعيل المنتجات المحددة؟')
+                        ->modalDescription('سيتم تفعيل المنتجات المحددة لتظهر في الموقع وتدخل قائمة المزامنة التلقائية.')
+                        ->action(function (Collection $records) {
+                            $count = $records->count();
+
+                            Product::query()
+                                ->whereIn('id', $records->pluck('id'))
+                                ->update(['is_active' => true]);
+
+                            Notification::make()
+                                ->success()
+                                ->title("تم تفعيل {$count} منتج")
+                                ->send();
+                        }),
+                    Tables\Actions\BulkAction::make('deactivate')
+                        ->label('إيقاف المنتجات')
+                        ->icon('heroicon-m-x-circle')
+                        ->color('danger')
+                        ->deselectRecordsAfterCompletion()
+                        ->requiresConfirmation()
+                        ->modalHeading('إيقاف المنتجات المحددة؟')
+                        ->modalDescription('سيتم إيقاف المنتجات المحددة واختفاؤها من الموقع ومن قائمة المزامنة.')
+                        ->action(function (Collection $records) {
+                            $count = $records->count();
+
+                            Product::query()
+                                ->whereIn('id', $records->pluck('id'))
+                                ->update(['is_active' => false]);
+
+                            Notification::make()
+                                ->success()
+                                ->title("تم إيقاف {$count} منتج")
+                                ->send();
+                        }),
+                    Tables\Actions\BulkAction::make('requeue')
+                        ->label('إعادة للمزامنة')
+                        ->icon('heroicon-m-arrow-up-on-square')
+                        ->color('info')
+                        ->deselectRecordsAfterCompletion()
+                        ->requiresConfirmation()
+                        ->modalHeading('إعادة المنتجات للمزامنة؟')
+                        ->modalDescription('سيتم إدراج المنتجات المحددة في مقدمة قائمة المزامنة، بغض النظر عن حالتها الحالية.')
+                        ->action(function (Collection $records) {
+                            $count = $records->count();
+
+                            foreach ($records as $product) {
+                                $product->update([
+                                    'sync_status' => Product::SYNC_STATUS_PENDING,
+                                    'sync_attempts' => 0,
+                                    'last_sync_error' => null,
+                                    'last_synced_at' => null,
+                                ]);
+                            }
+
+                            Notification::make()
+                                ->success()
+                                ->title("تمت إعادة {$count} منتج للمزامنة")
+                                ->body('ستُسحب بياناتها تلقائياً من أمازون في أقرب دورة سحاب.')
+                                ->send();
+                        }),
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
             ]);
