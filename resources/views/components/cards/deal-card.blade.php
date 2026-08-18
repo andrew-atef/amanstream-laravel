@@ -26,16 +26,22 @@
     $merchant = 'amazon';
     if (str_contains($url, 'noon.com')) { $merchant = 'noon'; }
     elseif (str_contains($url, 'jumia.com')) { $merchant = 'jumia'; }
+
+    // Custom featured cover wins; otherwise the product image. Never the
+    // favicon fallback in a card (a tiny SVG is not a deal thumbnail).
+    $coverImage = filled($article->getRawOriginal('featured_image_url'))
+        ? $article->primary_image_url
+        : ($product?->image_url ?? null);
 @endphp
 
 <article class="group relative flex w-60 shrink-0 snap-start flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition duration-200 {{ $accent === 'red' ? 'hover:border-primary-600 hover:shadow-md' : 'hover:border-primary-500 hover:shadow-md' }}">
     <!-- Image & Merchant Badge -->
     <a href="{{ route('articles.show', $article->slug) }}" class="relative flex h-44 w-full items-center justify-center rounded-xl bg-white p-2">
-        @if ($product?->image_url)
+        @if ($coverImage)
             @if ($eager)
-                <img src="{{ $product->image_url }}" alt="{{ $product->title ?: $article->title }}" width="224" height="160" fetchpriority="high" decoding="async" class="aspect-[7/5] h-full w-full object-contain transition duration-300 group-hover:scale-105">
+                <img src="{{ $coverImage }}" alt="{{ $product->title ?: $article->title }}" width="224" height="160" fetchpriority="high" decoding="async" class="aspect-[7/5] h-full w-full object-contain transition duration-300 group-hover:scale-105">
             @else
-                <img src="{{ $product->image_url }}" alt="{{ $product->title ?: $article->title }}" width="224" height="160" loading="lazy" decoding="async" class="aspect-[7/5] h-full w-full object-contain transition duration-300 group-hover:scale-105">
+                <img src="{{ $coverImage }}" alt="{{ $product->title ?: $article->title }}" width="224" height="160" loading="lazy" decoding="async" class="aspect-[7/5] h-full w-full object-contain transition duration-300 group-hover:scale-105">
             @endif
         @else
             <span class="text-xs font-bold text-slate-500">لا توجد صورة</span>

@@ -19,10 +19,15 @@ class ShortcodeParser
 {
     public function parse(Article $article): HtmlString
     {
+        // Evergreen year token: [year], %%year%% and {year} in body prose render
+        // as the current year before markdown so the number is NEVER HTML-encoded
+        // as a link reference or wrapped in <em> by CommonMark.
+        $content = str_replace(['[year]', '%%year%%', '{year}'], date('Y'), (string) $article->content);
+
         // [buy_button position="N"] and [summary_box pros=".." cons=".." verdict=".."]
         // resolved BEFORE markdown for the same reason: CommonMark HTML-encodes
         // the inner quotes, which would break the attribute parsing.
-        $content = $this->replacePositionalBuyButtons($article->content, $article);
+        $content = $this->replacePositionalBuyButtons($content, $article);
         $content = $this->replaceCustomSummaryBoxes($content, $article);
 
         $content = $this->markdownToHtml($content);
@@ -48,6 +53,10 @@ class ShortcodeParser
     public function parseForMarkdown(Article $article): string
     {
         $content = (string) $article->content;
+
+        // Evergreen year token: rendered to the live year so agents reading the
+        // Markdown variant see the same "2026" a browser does.
+        $content = str_replace(['[year]', '%%year%%', '{year}'], date('Y'), $content);
 
         // [buy_button position="N"] — positional CTA for the Nth product.
         $content = preg_replace_callback(

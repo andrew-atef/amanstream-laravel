@@ -88,10 +88,10 @@
         @endif
     </div>
 
-    <div class="flex flex-col items-center justify-between gap-2 border-t border-slate-200 bg-slate-50 px-4 py-3 sm:flex-row">
+    <div class="flex flex-col items-center justify-between gap-2 border-t border-slate-200 bg-slate-50 px-4 py-2 sm:flex-row">
         <p class="text-xs text-ink/60">أمان برايس يتابع سعر هذا الجهاز يومياً ليساعدك في الشراء بأقل سعر.</p>
-        <a href="{{ $product?->affiliate_url }}" target="_blank" rel="nofollow sponsored noopener" class="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-primary-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-primary-700">
-            <span class="flex items-center justify-center rounded bg-white px-1 py-0.5"><img src="/icons/amazon.png" alt="Amazon" width="48" height="16" loading="lazy" class="h-3 w-auto object-contain"></span>
+        <a href="{{ $product?->affiliate_url }}" target="_blank" rel="nofollow sponsored noopener" class="inline-flex shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-lg bg-primary-600 px-2.5 py-1 text-xs font-bold leading-none text-white transition hover:bg-primary-700">
+            <span class="flex items-center justify-center rounded bg-white px-0.5 py-0.5"><img src="/icons/amazon.png" alt="Amazon" width="36" height="12" loading="lazy" class="h-3 w-auto object-contain"></span>
             اشترِ الآن
         </a>
     </div>

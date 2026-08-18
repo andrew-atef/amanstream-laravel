@@ -29,6 +29,25 @@ class SEOHelper
     }
 
     /**
+     * Render evergreen year tokens as the current calendar year on the fly.
+     *
+     * Editorial titles/descriptions can embed `[year]`, `%%year%%` or `{year}`
+     * so "أفضل تكييفات [year]" automatically becomes "...2026" in January
+     * without the author re-editing every article. The raw database content is
+     * NEVER mutated — only the read-time value carries the current year.
+     */
+    public static function renderDynamicYear(?string $text): string
+    {
+        if (blank($text)) {
+            return '';
+        }
+
+        $currentYear = date('Y');
+
+        return str_replace(['[year]', '%%year%%', '{year}'], $currentYear, (string) $text);
+    }
+
+    /**
      * Absolute site URL with a canonical www. host.
      *
      * Local/dev hosts (http://localhost, http://127.0.0.1:*) are left exactly

@@ -22,6 +22,7 @@ class Article extends Model
         'title',
         'slug',
         'content',
+        'featured_image_url',
         'meta_title',
         'meta_description',
         'is_published',
@@ -36,12 +37,16 @@ class Article extends Model
 
     /**
      * Editorial cover image used by OG/Schema on content types with no product
-     * card: product image first, then the first in-article R2 image, then the
-     * brand fallback. Never the favicon — a tiny icon fails Facebook cards and
-     * the Google Discover image pool.
+     * card: the custom featured cover first, then the product image, then the
+     * first in-article R2 image, then the brand fallback. Never the favicon —
+     * a tiny icon fails Facebook cards and the Google Discover image pool.
      */
     public function getFeaturedImageUrlAttribute(): string
     {
+        if (filled($this->getAttributeFromArray('featured_image_url'))) {
+            return (string) $this->getAttributeFromArray('featured_image_url');
+        }
+
         if (filled((string) ($this->product?->image_url))) {
             return (string) $this->product->image_url;
         }
@@ -53,6 +58,31 @@ class Article extends Model
         }
 
         return SEOHelper::url('img/og-image.png');
+    }
+
+    /**
+     * Primary cover image for article cards, the hero banner and OpenGraph
+     * tagging, resolved through a smart fallback chain: a custom
+     * `featured_image_url` wins, then the primary product image, then the
+     * first compared/round-up product image, and finally the site favicon as
+     * the absolute last resort.
+     */
+    public function getPrimaryImageUrlAttribute(): string
+    {
+        if (filled($this->getAttributeFromArray('featured_image_url'))) {
+            return (string) $this->getAttributeFromArray('featured_image_url');
+        }
+
+        if ($this->product && filled($this->product->image_url)) {
+            return $this->product->image_url;
+        }
+
+        $firstCompared = $this->products->first();
+        if ($firstCompared && filled($firstCompared->image_url)) {
+            return $firstCompared->image_url;
+        }
+
+        return SEOHelper::url('favicon.svg');
     }
 
     /**
@@ -106,13 +136,39 @@ class Article extends Model
     }
 
     /**
-     * Title is normalized on every read so scraped pollution never leaks into
-     * the H1, OG tags, meta title or JSON-LD on legacy rows.
+     * Title is normalized and year-token-rendered on every read so scraped
+     * pollution never leaks into the H1, OG tags, meta title or JSON-LD on
+     * legacy rows, while `[year]` keeps evergreen headlines evergreen. The raw
+     * column always stores the clean, un-rendered value — only reads carry the
+     * current year.
      */
     protected function title(): Attribute
     {
         return Attribute::make(
-            get: fn (?string $value): ?string => $value === null ? null : SEOHelper::cleanTitle($value),
+            get: fn (?string $value): ?string => $value === null ? null : SEOHelper::renderDynamicYear(SEOHelper::cleanTitle($value)),
+            set: fn (?string $value): ?string => $value === null ? null : SEOHelper::cleanTitle($value),
+        );
+    }
+
+    /**
+     * meta_title supports the evergreen `[year]` token on read; null columns
+     * stay null so Filament fill/`?:` semantics are untouched.
+     */
+    protected function metaTitle(): Attribute
+    {
+        return Attribute::make(
+            get: fn (?string $value): ?string => $value === null ? null : SEOHelper::renderDynamicYear($value),
+        );
+    }
+
+    /**
+     * meta_description supports the evergreen `[year]` token on read; null
+     * columns stay null so Filament fill/`?:` semantics are untouched.
+     */
+    protected function metaDescription(): Attribute
+    {
+        return Attribute::make(
+            get: fn (?string $value): ?string => $value === null ? null : SEOHelper::renderDynamicYear($value),
         );
     }
 
@@ -313,8 +369,12 @@ class Article extends Model
     protected static function booted(): void
     {
         static::saving(function (Article $article) {
-            if ($article->title !== null) {
-                $article->title = SEOHelper::cleanTitle((string) $article->title);
+            // Clean the RAW attribute (bypassing the read-time year accessor),
+            // so `[year]`-style evergreen tokens are never baked into the
+            // database with a literal year.
+            $rawTitle = $article->getAttributes()['title'] ?? null;
+            if ($rawTitle !== null) {
+                $article->title = SEOHelper::cleanTitle((string) $rawTitle);
             }
 
             if ($article->content !== null && $article->isDirty('content')) {

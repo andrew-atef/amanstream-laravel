@@ -55,10 +55,19 @@
                             2 => 'from-amber-500 to-orange-600',
                             default => 'from-slate-700 to-primary-800',
                         };
+                        // A custom featured cover replaces the decorative
+                        // gradient letter tile; the favicon brand fallback
+                        // keeps the original tile for posts without one.
+                        $blogCover = $post->primary_image_url;
+                        $blogHasCover = ! str_ends_with($blogCover, 'favicon.svg');
                     @endphp
                     <article class="group flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-lg">
-                        <a href="{{ route('blog.show', $post->slug) }}" class="bg-gradient-to-br {{ $coverClass }} grid aspect-[16/9] place-items-center" aria-label="{{ $post->title }}">
-                            <span class="text-5xl font-extrabold text-white/90 drop-shadow-sm">{{ mb_substr($post->title, 0, 1) }}</span>
+                        <a href="{{ route('blog.show', $post->slug) }}" class="{{ $blogHasCover ? 'grid aspect-[16/9] place-items-center overflow-hidden bg-slate-100' : 'bg-gradient-to-br '.$coverClass.' grid aspect-[16/9] place-items-center' }}" aria-label="{{ $post->title }}">
+                            @if ($blogHasCover)
+                                <img src="{{ $blogCover }}" alt="{{ $post->title }}" width="640" height="360" loading="lazy" decoding="async" class="h-full w-full object-cover transition duration-200 group-hover:scale-[1.03]">
+                            @else
+                                <span class="text-5xl font-extrabold text-white/90 drop-shadow-sm">{{ mb_substr($post->title, 0, 1) }}</span>
+                            @endif
                         </a>
                         <div class="flex flex-1 flex-col gap-3 p-5">
                             <div class="flex items-center gap-2 text-[11px] font-semibold text-ink-soft">

@@ -1,9 +1,12 @@
 @php
-    // For OpenGraph/Twitter/Discover: comparison articles have no single
-    // $product, so use the first ranked compared product's image instead of
-    // the site favicon/default og-image.
-    $primaryImage = $product?->image_url
-        ?? $article->articleProducts->sortBy('sort_order')->first()?->product?->image_url;
+    // OpenGraph/Twitter/Discover: use the article's primary image (custom
+    // featured cover → primary product → first compared product). The favicon
+    // brand fallback is never used as an OG/Twitter image — it degrades to
+    // null so the layout still emits the branded 1200x630 og-image.png.
+    $primaryImage = $article->primary_image_url;
+    if (str_ends_with($primaryImage, 'favicon.svg')) {
+        $primaryImage = null;
+    }
 @endphp
 
 <x-layouts.app
@@ -31,7 +34,7 @@
             $seoHelper = \App\Services\SEOHelper::class;
             $pageUrl = $seoHelper::canonical('articles/'.$article->slug);
             $siteUrl = $seoHelper::url();
-            $cleanContent = \App\Services\ShortcodeParser::stripShortcodes($article->content);
+            $cleanContent = \App\Services\SEOHelper::renderDynamicYear(\App\Services\ShortcodeParser::stripShortcodes($article->content));
             $schemaDescription = $article->meta_description ?: Str::limit(strip_tags($cleanContent), 300);
             $shortDescription = $article->meta_description ?: Str::limit(strip_tags($cleanContent), 160);
             $cleanArticleTitle = $seoHelper::cleanTitle($article->title);
@@ -231,6 +234,12 @@
         </nav>
 
         <header class="mb-8 border-b border-slate-100 pb-6">
+            @if (filled($article->getRawOriginal('featured_image_url')))
+                <div class="mb-6 overflow-hidden rounded-2xl border border-slate-100 bg-slate-50">
+                    <img src="{{ $article->primary_image_url }}" alt="{{ \App\Services\SEOHelper::cleanTitle($article->title) }}" width="1200" height="675" fetchpriority="high" decoding="async" class="aspect-[16/9] w-full object-cover">
+                </div>
+            @endif
+
             <h1 class="text-3xl font-black leading-snug text-ink sm:text-4xl">{{ \App\Services\SEOHelper::cleanTitle($article->title) }}</h1>
 
             <div class="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 text-xs font-medium sm:text-sm">

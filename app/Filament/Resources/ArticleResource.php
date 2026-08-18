@@ -6,6 +6,8 @@ use App\Filament\Resources\ArticleResource\Pages;
 use App\Models\Article;
 use App\Models\Product;
 use App\Services\ArticleMediaService;
+use App\Services\SEOHelper;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\MarkdownEditor;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
@@ -61,9 +63,11 @@ class ArticleResource extends Resource
                             ->required()
                             ->maxLength(255)
                             ->live(onBlur: true)
+                            ->formatStateUsing(fn (?string $state, ?Article $record): string => (string) ($record?->getRawOriginal('title') ?? $state ?? ''))
+                            ->helperText('💡 نصيحة: يمكنك استخدام [year] في العنوان أو الوصف ليتغير رقم السنة تلقائياً في بداية كل عام.')
                             ->afterStateUpdated(
                                 fn (string $operation, Set $set, ?string $state) => $operation === 'create'
-                                    ? $set('slug', Str::slug($state ?? ''))
+                                    ? $set('slug', Str::slug(SEOHelper::renderDynamicYear((string) ($state ?? ''))))
                                     : null
                             ),
                         TextInput::make('slug')
@@ -114,6 +118,16 @@ class ArticleResource extends Resource
                         Toggle::make('is_published')
                             ->label('منشور')
                             ->default(true),
+                        FileUpload::make('featured_image_url')
+                            ->label('صورة الغلاف المميزة (Featured Thumbnail / OG Image)')
+                            ->image()
+                            ->disk('r2')
+                            ->directory('articles')
+                            ->visibility('public')
+                            ->imageEditor()
+                            ->formatStateUsing(fn (?string $state, ?Article $record): ?string => $record?->getRawOriginal('featured_image_url') ?? $state)
+                            ->helperText('صورة اختيارية مخصصة للغلاف والمشاركة على السوشيال ميديا. إذا تُركت فارغة، سيتم استخدام صورة المنتج تلقائياً.')
+                            ->columnSpanFull(),
                     ])
                     ->columns(2),
                 Section::make('محتوى المقال')
@@ -209,11 +223,15 @@ class ArticleResource extends Resource
                         TextInput::make('meta_title')
                             ->label('عنوان SEO')
                             ->maxLength(255)
-                            ->helperText('يُترك فارغًا لاستخدام عنوان المقال'),
+                            ->formatStateUsing(fn (?string $state, ?Article $record): string => (string) ($record?->getRawOriginal('meta_title') ?? $state ?? ''))
+                            ->dehydrateStateUsing(fn ($state) => $state === null || $state === '' ? null : $state)
+                            ->helperText('💡 نصيحة: يمكنك استخدام [year] في العنوان أو الوصف ليتغير رقم السنة تلقائياً في بداية كل عام. يُترك فارغًا لاستخدام عنوان المقال'),
                         Textarea::make('meta_description')
                             ->label('وصف SEO')
                             ->rows(2)
-                            ->helperText('يُترك فارغًا لإنشاء وصف تلقائي'),
+                            ->formatStateUsing(fn (?string $state, ?Article $record): string => (string) ($record?->getRawOriginal('meta_description') ?? $state ?? ''))
+                            ->dehydrateStateUsing(fn ($state) => $state === null || $state === '' ? null : $state)
+                            ->helperText('💡 نصيحة: يمكنك استخدام [year] في العنوان أو الوصف ليتغير رقم السنة تلقائياً في بداية كل عام. يُترك فارغًا لإنشاء وصف تلقائي'),
                     ])
                     ->columns(2),
                 Section::make('آراء وتقييمات المشتريين في أمازون (لصياغة المقال)')
@@ -282,6 +300,12 @@ class ArticleResource extends Resource
                     ->relationship('category', 'name'),
             ])
             ->actions([
+                Tables\Actions\Action::make('view')
+                    ->label('عرض')
+                    ->icon('heroicon-m-arrow-top-right-on-square')
+                    ->url(fn (Article $record): string => $record->isBlog() ? route('blog.show', $record->slug) : route('articles.show', $record->slug))
+                    ->openUrlInNewTab()
+                    ->visible(fn (Article $record): bool => (bool) $record->is_published),
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make(),
             ])
