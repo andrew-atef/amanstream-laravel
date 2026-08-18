@@ -91,6 +91,7 @@
             '@type' => 'Organization',
             'name' => 'أمان برايس | AmanPrice Egypt',
             'alternateName' => ['AmanPrice', 'أمان برايس مصر'],
+            'slogan' => 'أكبر موقع لمقارنة أسعار الأجهزة والتقسيط في مصر',
             'url' => $seoHelper::url(),
             'logo' => [
                 '@type' => 'ImageObject',

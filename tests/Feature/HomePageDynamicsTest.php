@@ -91,6 +91,23 @@ final class HomePageDynamicsTest extends TestCase
     }
 
     #[Test]
+    public function it_asserts_the_price_comparison_site_entity_seo_on_the_homepage(): void
+    {
+        $response = $this->get('/');
+
+        $response->assertOk();
+        $response->assertSee('<title>أمان برايس | أسعار ومقارنة الأجهزة الكهربائية في مصر وحاسبة التقسيط</title>', false);
+        $response->assertSee('content="أمان برايس (AmanPrice.tech) — دليلك لمقارنة أسعار وأفضل أنواع الأجهزة المنزلية، التكييفات، والغسالات في مصر، مع مؤشر تاريخ السعر وحاسبة تقسيط البنوك 0% فائدة."', false);
+
+        // The slogan is fused into BOTH the WebSite (homepage) and the shared
+        // Organization schema so Google reads the whole domain as a
+        // price-comparison site.
+        $response->assertSee('"@type":"WebSite"', false);
+        $response->assertSee('"slogan":"أكبر موقع لمقارنة أسعار الأجهزة والتقسيط في مصر"', false);
+        $response->assertSee('"@type":"Organization"', false);
+    }
+
+    #[Test]
     public function it_searches_by_product_asin_and_content(): void
     {
         $this->seedCatalog();

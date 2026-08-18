@@ -20,8 +20,8 @@
             ? \Illuminate\Support\Str::limit($categoryDesc, 155)
             : "مراجعات ومقارنات أسعار {$categoryTitle} المحدثة يومياً على أمازون مصر — حاسبة تقسيط ونصائح شراء آمنة من {$brandName}.";
     } elseif ($selectedCategory === null && $searchQuery === '' && ! $dealsOnly) {
-        $hubTitle = "{$brandName} | مراجعات وأسعار الأجهزة المنزلية والتكييفات على أمازون مصر";
-        $hubDescription = 'بوابتك المباشرة لمراجعة أسعار التكييفات والأجهزة المنزلية على أمازون مصر مع مقارنات يومية وحاسبة التقسيط ونصائح شراء آمنة.';
+        $hubTitle = 'أمان برايس | أسعار ومقارنة الأجهزة الكهربائية في مصر وحاسبة التقسيط';
+        $hubDescription = 'أمان برايس (AmanPrice.tech) — دليلك لمقارنة أسعار وأفضل أنواع الأجهزة المنزلية، التكييفات، والغسالات في مصر، مع مؤشر تاريخ السعر وحاسبة تقسيط البنوك 0% فائدة.';
     }
 @endphp
 
@@ -43,6 +43,7 @@
                 '@type' => 'WebSite',
                 'name' => $brandName,
                 'alternateName' => 'AmanPrice Egypt',
+                'slogan' => 'أكبر موقع لمقارنة أسعار الأجهزة والتقسيط في مصر',
                 'url' => $siteUrl,
                 'potentialAction' => [
                     '@type' => 'SearchAction',
