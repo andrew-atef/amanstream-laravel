@@ -147,18 +147,30 @@ class ShortcodeParser
             $content = str_replace('[rating]', $markdown, $content);
         }
 
-        if (str_contains($content, '[installment]')) {
+        // [installment] & [interactive_installment] BOTH translate to the same
+        // Markdown sentence (the interactive widget is an HTML-only concern),
+        // and an editor paste can double the plain token too. Render the line
+        // exactly ONCE from the first occurrence and drop any duplicate
+        // tokens, so agents never read the same installment line twice.
+        if (str_contains($content, '[installment]') || str_contains($content, '[interactive_installment]')) {
             $markdown = $single !== null
                 ? $this->installmentMarkdown($single)
                 : $this->installmentsMarkdown($compared);
-            $content = str_replace('[installment]', $markdown, $content);
-        }
 
-        if (str_contains($content, '[interactive_installment]')) {
-            $markdown = $single !== null
-                ? $this->installmentMarkdown($single)
-                : $this->installmentsMarkdown($compared);
-            $content = str_replace('[interactive_installment]', $markdown, $content);
+            $rendered = false;
+            $content = preg_replace_callback(
+                '/\[(?:interactive_)?installment\]/',
+                function () use (&$rendered, $markdown): string {
+                    if (! $rendered) {
+                        $rendered = true;
+
+                        return $markdown;
+                    }
+
+                    return '';
+                },
+                $content
+            ) ?? $content;
         }
 
         if (str_contains($content, '[price_history]')) {

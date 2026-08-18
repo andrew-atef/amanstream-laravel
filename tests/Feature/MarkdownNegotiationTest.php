@@ -427,4 +427,44 @@ class MarkdownNegotiationTest extends TestCase
         $this->assertStringNotContainsString('277', $content);
         $this->assertStringNotContainsString('284', $content);
     }
+
+    public function test_duplicate_installment_shortcodes_render_the_line_exactly_once(): void
+    {
+        $category = Category::query()->firstOrCreate(['slug' => 'md-cat'], ['name' => 'فئة']);
+
+        $product = Product::create([
+            'category_id' => $category->id,
+            'title' => 'منتج تقسيط',
+            'asin' => 'MDINSTALL01',
+            'price' => 11525,
+            'affiliate_url' => 'https://www.amazon.eg/dp/MDINSTALL01',
+            'in_stock' => true,
+            'is_active' => true,
+            'platform' => 'amazon',
+        ]);
+
+        // Both tokens (plain + interactive) produce identical Markdown, and an
+        // editor paste can also double the plain token — the engine must emit
+        // the installment sentence only once either way.
+        foreach ([
+            "## الشراء\n\n[installment]\n\n[interactive_installment]",
+            "## الشراء\n\n[installment]\n\n[installment]",
+        ] as $index => $content) {
+            Article::create([
+                'product_id' => $product->id,
+                'category_id' => $category->id,
+                'title' => 'مقال تقسيط '.$index,
+                'slug' => 'md-installment-dedupe-'.$index,
+                'content' => $content,
+                'is_published' => true,
+            ]);
+
+            $markdown = $this->get('/articles/md-installment-dedupe-'.$index, ['Accept' => 'text/markdown'])->getContent();
+
+            $this->assertSame(1, substr_count($markdown, 'قسط شهري'));
+            $this->assertSame(1, substr_count($markdown, 'عبر البنوك المصرية (0% فائدة)'));
+            $this->assertStringNotContainsString('[installment]', $markdown);
+            $this->assertStringNotContainsString('[interactive_installment]', $markdown);
+        }
+    }
 }
