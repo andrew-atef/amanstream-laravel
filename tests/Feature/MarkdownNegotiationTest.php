@@ -85,14 +85,14 @@ class MarkdownNegotiationTest extends TestCase
         $this->assertStringContainsString('price_egp: 1000.00', $content);
 
         // [price] -> live EGP figure, footer locked to the same number.
-        $this->assertStringContainsString('**1000.00 ج.م** (سعر محدث اليوم — [التحقق من السعر والضمان على أمازون مصر](https://www.amazon.eg/dp/MDASIN0001))', $content);
+        $this->assertStringContainsString('**1000.00 ج.م** (سعر محدث اليوم — [التحقق من السعر والضمان على أمازون مصر](https://www.amazon.eg/dp/MDASIN0001?tag=khatfadeals2-21))', $content);
 
         // [installment] -> a computed monthly figure, never an empty label.
         $this->assertStringContainsString('قسط شهري', $content);
         $this->assertStringContainsString('0% فائدة', $content);
 
         // [buy_button] -> a real affiliate markdown link.
-        $this->assertStringContainsString('[صفحة العرض والضمان المعتمد لـ منتج اختبار على أمازون مصر](https://www.amazon.eg/dp/MDASIN0001)', $content);
+        $this->assertStringContainsString('[صفحة العرض والضمان المعتمد لـ منتج اختبار على أمازون مصر](https://www.amazon.eg/dp/MDASIN0001?tag=khatfadeals2-21)', $content);
 
         // The old stripping bug left "**السعر الحالي على أمازون مصر:** " dangling.
         $this->assertStringNotContainsString('**السعر الحالي على أمازون مصر:**', $content);
@@ -155,8 +155,8 @@ class MarkdownNegotiationTest extends TestCase
 
         // Markdown table carries both products with their live prices/links.
         $this->assertStringContainsString('| المنتج | السعر الحالي | رابط الشراء |', $content);
-        $this->assertStringContainsString('| منتج أول للمقارنة | 1500.00 ج.م | [صفحة الشراء والضمان](https://www.amazon.eg/dp/MDCOMP0001) |', $content);
-        $this->assertStringContainsString('| منتج ثانٍ للمقارنة | 1200.00 ج.م | [صفحة الشراء والضمان](https://www.amazon.eg/dp/MDCOMP0002) |', $content);
+        $this->assertStringContainsString('| منتج أول للمقارنة | 1500.00 ج.م | [صفحة الشراء والضمان](https://www.amazon.eg/dp/MDCOMP0001?tag=khatfadeals2-21) |', $content);
+        $this->assertStringContainsString('| منتج ثانٍ للمقارنة | 1200.00 ج.م | [صفحة الشراء والضمان](https://www.amazon.eg/dp/MDCOMP0002?tag=khatfadeals2-21) |', $content);
 
         // Ranked cards.
         $this->assertStringContainsString('#### #1 منتج أول للمقارنة', $content);
@@ -215,7 +215,7 @@ class MarkdownNegotiationTest extends TestCase
         $this->assertStringNotContainsString('خيار ممتاز يستحق الشراء', $content);
 
         // [price] still interpolated alongside.
-        $this->assertStringContainsString('**1000.00 ج.م** (سعر محدث اليوم — [التحقق من السعر والضمان على أمازون مصر](https://www.amazon.eg/dp/MDSUMMRY01))', $content);
+        $this->assertStringContainsString('**1000.00 ج.م** (سعر محدث اليوم — [التحقق من السعر والضمان على أمازون مصر](https://www.amazon.eg/dp/MDSUMMRY01?tag=khatfadeals2-21))', $content);
     }
 
     public function test_comparison_article_markdown_supports_per_product_summary_box(): void

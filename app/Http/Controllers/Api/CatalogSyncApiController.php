@@ -35,12 +35,14 @@ class CatalogSyncApiController extends Controller
 
         // Never let a CDN (Cloudflare) or browser cache this queue snapshot: a
         // stale copy makes workers obsess over the same products forever.
+        // Feed the scraper the GENUINE stored URL (accessor cleaned value is
+        // for public output only) so re-scraping keeps full click fidelity.
         return response()
             ->json($products->map(fn (Product $product): array => [
                 'id' => $product->id,
                 'asin_or_sku' => $product->asin,
                 'platform' => $product->platform,
-                'url' => $product->affiliate_url,
+                'url' => $product->getRawOriginal('affiliate_url'),
                 'scrape_reviews' => blank($product->raw_reviews_text),
             ]))
             ->header('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0')

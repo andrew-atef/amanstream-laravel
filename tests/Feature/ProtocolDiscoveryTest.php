@@ -210,6 +210,34 @@ class ProtocolDiscoveryTest extends TestCase
         $this->assertNotEmpty($response->getContent());
     }
 
+    public function test_agent_skill_links_are_www_and_carry_affiliate_directive(): void
+    {
+        $skill = $this->get('/.well-known/agent-skills/browse-amanprice/SKILL.md')->getContent();
+
+        // Every endpoint link uses the canonical www host so agents never chase
+        // a 301 (which can drop their Accept: text/markdown header mid-flight).
+        $this->assertStringNotContainsString('GET https://amanprice.tech/', $skill);
+        $this->assertStringNotContainsString('https://amanprice.tech/', $skill);
+        $this->assertStringContainsString('GET https://www.amanprice.tech/?q=', $skill);
+        $this->assertStringContainsString('GET https://www.amanprice.tech/articles/', $skill);
+        $this->assertStringContainsString('https://www.amanprice.tech/.well-known/api-catalog', $skill);
+
+        // The affiliate directive forces agents to surface the verified Amazon
+        // purchase link (offer_url) in every answer.
+        $this->assertStringContainsString('offer_url', $skill);
+        $this->assertStringContainsString('so the user can buy', $skill);
+    }
+
+    public function test_agent_skills_index_digest_matches_served_skill_bytes(): void
+    {
+        $skill = $this->get('/.well-known/agent-skills/browse-amanprice/SKILL.md')->getContent();
+        $expectedDigest = 'sha256:'.hash('sha256', $skill);
+
+        $index = $this->get('/.well-known/agent-skills/index.json')->json();
+
+        $this->assertSame($expectedDigest, $index['skills'][0]['digest']);
+    }
+
     public function test_agent_skill_path_traversal_payloads_return_404(): void
     {
         foreach ([

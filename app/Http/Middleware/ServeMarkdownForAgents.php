@@ -177,8 +177,11 @@ class ServeMarkdownForAgents
             // Explicit commercial entity metadata so AI agents (Perplexity,
             // AutoGPT, ChatGPT/Search) can resolve the buyable offer straight
             // from the frontmatter without treating the CTA as boilerplate.
-            if (filled($product->affiliate_url)) {
-                $frontmatter[] = 'offer_url: '.$product->affiliate_url;
+            // offer_url is ALWAYS the clean canonical link — no scraped
+            // tracking junk (dib/crid/sprefix/qid) ever reaches the agent.
+            $cleanOfferUrl = SEOHelper::cleanAffiliateUrl((string) $product->affiliate_url, (string) $product->asin);
+            if (filled($cleanOfferUrl)) {
+                $frontmatter[] = 'offer_url: '.$cleanOfferUrl;
                 $frontmatter[] = 'merchant: أمازون مصر';
                 $frontmatter[] = 'currency: EGP';
                 $frontmatter[] = 'availability: '.($product->in_stock ? 'in_stock' : 'out_of_stock');
@@ -207,8 +210,9 @@ class ServeMarkdownForAgents
         // of leaving a lone isolated CTA at the bottom that LLM summarizers
         // classify as boilerplate and drop.
         $introParagraph = null;
-        if ($product && filled($product->affiliate_url)) {
-            $introParagraph = 'يمكنك الاطلاع على المواصفات والطلب مباشرة عبر [صفحة العرض والضمان المعتمد على أمازون مصر]('.$product->affiliate_url.') مع تفعيل خيارات التقسيط البنكي 0% فائدة.';
+        $cleanOfferUrl = SEOHelper::cleanAffiliateUrl((string) ($product?->affiliate_url ?? ''), (string) ($product?->asin ?? ''));
+        if ($product && filled($cleanOfferUrl)) {
+            $introParagraph = 'يمكنك الاطلاع على المواصفات والطلب مباشرة عبر [صفحة العرض والضمان المعتمد على أمازون مصر]('.$cleanOfferUrl.') مع تفعيل خيارات التقسيط البنكي 0% فائدة.';
         }
 
         return implode(PHP_EOL, [

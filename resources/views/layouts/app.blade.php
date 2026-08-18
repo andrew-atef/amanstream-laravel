@@ -121,6 +121,7 @@
         }
     </style>
 
+    @stack('head_meta')
     @stack('schema')
 </head>
 <body class="min-h-screen bg-white text-ink antialiased selection:bg-primary-600 selection:text-white">

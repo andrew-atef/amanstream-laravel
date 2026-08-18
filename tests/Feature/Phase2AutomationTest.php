@@ -121,7 +121,7 @@ class Phase2AutomationTest extends TestCase
 
         $this->assertStringNotContainsString('&lt;a', $html);
         $this->assertStringNotContainsString('&lt;span', $html);
-        $this->assertStringContainsString('href="https://www.amazon.eg/dp/B01LCVQ0UY?tag=demo-21"', $html);
+        $this->assertStringContainsString('href="https://www.amazon.eg/dp/B01LCVQ0UY?tag=khatfadeals2-21"', $html);
         $this->assertStringContainsString('الدفع المباشر', $html);
     }
 

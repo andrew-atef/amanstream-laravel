@@ -28,7 +28,7 @@ class SEOHelper
         return trim($title);
     }
 
-/**
+    /**
      * Absolute site URL with a canonical www. host.
      *
      * Local/dev hosts (http://localhost, http://127.0.0.1:*) are left exactly
@@ -73,5 +73,44 @@ class SEOHelper
     public static function canonical(string $path = ''): string
     {
         return self::url($path);
+    }
+
+    /**
+     * Normalize a raw scraped/affiliate URL into a clean canonical Amazon Egypt
+     * purchase link. The single source of truth behind every CTA rendered in
+     * HTML, Markdown, MCP output and schema.org offers:
+     *
+     *  - When an ASIN is known, the canonical `https://www.amazon.eg/dp/{ASIN}
+     *    ?tag={tag}` is built directly, dropping ANY scraped tracking junk
+     *    (`&dib=`, `&crid=`, `&sprefix=`, `&qid=`, `psc`, ...).
+     *  - Otherwise the 10-character ASIN is extracted from a messy `/dp/` or
+     *    `/gp/product/` URL and the same canonical link is rebuilt.
+     *  - Noon links are kept clean and platform-safe (query string stripped).
+     *  - Anything else (or an empty input) is returned unchanged.
+     */
+    public static function cleanAffiliateUrl(?string $url, ?string $asin = null): string
+    {
+        $tag = config('services.amazon.tag', 'khatfadeals2-21');
+
+        // ASIN is known — build the clean canonical link directly.
+        if (filled($asin)) {
+            return 'https://www.amazon.eg/dp/'.strtoupper(trim($asin)).'?tag='.$tag;
+        }
+
+        if (blank($url)) {
+            return '';
+        }
+
+        // Extract the 10-character Amazon ASIN from any messy URL string.
+        if (preg_match('/(?:dp|gp\/product)\/([A-Za-z0-9]{10})/i', $url, $matches)) {
+            return 'https://www.amazon.eg/dp/'.strtoupper($matches[1]).'?tag='.$tag;
+        }
+
+        // Keep Noon URLs clean if platform is noon.
+        if (str_contains($url, 'noon.com')) {
+            return explode('?', $url)[0];
+        }
+
+        return $url;
     }
 }

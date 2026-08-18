@@ -48,8 +48,8 @@ class ArticleResourceLinksRenderTest extends TestCase
         $this->assertStringContainsString('فتح في أمازون', $html);
         $this->assertStringContainsString('تعديل المنتج هنا', $html);
         $this->assertStringContainsString('معاينة المقال', $html);
-        $this->assertStringContainsString('https://www.amazon.eg/dp/TESTASIN1?tag=demo', $html);
-        $this->assertMatchesRegularExpression('/<a\s+href="https:\/\/www\.amazon\.eg\/dp\/TESTASIN1\?tag=demo"/', $html);
+        $this->assertStringContainsString('https://www.amazon.eg/dp/TESTASIN1?tag=khatfadeals2-21', $html);
+        $this->assertMatchesRegularExpression('/<a\s+href="https:\/\/www\.amazon\.eg\/dp\/TESTASIN1\?tag=khatfadeals2-21"/', $html);
         $this->assertMatchesRegularExpression('/<a\s+href="[^"]*\/admin\/products\/[0-9]+\/edit"/', $html);
     }
 

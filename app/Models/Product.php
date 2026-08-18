@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\SEOHelper;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
@@ -84,23 +85,56 @@ class Product extends Model
     protected function title(): Attribute
     {
         return Attribute::make(
-            get: fn (?string $value): ?string => $value === null ? null : \App\Services\SEOHelper::cleanTitle($value),
+            get: fn (?string $value): ?string => $value === null ? null : SEOHelper::cleanTitle($value),
         );
     }
 
-protected static function booted(): void
-{
-    static::saving(function (Product $product) {
-        $product->asin = trim(strtoupper((string) $product->asin));
+    /**
+     * Affiliate/purchase URLs are ALWAYS normalized on read to the clean
+     * canonical Amazon Egypt link (see SEOHelper::cleanAffiliateUrl), so no
+     * raw scraped tracking junk (`&dib=`, `&crid=`, `&sprefix=`, `&qid=` ...)
+     * can ever leak into any Blade component, shortcode, Markdown variant,
+     * schema.org JSON-LD or MCP output.
+     *
+     * Noon platform links are preserved as clean platform URLs (query string
+     * stripped) — never rebuilt as Amazon links from their SKU string.
+     */
+    protected function affiliateUrl(): Attribute
+    {
+        return Attribute::make(
+            get: fn (?string $value): string => SEOHelper::cleanAffiliateUrl(
+                $value,
+                $value !== null && str_contains($value, 'noon.com') ? null : (string) $this->asin
+            ),
+        );
+    }
 
-        // Scraped-title hygiene: strip foreign country markers and normalize
-        // whitespace so titles captured from Amazon's global feeds never leak
-        // "(المملكة العربية السعودية)" or stray leading spaces into H1/OG/schema.
-        if ($product->title !== null) {
-            $product->title = \App\Services\SEOHelper::cleanTitle((string) $product->title);
-        }
-    });
-}
+    /**
+     * Explicit `clean_affiliate_url` accessor (single source of truth so any
+     * Blade/view can use `$product->clean_affiliate_url` without relying on
+     * the shorthand `affiliate_url` attribute override).
+     */
+    public function getCleanAffiliateUrlAttribute(): string
+    {
+        $raw = (string) ($this->attributes['affiliate_url'] ?? '');
+        $asin = str_contains($raw, 'noon.com') ? null : (string) ($this->attributes['asin'] ?? '');
+
+        return SEOHelper::cleanAffiliateUrl($raw, $asin);
+    }
+
+    protected static function booted(): void
+    {
+        static::saving(function (Product $product) {
+            $product->asin = trim(strtoupper((string) $product->asin));
+
+            // Scraped-title hygiene: strip foreign country markers and normalize
+            // whitespace so titles captured from Amazon's global feeds never leak
+            // "(المملكة العربية السعودية)" or stray leading spaces into H1/OG/schema.
+            if ($product->title !== null) {
+                $product->title = SEOHelper::cleanTitle((string) $product->title);
+            }
+        });
+    }
 
     public function category(): BelongsTo
     {

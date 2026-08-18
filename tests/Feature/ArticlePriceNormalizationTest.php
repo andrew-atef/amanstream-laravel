@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Models\Article;
-use App\Models\ArticleProduct;
 use App\Models\Category;
 use App\Models\Product;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -122,6 +121,6 @@ class ArticlePriceNormalizationTest extends TestCase
         // url frontmatter must be a single clean join — no "//" anywhere.
         $this->assertStringNotContainsString('//', str_replace(['http://', 'https://'], '', $content));
         $this->assertStringContainsString('url: '.config('app.url').'/articles/price-url', $content);
-        $this->assertStringContainsString('**1479.00 ج.م** (سعر محدث اليوم — [التحقق من السعر والضمان على أمازون مصر](https://www.amazon.eg/dp/PRICE00001))', $content);
+        $this->assertStringContainsString('**1479.00 ج.م** (سعر محدث اليوم — [التحقق من السعر والضمان على أمازون مصر](https://www.amazon.eg/dp/PRICE00001?tag=khatfadeals2-21))', $content);
     }
 }

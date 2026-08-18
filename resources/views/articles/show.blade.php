@@ -14,6 +14,18 @@
     :og-image="$primaryImage"
     og-type="article"
 >
+    @push('head_meta')
+        @if ($product && (float) $product->price > 0)
+            <meta property="product:price:amount" content="{{ number_format((float) $product->price, 2, '.', '') }}">
+            <meta property="product:price:currency" content="EGP">
+            <meta property="product:availability" content="{{ $product->in_stock ? 'in stock' : 'out of stock' }}">
+            <meta property="product:condition" content="new">
+            <meta property="product:retailer" content="Amazon Egypt">
+            <meta property="product:brand" content="{{ $product->brand ?: 'أمازون مصر' }}">
+            <meta property="product:retailer_item_id" content="{{ $product->asin }}">
+        @endif
+    @endpush
+
     @push('schema')
         @php
             $seoHelper = \App\Services\SEOHelper::class;
@@ -43,9 +55,10 @@
                     'mpn' => $p->asin,
                     'offers' => [
                         '@type' => 'Offer',
-                        'url' => $p->affiliate_url,
+                        'url' => $seoHelper::cleanAffiliateUrl((string) $p->affiliate_url, (string) $p->asin),
                         'priceCurrency' => 'EGP',
                         'price' => number_format((float) $p->price, 2, '.', ''),
+                        'priceValidUntil' => now()->addDays(7)->format('Y-m-d'),
                         'availability' => $p->in_stock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
                         'itemCondition' => 'https://schema.org/NewCondition',
                         'seller' => [
@@ -83,7 +96,7 @@
                             '@type' => 'MerchantReturnPolicy',
                             'applicableCountry' => 'EG',
                             'returnPolicyCategory' => 'https://schema.org/MerchantReturnFiniteReturnWindow',
-                            'merchantReturnDays' => 15,
+                            'merchantReturnDays' => 14,
                             'returnMethod' => 'https://schema.org/ReturnByMail',
                             'returnFees' => 'https://schema.org/FreeReturn',
                         ],
@@ -173,7 +186,7 @@
                         '@type' => 'ListItem',
                         'position' => $index + 1,
                         'name' => $title,
-                        'url' => $product->affiliate_url,
+                        'url' => \App\Services\SEOHelper::cleanAffiliateUrl((string) $product->affiliate_url, (string) $product->asin),
                         'image' => $product->image_url ?: \App\Services\SEOHelper::url('favicon.svg'),
                         'item' => $buildProductNode($product),
                     ];

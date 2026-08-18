@@ -58,6 +58,10 @@ return [
         'token' => env('CATALOG_SYNC_TOKEN', 'x-catalog-sync-token-2026'),
     ],
 
+    'amazon' => [
+        'tag' => env('AMAZON_AFFILIATE_TAG', 'khatfadeals2-21'),
+    ],
+
     'amazon_scraper' => [
         'base_uri' => env('AMAZON_SCRAPER_BASE_URI', 'https://amazon-deals-telegram-bot.andrew-petr132.workers.dev/api/test-single-scrape'),
         'timeout' => env('AMAZON_SCRAPER_TIMEOUT', 60),

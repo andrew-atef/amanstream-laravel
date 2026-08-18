@@ -294,7 +294,7 @@ final class ProductPriceHistoryTest extends TestCase
         $this->assertStringContainsString('24,000', $html);
         $this->assertStringContainsString('/icons/amazon.png', $html);
         $this->assertStringContainsString('اشترِ الآن', $html);
-        $this->assertStringContainsString('https://www.amazon.eg/dp/B0PRICETEST?tag=demo-21', $html);
+        $this->assertStringContainsString('https://www.amazon.eg/dp/B0PRICETEST?tag=khatfadeals2-21', $html);
     }
 
     #[Test]

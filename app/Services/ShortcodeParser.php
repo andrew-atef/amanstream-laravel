@@ -206,8 +206,10 @@ class ShortcodeParser
 
     protected function priceMarkdown(Product $product): string
     {
+        $cleanUrl = SEOHelper::cleanAffiliateUrl((string) $product->affiliate_url, (string) $product->asin);
+
         return (float) $product->price > 0
-            ? '**'.$this->formatPrice((float) $product->price).' ج.م** (سعر محدث اليوم — [التحقق من السعر والضمان على أمازون مصر]('.$product->affiliate_url.'))'
+            ? '**'.$this->formatPrice((float) $product->price).' ج.م** (سعر محدث اليوم — [التحقق من السعر والضمان على أمازون مصر]('.$cleanUrl.'))'
             : 'السعر قيد التحديث ⏳';
     }
 
@@ -238,8 +240,10 @@ class ShortcodeParser
 
     protected function buyButtonMarkdown(Product $product): string
     {
-        return filled($product->affiliate_url)
-            ? '[صفحة العرض والضمان المعتمد لـ '.SEOHelper::cleanTitle((string) $product->title).' على أمازون مصر]('.$product->affiliate_url.')'
+        $cleanUrl = SEOHelper::cleanAffiliateUrl((string) $product->affiliate_url, (string) $product->asin);
+
+        return filled($cleanUrl)
+            ? '[صفحة العرض والضمان المعتمد لـ '.SEOHelper::cleanTitle((string) $product->title).' على أمازون مصر]('.$cleanUrl.')'
             : '';
     }
 
@@ -480,12 +484,13 @@ class ShortcodeParser
             }
 
             $title = str_replace('|', '\\|', SEOHelper::cleanTitle((string) $product->title));
+            $cleanUrl = SEOHelper::cleanAffiliateUrl((string) $product->affiliate_url, (string) $product->asin);
 
             $markdown .= sprintf(
                 "| %s | %s ج.م | [صفحة الشراء والضمان](%s) |\n",
                 $title,
                 $this->formatPrice((float) $product->price),
-                $product->affiliate_url
+                $cleanUrl
             );
         }
 
@@ -529,7 +534,8 @@ class ShortcodeParser
             }
 
             if (filled($product->affiliate_url)) {
-                $markdown .= '- [🔗 رابط العرض والضمان المعتمد على أمازون مصر]('.$product->affiliate_url.")\n";
+                $cleanUrl = SEOHelper::cleanAffiliateUrl((string) $product->affiliate_url, (string) $product->asin);
+                $markdown .= '- [🔗 رابط العرض والضمان المعتمد على أمازون مصر]('.$cleanUrl.")\n";
             }
 
             $markdown .= "\n";
