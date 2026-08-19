@@ -42,6 +42,8 @@ class DeepScrapeApiTest extends TestCase
         return array_merge([
             'id' => $product->id,
             'asin' => $product->asin,
+            'title' => 'اسكتش مصدر الموديل الأصلي',
+            'brand' => 'ماركة تجريبية',
             'warranty_programs' => [
                 ['name' => 'ضمان إضافي سنتين', 'price' => 500, 'duration' => 'سنتان'],
             ],
@@ -57,6 +59,10 @@ class DeepScrapeApiTest extends TestCase
             ],
             'manufacturer_content' => 'نص تسويقي من الشركة المصنعة...',
             'product_description' => 'وصف طويل للمنتج...',
+            'customer_reviews_sample' => [
+                ['author' => 'أحمد', 'rating' => '5', 'text' => 'منتج ممتاز'],
+                ['author' => 'سارة', 'rating' => '4', 'text' => 'جيد جداً'],
+            ],
             'raw_amazon_data_text' => "نصوص خام من أمازون\nسطر ثاني",
         ], $overrides);
     }
@@ -111,9 +117,16 @@ class DeepScrapeApiTest extends TestCase
 
         $this->assertSame(Product::DEEP_SCRAPE_STATUS_SYNCED, $product->deep_scrape_status);
         $this->assertNull($product->spec_diff_json);
+        $this->assertSame('منتج اختبار', $product->title);
+        $this->assertNull($product->brand);
         $this->assertSame('نصوص خام من أمازون'."\n".'سطر ثاني', $product->raw_amazon_data);
         $this->assertSame('1.5 حصان', $product->deep_specs_json['quick_specs'][0]['value']);
         $this->assertSame('سنتان', $product->deep_specs_json['warranty_programs'][0]['duration']);
+        $this->assertSame('منتج ممتاز', $product->deep_specs_json['customer_reviews_sample'][0]['text']);
+        $this->assertArrayNotHasKey('title', $product->deep_specs_json);
+        $this->assertArrayNotHasKey('brand', $product->deep_specs_json);
+        $this->assertArrayNotHasKey('price', $product->deep_specs_json);
+        $this->assertArrayHasKey('customer_reviews_sample', $product->deep_specs_json);
         $this->assertNotNull($product->deep_scraped_at);
     }
 
@@ -122,11 +135,16 @@ class DeepScrapeApiTest extends TestCase
         $product = $this->makeProduct();
 
         $payload = $this->payload($product);
-        // The worker may still leak commercial noise — the controller must ignore it.
-        $payload['pricing'] = ['live_price' => 2500, 'list_price' => 999];
-        $payload['availability'] = ['in_stock' => false];
+        // The worker may still leak commercial noise (top-level and nested) —
+        // the controller must drop and ignore all of it.
+        $payload['price'] = 2500;
+        $payload['live_price'] = 2500;
+        $payload['original_price'] = 999;
+        $payload['in_stock'] = false;
         $payload['rating'] = 1.0;
         $payload['review_count'] = 1;
+        $payload['pricing'] = ['live_price' => 2500, 'list_price' => 999];
+        $payload['availability'] = ['in_stock' => false];
 
         $this->postJson('/api/v1/deep-scrape/submit', $payload, ['x-sync-token' => self::TOKEN])
             ->assertOk();
@@ -139,8 +157,15 @@ class DeepScrapeApiTest extends TestCase
         $this->assertSame(4.5, (float) $product->rating);
         $this->assertSame(120, $product->review_count);
         $this->assertNull($product->price_history_json);
+        $this->assertNull($product->lowest_price);
         $this->assertArrayNotHasKey('pricing', $product->deep_specs_json);
         $this->assertArrayNotHasKey('availability', $product->deep_specs_json);
+        $this->assertArrayNotHasKey('price', $product->deep_specs_json);
+        $this->assertArrayNotHasKey('live_price', $product->deep_specs_json);
+        $this->assertArrayNotHasKey('original_price', $product->deep_specs_json);
+        $this->assertArrayNotHasKey('in_stock', $product->deep_specs_json);
+        $this->assertArrayNotHasKey('rating', $product->deep_specs_json);
+        $this->assertArrayNotHasKey('review_count', $product->deep_specs_json);
     }
 
     public function test_second_submit_with_changes_flags_specs_changed(): void

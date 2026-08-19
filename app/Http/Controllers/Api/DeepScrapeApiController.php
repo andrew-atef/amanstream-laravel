@@ -17,11 +17,12 @@ class DeepScrapeApiController extends Controller
     protected const DEFAULT_LIMIT = 10;
 
     /**
-     * Editorial fields ingested from the Playwright worker. The workflow NEVER
-     * touches the commercial pipeline (price, original_price, in_stock, rating,
-     * review_count) — those are owned by the separate daily catalog sync.
+     * Qualitative fields persisted into `deep_specs_json` by the Playwright
+     * worker. The workflow NEVER touches the commercial pipeline (price,
+     * original_price, in_stock, rating, review_count) — those are owned by the
+     * separate daily catalog sync and are dropped before anything is stored.
      */
-    private const EDITORIAL_FIELDS = [
+    private const STORED_FIELDS = [
         'warranty_programs',
         'installation_services',
         'quick_specs',
@@ -29,6 +30,23 @@ class DeepScrapeApiController extends Controller
         'technical_details',
         'manufacturer_content',
         'product_description',
+        'customer_reviews_sample',
+    ];
+
+    /**
+     * Commercial keys that must NEVER survive ingestion. They are whitelisted
+     * out of storage by STORED_FIELDS and additionally stripped defensively at
+     * the top level so a future code change cannot accidentally widen the
+     * storage surface (nested list prices inside warranty/installation rows are
+     * intentional qualitative facts and are left untouched).
+     */
+    private const FORBIDDEN_COMMERCIAL_KEYS = [
+        'price',
+        'live_price',
+        'original_price',
+        'in_stock',
+        'rating',
+        'review_count',
     ];
 
     public function __construct(protected DeepScrapeDiffService $diffService) {}
@@ -81,7 +99,11 @@ class DeepScrapeApiController extends Controller
             ], 422);
         }
 
-        $incoming = $request->only(self::EDITORIAL_FIELDS);
+        // Whitelist storage to the qualitative fields, then defensively drop
+        // any lingering top-level commercial keys. The diff engine and save
+        // NEVER see a commercial attribute, so rating/review_count/price/in_stock
+        // and the price-history pipeline stay untouched.
+        $incoming = $this->stripCommercial($request->only(self::STORED_FIELDS));
 
         $diffs = $this->diffService->diff($product->deep_specs_json, $incoming);
 
@@ -116,6 +138,8 @@ class DeepScrapeApiController extends Controller
         return $request->validate([
             'id' => ['required', 'integer', 'exists:products,id'],
             'asin' => ['required', 'string'],
+            'title' => ['nullable', 'string'],
+            'brand' => ['nullable', 'string'],
             'warranty_programs' => ['nullable', 'array'],
             'installation_services' => ['nullable', 'array'],
             'quick_specs' => ['nullable', 'array'],
@@ -123,8 +147,26 @@ class DeepScrapeApiController extends Controller
             'technical_details' => ['nullable', 'array'],
             'manufacturer_content' => ['nullable', 'string'],
             'product_description' => ['nullable', 'string'],
+            'customer_reviews_sample' => ['nullable', 'array'],
             'raw_amazon_data_text' => ['required', 'string'],
         ]);
+    }
+
+    /**
+     * Drop every top-level commercial key so leftover worker noise can never
+     * flow into `deep_specs_json` (the model columns are never touched anyway —
+     * this keeps the stored snapshot clean and self-documenting).
+     *
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function stripCommercial(array $payload): array
+    {
+        foreach (self::FORBIDDEN_COMMERCIAL_KEYS as $key) {
+            unset($payload[$key]);
+        }
+
+        return $payload;
     }
 
     private function noCacheJson(array $data, int $status = 200): JsonResponse

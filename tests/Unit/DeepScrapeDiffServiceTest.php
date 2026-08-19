@@ -65,6 +65,17 @@ class DeepScrapeDiffServiceTest extends TestCase
         $this->assertSame([], $this->service->diff($old, $new));
     }
 
+    public function test_customer_reviews_sample_is_stored_but_never_diffed(): void
+    {
+        $old = $this->baseline();
+        $new = $this->baseline();
+        $new['customer_reviews_sample'] = [
+            ['author' => 'أحمد', 'rating' => '5', 'text' => 'مراجعة جديدة تماماً'],
+        ];
+
+        $this->assertSame([], $this->service->diff($old, $new));
+    }
+
     public function test_quick_spec_value_change_pairs_rows_by_label(): void
     {
         $old = $this->baseline();
