@@ -2,28 +2,41 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
     /**
-     * Editorial deep-scrape columns (qualitative spec facts only).
+     * Upgrade the originally deployed deep-scrape columns to the editorial
+     * spec contract:
      *
-     * NOTE: `raw_amazon_data` already lives in its own dedicated migration
-     * (2026_08_17_000002_add_raw_amazon_data_to_products_table.php), so it is
-     * intentionally NOT re-added here to avoid a duplicate-column error on a
-     * fresh migrate.
+     *  1. Rename `deep_data_json` → `deep_specs_json` (SQLite RENAME COLUMN).
+     *  2. Clear stale snapshots/diffs captured with the OLD payload vocabulary
+     *     (which also carried pricing noise) so the first submission under the
+     *     new contract is a clean baseline instead of a one-time noise alert.
+     *  3. Settle every involved row (except those still pending) back to
+     *     'synced': their old diff log is gone, so a dangling 'specs_changed'
+     *     or the legacy 'updated_with_diff' value would show a warning badge
+     *     with nothing behind it.
      */
     public function up(): void
     {
-        Schema::table('products', function (Blueprint $table) {
-            $table->string('deep_scrape_status', 32)->default('idle')->after('sync_status');
-            $table->json('deep_specs_json')->nullable()->after('deep_scrape_status');
-            $table->json('spec_diff_json')->nullable()->after('deep_specs_json');
-            $table->timestamp('deep_scraped_at')->nullable()->after('spec_diff_json');
+        if (! Schema::hasColumn('products', 'deep_data_json')) {
+            return;
+        }
 
-            $table->index('deep_scrape_status');
+        Schema::table('products', function (Blueprint $table) {
+            $table->renameColumn('deep_data_json', 'deep_specs_json');
         });
+
+        DB::statement(
+            "UPDATE products
+                SET deep_specs_json = NULL,
+                    spec_diff_json  = NULL,
+                    deep_scrape_status = 'synced'
+              WHERE deep_scrape_status IN ('synced', 'updated_with_diff', 'specs_changed')"
+        );
     }
 
     /**
@@ -32,8 +45,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('products', function (Blueprint $table) {
-            $table->dropIndex(['deep_scrape_status']);
-            $table->dropColumn(['deep_scrape_status', 'deep_specs_json', 'spec_diff_json', 'deep_scraped_at']);
+            $table->renameColumn('deep_specs_json', 'deep_data_json');
         });
     }
 };
