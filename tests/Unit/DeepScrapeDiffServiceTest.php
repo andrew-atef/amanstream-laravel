@@ -13,7 +13,7 @@ class DeepScrapeDiffServiceTest extends TestCase
     {
         parent::setUp();
 
-        $this->service = new DeepScrapeDiffService();
+        $this->service = new DeepScrapeDiffService;
     }
 
     private function baseline(): array
@@ -21,20 +21,22 @@ class DeepScrapeDiffServiceTest extends TestCase
         return [
             'id' => 1,
             'asin' => 'B0H2BF6HKJ',
+            'warranty_programs' => [
+                ['name' => 'ضمان إضافي سنتين', 'price' => 500, 'duration' => 'سنتان'],
+            ],
+            'installation_services' => [
+                ['name' => 'التركيب', 'price' => 500],
+            ],
             'quick_specs' => [
                 ['label' => 'سعة التبريد', 'value' => '1.5 حصان'],
                 ['label' => 'مستوى الضوضاء', 'value' => '22 ديسيبل'],
             ],
-            'warranty_addons' => [
-                ['name' => 'ضمان إضافي سنتين', 'price' => 500, 'duration' => 'سنتان'],
-            ],
-            'additional_services' => [
-                ['name' => 'التركيب', 'price' => 500],
-            ],
             'about_this_item' => ['مروحة عالية الكفاءة', 'توفير في الكهرباء'],
+            'technical_details' => [
+                ['label' => 'رقم الموديل', 'value' => 'AC-15HP-2026'],
+            ],
+            'manufacturer_content' => 'نص تسويقي من الشركة المصنعة حول تقنية التبريد الفائق...',
             'product_description' => 'وصف طويل للمنتج...',
-            'pricing' => ['live_price' => 5000, 'list_price' => 6000],
-            'availability' => ['in_stock' => true],
         ];
     }
 
@@ -51,30 +53,16 @@ class DeepScrapeDiffServiceTest extends TestCase
         $this->assertSame([], $this->service->diff([], $this->baseline()));
     }
 
-    public function test_pricing_live_price_change_is_detected(): void
+    public function test_pricing_and_availability_keys_are_ignored_by_the_editorial_engine(): void
     {
         $old = $this->baseline();
         $new = $this->baseline();
-        $new['pricing']['live_price'] = 547.2;
+        $new['pricing'] = ['live_price' => 999, 'list_price' => 1200];
+        $new['availability'] = ['in_stock' => false];
+        $new['rating'] = 1.0;
+        $new['review_count'] = 1;
 
-        $diffs = $this->service->diff($old, $new);
-
-        $this->assertCount(1, $diffs);
-        $this->assertSame('السعر', $diffs[0]['category']);
-        $this->assertStringContainsString('تغيّر السعر الحالي من 5,000 ج.م إلى 547.2 ج.م', $diffs[0]['change']);
-    }
-
-    public function test_availability_in_stock_change_is_detected(): void
-    {
-        $old = $this->baseline();
-        $new = $this->baseline();
-        $new['availability']['in_stock'] = false;
-
-        $diffs = $this->service->diff($old, $new);
-
-        $this->assertCount(1, $diffs);
-        $this->assertSame('التوفر', $diffs[0]['category']);
-        $this->assertSame('تغيّر التوفر من متوفر إلى غير متوفر', $diffs[0]['change']);
+        $this->assertSame([], $this->service->diff($old, $new));
     }
 
     public function test_quick_spec_value_change_pairs_rows_by_label(): void
@@ -86,34 +74,75 @@ class DeepScrapeDiffServiceTest extends TestCase
         $diffs = $this->service->diff($old, $new);
 
         $this->assertCount(1, $diffs);
-        $this->assertSame('المواصفات السريعة', $diffs[0]['category']);
+        $this->assertSame('المواصفات السريعة', $diffs[0]['section']);
         $this->assertSame('تغيّر سعة التبريد من 1.5 حصان إلى 1.6 حصان', $diffs[0]['change']);
+        $this->assertSame('1.5 حصان', $diffs[0]['old']);
+        $this->assertSame('1.6 حصان', $diffs[0]['new']);
     }
 
-    public function test_warranty_price_change_is_reported_with_arabic_labels(): void
+    public function test_warranty_addon_price_change_is_reported(): void
     {
         $old = $this->baseline();
         $new = $this->baseline();
-        $new['warranty_addons'][0]['price'] = 550;
+        $new['warranty_programs'][0]['price'] = 550;
 
         $diffs = $this->service->diff($old, $new);
 
         $this->assertCount(1, $diffs);
-        $this->assertSame('عروض الضمان الإضافية', $diffs[0]['category']);
+        $this->assertSame('الضمان', $diffs[0]['section']);
         $this->assertSame('تغيّر ضمان إضافي سنتين — السعر من 500 ج.م إلى 550 ج.م', $diffs[0]['change']);
+    }
+
+    public function test_warranty_duration_change_is_reported(): void
+    {
+        $old = $this->baseline();
+        $new = $this->baseline();
+        $new['warranty_programs'][0]['duration'] = 'ثلاث سنوات';
+
+        $diffs = $this->service->diff($old, $new);
+
+        $this->assertCount(1, $diffs);
+        $this->assertSame('الضمان', $diffs[0]['section']);
+        $this->assertSame('تغيّر ضمان إضافي سنتين — المدة من سنتان إلى ثلاث سنوات', $diffs[0]['change']);
     }
 
     public function test_installation_service_price_change_is_reported(): void
     {
         $old = $this->baseline();
         $new = $this->baseline();
-        $new['additional_services'][0]['price'] = 547.2;
+        $new['installation_services'][0]['price'] = 547.2;
 
         $diffs = $this->service->diff($old, $new);
 
         $this->assertCount(1, $diffs);
-        $this->assertSame('الخدمات والتركيب', $diffs[0]['category']);
+        $this->assertSame('خدمات التركيب', $diffs[0]['section']);
         $this->assertSame('تغيّر التركيب — السعر من 500 ج.م إلى 547.2 ج.م', $diffs[0]['change']);
+    }
+
+    public function test_technical_details_change_is_reported(): void
+    {
+        $old = $this->baseline();
+        $new = $this->baseline();
+        $new['technical_details'][0]['value'] = 'AC-15HP-2027';
+
+        $diffs = $this->service->diff($old, $new);
+
+        $this->assertCount(1, $diffs);
+        $this->assertSame('التفاصيل الفنية', $diffs[0]['section']);
+        $this->assertSame('تغيّر رقم الموديل من AC-15HP-2026 إلى AC-15HP-2027', $diffs[0]['change']);
+    }
+
+    public function test_manufacturer_content_change_is_reported_as_single_entry(): void
+    {
+        $old = $this->baseline();
+        $new = $this->baseline();
+        $new['manufacturer_content'] = 'نص تسويقي محدث بالكامل...';
+
+        $diffs = $this->service->diff($old, $new);
+
+        $this->assertCount(1, $diffs);
+        $this->assertSame('محتوى الشركة المصنعة', $diffs[0]['section']);
+        $this->assertSame('تغيّر محتوى الشركة المصنعة', $diffs[0]['change']);
     }
 
     public function test_about_this_item_adds_and_removes_bullets(): void
@@ -125,7 +154,7 @@ class DeepScrapeDiffServiceTest extends TestCase
         $diffs = $this->service->diff($old, $new);
 
         $changes = array_column($diffs, 'change');
-        $this->assertSame('نبذة عن هذا المنتج', $diffs[0]['category']);
+        $this->assertSame('نبذة عن هذا المنتج', $diffs[0]['section']);
         $this->assertStringContainsString('تمت إزالة «توفير في الكهرباء»', implode(' | ', $changes));
         $this->assertStringContainsString('تمت إضافة «ضمان شامل»', implode(' | ', $changes));
     }
@@ -139,15 +168,15 @@ class DeepScrapeDiffServiceTest extends TestCase
         $diffs = $this->service->diff($old, $new);
 
         $this->assertCount(1, $diffs);
-        $this->assertSame('وصف المنتج', $diffs[0]['category']);
+        $this->assertSame('وصف المنتج', $diffs[0]['section']);
         $this->assertSame('تغيّر محتوى وصف المنتج', $diffs[0]['change']);
     }
 
-    public function test_new_warranty_row_is_reported_as_added(): void
+    public function test_new_warranty_program_is_reported_as_added(): void
     {
         $old = $this->baseline();
         $new = $this->baseline();
-        $new['warranty_addons'][] = ['name' => 'ضمان إضافي ثلاث سنوات', 'price' => 750, 'duration' => 'ثلاث سنوات'];
+        $new['warranty_programs'][] = ['name' => 'ضمان إضافي ثلاث سنوات', 'price' => 750, 'duration' => 'ثلاث سنوات'];
 
         $diffs = $this->service->diff($old, $new);
 

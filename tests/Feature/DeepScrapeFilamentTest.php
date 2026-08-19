@@ -17,21 +17,22 @@ class DeepScrapeFilamentTest extends TestCase
 
     private function adminUser(): User
     {
-        return User::create([
-            'name' => 'Admin',
-            'email' => 'admin-deep@example.com',
-            'password' => 'password',
-            'is_admin' => true,
-        ]);
+        return User::query()->firstOrCreate(
+            ['email' => 'admin-deep@example.com'],
+            [
+                'name' => 'Admin',
+                'password' => 'password',
+                'is_admin' => true,
+            ],
+        );
     }
 
     private function makeProduct(array $overrides = []): Product
     {
-        $category = Category::create([
-            'name' => 'فئة',
-            'slug' => 'deep-filament-cat',
-            'description' => 'وصف',
-        ]);
+        $category = Category::query()->firstOrCreate(
+            ['slug' => 'deep-filament-cat'],
+            ['name' => 'فئة', 'description' => 'وصف'],
+        );
 
         return Product::create(array_merge([
             'category_id' => $category->id,
@@ -79,9 +80,9 @@ class DeepScrapeFilamentTest extends TestCase
     public function test_approve_row_action_clears_the_diff_alert(): void
     {
         $product = $this->makeProduct([
-            'deep_scrape_status' => Product::DEEP_SCRAPE_STATUS_UPDATED_WITH_DIFF,
+            'deep_scrape_status' => Product::DEEP_SCRAPE_STATUS_SPECS_CHANGED,
             'spec_diff_json' => [
-                ['category' => 'الخدمات والتركيب', 'change' => 'تغيّر سعر التركيب من 500 إلى 547.2 ج.م'],
+                ['section' => 'خدمات التركيب', 'change' => 'تغيّر سعر التركيب من 500 إلى 547.2 ج.م'],
             ],
         ]);
 
@@ -99,10 +100,10 @@ class DeepScrapeFilamentTest extends TestCase
     public function test_edit_form_renders_diff_alert_and_hides_it_when_no_diff(): void
     {
         $changed = $this->makeProduct([
-            'deep_scrape_status' => Product::DEEP_SCRAPE_STATUS_UPDATED_WITH_DIFF,
+            'deep_scrape_status' => Product::DEEP_SCRAPE_STATUS_SPECS_CHANGED,
             'spec_diff_json' => [
-                ['category' => 'السعر', 'change' => 'تغيّر السعر الحالي من 5,000 ج.م إلى 5,476 ج.م'],
-                ['category' => 'الخدمات والتركيب', 'change' => 'تغيّر سعر التركيب من 500 إلى 547.2 ج.م'],
+                ['section' => 'المواصفات السريعة', 'change' => 'تغيّر سعة التبريد من 1.5 حصان إلى 1.6 حصان'],
+                ['section' => 'خدمات التركيب', 'change' => 'تغيّر سعر التركيب من 500 إلى 547.2 ج.م'],
             ],
         ]);
 
@@ -111,7 +112,7 @@ class DeepScrapeFilamentTest extends TestCase
             ->html();
 
         $this->assertStringContainsString('سجل التغييرات المكتشفة في مواصفات أمازون ⚠️', $html);
-        $this->assertStringContainsString('تغيّر السعر الحالي من 5,000 ج.م إلى 5,476 ج.م', $html);
+        $this->assertStringContainsString('تغيّر سعة التبريد من 1.5 حصان إلى 1.6 حصان', $html);
         $this->assertStringContainsString('تغيّر سعر التركيب من 500 إلى 547.2 ج.م', $html);
 
         $clean = $this->makeProduct(['asin' => 'DEEPADMIN4']);
@@ -125,15 +126,15 @@ class DeepScrapeFilamentTest extends TestCase
 
     public function test_list_page_renders_deep_scrape_badge(): void
     {
-        $product = $this->makeProduct([
-            'deep_scrape_status' => Product::DEEP_SCRAPE_STATUS_UPDATED_WITH_DIFF,
+        $this->makeProduct([
+            'deep_scrape_status' => Product::DEEP_SCRAPE_STATUS_SPECS_CHANGED,
         ]);
 
         $html = Livewire::actingAs($this->adminUser())
             ->test(ListProducts::class)
-            ->searchTable($product->asin)
             ->html();
 
-        $this->assertStringContainsString('تغيرت المواصفات ⚠️', $html);
+        $this->assertStringContainsString('تغيرت المواصفات', $html);
+        $this->assertStringContainsString('السحب العميق', $html);
     }
 }

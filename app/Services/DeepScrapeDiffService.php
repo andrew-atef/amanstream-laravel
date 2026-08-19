@@ -3,29 +3,53 @@
 namespace App\Services;
 
 /**
- * Smart semantic diff engine for deep scrape payloads.
+ * Editorial qualitative spec diff engine for deep scrape payloads.
  *
  * Compares a freshly scraped Amazon payload against the previously stored
- * `deep_data_json` snapshot and produces stable, human-readable Arabic change
- * descriptions grouped by category — the exact shape the Filament admin alert
+ * `deep_specs_json` snapshot and produces stable, human-readable Arabic change
+ * descriptions grouped by section — the exact shape the Filament admin alert
  * and the `spec_diff_json` column consume:
  *
- *     [{"category": "الخدمات والتركيب", "change": "تغيّر سعر التركيب من 500 إلى 547.2 ج.م"}]
+ *     [{"section": "الضمان", "change": "تغيّرت مدة الضمان من 3 سنوات إلى 5 سنوات"}]
+ *
+ * Do NOT put pricing/availability here: live prices and stock are owned by the
+ * separate daily catalog sync pipeline. This engine only touches qualitative
+ * editorial facts (warranty, installation, spec tables, A+ content, bullets,
+ * description).
  */
 class DeepScrapeDiffService
 {
     /**
-     * Arabic category labels used in every emitted diff entry.
+     * Arabic section labels used in every emitted diff entry.
      */
-    private const CATEGORY_LABELS = [
-        'pricing' => 'السعر',
-        'availability' => 'التوفر',
+    private const SECTION_LABELS = [
+        'warranty_programs' => 'الضمان',
+        'installation_services' => 'خدمات التركيب',
         'quick_specs' => 'المواصفات السريعة',
-        'detailed_specifications' => 'المواصفات التفصيلية',
-        'warranty_addons' => 'عروض الضمان الإضافية',
-        'additional_services' => 'الخدمات والتركيب',
         'about_this_item' => 'نبذة عن هذا المنتج',
+        'technical_details' => 'التفاصيل الفنية',
+        'manufacturer_content' => 'محتوى الشركة المصنعة',
         'product_description' => 'وصف المنتج',
+    ];
+
+    /**
+     * Spec groups whose rows are structured items (warranty plans, install
+     * services, quick spec rows, feature bullets, technical table rows).
+     */
+    private const ITEM_LIST_GROUPS = [
+        'warranty_programs',
+        'installation_services',
+        'quick_specs',
+        'about_this_item',
+        'technical_details',
+    ];
+
+    /**
+     * Spec groups that are a single free-form block of text.
+     */
+    private const TEXT_GROUPS = [
+        'manufacturer_content',
+        'product_description',
     ];
 
     /**
@@ -43,16 +67,15 @@ class DeepScrapeDiffService
 
     /**
      * Detect every semantically significant difference between the previously
-     * stored payload and the freshly scraped one.
+     * stored editorial snapshot and the freshly scraped one.
      *
-     * @param  array<string, mixed>|null  $old  Previously stored `deep_data_json`.
-     * @param  array<string, mixed>  $new  Freshly submitted scraper payload.
-     *
-     * @return array<int, array{category: string, change: string}>
+     * @param  array<string, mixed>|null  $old  Previously stored `deep_specs_json`.
+     * @param  array<string, mixed>  $new  Freshly submitted editorial payload.
+     * @return array<int, array{section: string, change: string, old?: mixed, new?: mixed}>
      */
-    public function diff(?array $old, array $new): array
+    public function diff(mixed $old, array $new): array
     {
-        $old ??= [];
+        $old = is_array($old) ? $old : [];
 
         // The first captured payload is the baseline, not a diff: every field
         // would otherwise report "changed from غير محدد", drowning the admin
@@ -61,16 +84,13 @@ class DeepScrapeDiffService
             return [];
         }
 
-        $diffs = array_merge(
-            $this->diffPricing($old['pricing'] ?? null, $new['pricing'] ?? null),
-            $this->diffAvailability($old['availability'] ?? null, $new['availability'] ?? null)
-        );
+        $diffs = [];
 
-        foreach (['warranty_addons', 'additional_services', 'quick_specs', 'detailed_specifications'] as $group) {
+        foreach (self::ITEM_LIST_GROUPS as $group) {
             $diffs = array_merge($diffs, $this->diffItemList($group, $old[$group] ?? null, $new[$group] ?? null));
         }
 
-        foreach (['about_this_item', 'product_description'] as $group) {
+        foreach (self::TEXT_GROUPS as $group) {
             $diffs = array_merge($diffs, $this->diffTextual($group, $old[$group] ?? null, $new[$group] ?? null));
         }
 
@@ -78,73 +98,11 @@ class DeepScrapeDiffService
     }
 
     /**
-     * @return array<int, array{category: string, change: string}>
-     */
-    private function diffPricing(mixed $old, mixed $new): array
-    {
-        if (! is_array($new)) {
-            return [];
-        }
-
-        $old = is_array($old) ? $old : [];
-        $diffs = [];
-
-        foreach ([
-            'live_price' => 'السعر الحالي',
-            'list_price' => 'السعر القديم المشطوب',
-        ] as $key => $label) {
-            $oldValue = $old[$key] ?? null;
-            $newValue = $new[$key] ?? null;
-
-            if (! $this->looselyEquals($oldValue, $newValue)) {
-                $diffs[] = $this->entry(
-                    'pricing',
-                    sprintf(
-                        'تغيّر %s من %s إلى %s',
-                        $label,
-                        $this->formatValue($oldValue, $key),
-                        $this->formatValue($newValue, $key)
-                    )
-                );
-            }
-        }
-
-        return $diffs;
-    }
-
-    /**
-     * @return array<int, array{category: string, change: string}>
-     */
-    private function diffAvailability(mixed $old, mixed $new): array
-    {
-        if (! is_array($new) || ! array_key_exists('in_stock', $new)) {
-            return [];
-        }
-
-        $old = is_array($old) ? $old : [];
-
-        if ($this->looselyEquals($old['in_stock'] ?? null, $new['in_stock'])) {
-            return [];
-        }
-
-        return [
-            $this->entry(
-                'availability',
-                sprintf(
-                    'تغيّر التوفر من %s إلى %s',
-                    $this->formatValue($old['in_stock'] ?? null),
-                    $this->formatValue($new['in_stock'])
-                )
-            ),
-        ];
-    }
-
-    /**
-     * Diff structured spec rows (warranty add-ons, installation services,
-     * quick/detailed specs) with identity-based row matching then per-field
-     * comparison, plus added/removed row reports.
+     * Diff structured editorial rows (warranty plans, installation services,
+     * quick specs, technical table rows) with identity-based row matching then
+     * per-field comparison, plus added/removed row reports.
      *
-     * @return array<int, array{category: string, change: string}>
+     * @return array<int, array{section: string, change: string, old?: mixed, new?: mixed}>
      */
     private function diffItemList(string $group, mixed $oldItems, mixed $newItems): array
     {
@@ -175,7 +133,7 @@ class DeepScrapeDiffService
                 continue;
             }
 
-            $diffs[] = $this->entry($group, 'تمت إزالة '.$this->describeItem($oldRow));
+            $diffs[] = $this->entry($group, 'تمت إزالة '.$this->describeItem($oldRow), $this->describeItem($oldRow), null);
         }
 
         foreach ($newRows as $index => $newRow) {
@@ -183,35 +141,42 @@ class DeepScrapeDiffService
                 continue;
             }
 
-            $diffs[] = $this->entry($group, 'تمت إضافة '.$this->describeItem($newRow));
+            $diffs[] = $this->entry($group, 'تمت إضافة '.$this->describeItem($newRow), null, $this->describeItem($newRow));
         }
 
         return $diffs;
     }
 
     /**
-     * Diff a text group: bullet lists (about_this_item) go through row
-     * matching; a single long string (product_description) gets one entry.
+     * Diff a single free-form text block (manufacturer A+ content or product
+     * description) into one entry when the canonical text differs.
      *
-     * @return array<int, array{category: string, change: string}>
+     * @return array<int, array{section: string, change: string, old?: mixed, new?: mixed}>
      */
     private function diffTextual(string $group, mixed $old, mixed $new): array
     {
-        if ($group === 'about_this_item') {
-            return $this->diffItemList($group, $old, $new);
-        }
-
         if ($this->looselyEquals($old, $new)) {
             return [];
         }
 
-        return [$this->entry($group, 'تغيّر محتوى وصف المنتج')];
+        return [
+            $this->entry(
+                $group,
+                sprintf(
+                    'تغيّر %s%s',
+                    $group === 'product_description' ? 'محتوى ' : '',
+                    self::SECTION_LABELS[$group]
+                ),
+                $this->formatValue($old),
+                $this->formatValue($new)
+            ),
+        ];
     }
 
     /**
-     * Field-by-field comparison of two spec rows that share the same identity.
+     * Field-by-field comparison of two editorial rows that share the same identity.
      *
-     * @return array<int, array{category: string, change: string}>
+     * @return array<int, array{section: string, change: string, old?: mixed, new?: mixed}>
      */
     private function diffRowFields(string $group, array $oldRow, array $newRow, ?string $identityKey): array
     {
@@ -241,7 +206,9 @@ class DeepScrapeDiffService
                     $label,
                     $this->formatValue($oldValue, (string) $field),
                     $this->formatValue($newValue, (string) $field)
-                )
+                ),
+                $this->displayValue($oldValue, (string) $field),
+                $this->displayValue($newValue, (string) $field)
             );
         }
 
@@ -251,7 +218,6 @@ class DeepScrapeDiffService
     /**
      * @param  array<int, mixed>  $oldRows
      * @param  array<int, mixed>  $newRows
-     *
      * @return array<int, int> New-row index → old-row index pairs.
      */
     private function matchRows(array $oldRows, array $newRows, ?string $identityKey): array
@@ -285,8 +251,8 @@ class DeepScrapeDiffService
     }
 
     /**
-     * Pick the most stable identity key shared by the spec rows, so value-only
-     * updates stay matched to their previous row.
+     * Pick the most stable identity key shared by the editorial rows, so
+     * value-only updates stay matched to their previous row.
      *
      * @param  array<int, mixed>  $oldRows
      * @param  array<int, mixed>  $newRows
@@ -471,8 +437,8 @@ class DeepScrapeDiffService
     }
 
     /**
-     * README-friendly display of a value, with EGP currency tagged onto price
-     * fields and Arabic availability labels for booleans.
+     * README-friendly display of a value inside a change message, with EGP
+     * currency tagged onto add-on price fields (warranty/installation fees).
      */
     private function formatValue(mixed $value, string $key = ''): string
     {
@@ -481,11 +447,11 @@ class DeepScrapeDiffService
         }
 
         if ($value === true) {
-            return 'متوفر';
+            return 'متاح';
         }
 
         if ($value === false) {
-            return 'غير متوفر';
+            return 'غير متاح';
         }
 
         if (is_numeric($value)) {
@@ -500,6 +466,14 @@ class DeepScrapeDiffService
         }
 
         return $this->trimText(trim((string) $value), 120);
+    }
+
+    /**
+     * Structured old/new display values stored alongside the change message.
+     */
+    private function displayValue(mixed $value, string $key = ''): string
+    {
+        return $this->formatValue($value, $key);
     }
 
     private function isPriceField(string $key): bool
@@ -518,6 +492,7 @@ class DeepScrapeDiffService
         return match ($field) {
             'price' => 'السعر',
             'duration' => 'المدة',
+            'terms' => 'الشروط',
             'months' => 'عدد الأشهر',
             'quantity' => 'الكمية',
             'warranty' => 'الضمان',
@@ -538,13 +513,15 @@ class DeepScrapeDiffService
     }
 
     /**
-     * @return array{category: string, change: string}
+     * @return array{section: string, change: string, old?: mixed, new?: mixed}
      */
-    private function entry(string $group, string $change): array
+    private function entry(string $group, string $change, mixed $old = null, mixed $new = null): array
     {
-        return [
-            'category' => self::CATEGORY_LABELS[$group] ?? $group,
+        return array_filter([
+            'section' => self::SECTION_LABELS[$group] ?? $group,
             'change' => $change,
-        ];
+            'old' => $old,
+            'new' => $new,
+        ], fn (mixed $value): bool => $value !== null);
     }
 }

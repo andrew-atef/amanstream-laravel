@@ -24,7 +24,7 @@ class Product extends Model
 
     public const DEEP_SCRAPE_STATUS_SYNCED = 'synced';
 
-    public const DEEP_SCRAPE_STATUS_UPDATED_WITH_DIFF = 'updated_with_diff';
+    public const DEEP_SCRAPE_STATUS_SPECS_CHANGED = 'specs_changed';
 
     public const DEEP_SCRAPE_STATUS_FAILED = 'failed';
 
@@ -65,7 +65,7 @@ class Product extends Model
         'last_sync_error',
         'last_synced_at',
         'deep_scrape_status',
-        'deep_data_json',
+        'deep_specs_json',
         'spec_diff_json',
         'deep_scraped_at',
     ];
@@ -88,7 +88,7 @@ class Product extends Model
             'last_synced_at' => 'datetime',
             'reviews_scraped_at' => 'datetime',
             'deep_scrape_status' => 'string',
-            'deep_data_json' => 'array',
+            'deep_specs_json' => 'array',
             'spec_diff_json' => 'array',
             'deep_scraped_at' => 'datetime',
         ];

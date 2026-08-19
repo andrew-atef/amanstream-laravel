@@ -25,6 +25,7 @@ class DeepScrapeApiTest extends TestCase
             'title' => 'منتج اختبار',
             'asin' => 'B0H2BF6HKJ',
             'price' => 5100.00,
+            'original_price' => 6000.00,
             'rating' => 4.5,
             'review_count' => 120,
             'affiliate_url' => 'https://www.amazon.eg/dp/B0H2BF6HKJ?tag=demo',
@@ -41,20 +42,22 @@ class DeepScrapeApiTest extends TestCase
         return array_merge([
             'id' => $product->id,
             'asin' => $product->asin,
+            'warranty_programs' => [
+                ['name' => 'ضمان إضافي سنتين', 'price' => 500, 'duration' => 'سنتان'],
+            ],
+            'installation_services' => [
+                ['name' => 'التركيب', 'price' => 500],
+            ],
             'quick_specs' => [
                 ['label' => 'سعة التبريد', 'value' => '1.5 حصان'],
             ],
-            'warranty_addons' => [
-                ['name' => 'ضمان إضافي سنتين', 'price' => 500, 'duration' => 'سنتان'],
-            ],
-            'additional_services' => [
-                ['name' => 'التركيب', 'price' => 500],
-            ],
             'about_this_item' => ['مروحة عالية الكفاءة'],
+            'technical_details' => [
+                ['label' => 'رقم الموديل', 'value' => 'AC-15HP-2026'],
+            ],
+            'manufacturer_content' => 'نص تسويقي من الشركة المصنعة...',
             'product_description' => 'وصف طويل للمنتج...',
             'raw_amazon_data_text' => "نصوص خام من أمازون\nسطر ثاني",
-            'pricing' => ['live_price' => 5200, 'list_price' => 6000],
-            'availability' => ['in_stock' => true],
         ], $overrides);
     }
 
@@ -91,7 +94,7 @@ class DeepScrapeApiTest extends TestCase
         $this->assertStringContainsString('no-cache, no-store', $response->headers->get('Cache-Control', ''));
     }
 
-    public function test_first_submit_is_baseline_and_updates_price(): void
+    public function test_first_submit_is_baseline_and_stores_editorial_specs(): void
     {
         $product = $this->makeProduct();
 
@@ -108,15 +111,39 @@ class DeepScrapeApiTest extends TestCase
 
         $this->assertSame(Product::DEEP_SCRAPE_STATUS_SYNCED, $product->deep_scrape_status);
         $this->assertNull($product->spec_diff_json);
-        $this->assertSame(5200.0, (float) $product->price);
-        $this->assertSame(6000.0, (float) $product->original_price);
-        $this->assertTrue($product->in_stock);
         $this->assertSame('نصوص خام من أمازون'."\n".'سطر ثاني', $product->raw_amazon_data);
+        $this->assertSame('1.5 حصان', $product->deep_specs_json['quick_specs'][0]['value']);
+        $this->assertSame('سنتان', $product->deep_specs_json['warranty_programs'][0]['duration']);
         $this->assertNotNull($product->deep_scraped_at);
-        $this->assertSame(5200.0, (float) $product->deep_data_json['pricing']['live_price']);
     }
 
-    public function test_second_submit_with_changes_flags_updated_with_diff(): void
+    public function test_submit_never_touches_commercial_pricing_fields(): void
+    {
+        $product = $this->makeProduct();
+
+        $payload = $this->payload($product);
+        // The worker may still leak commercial noise — the controller must ignore it.
+        $payload['pricing'] = ['live_price' => 2500, 'list_price' => 999];
+        $payload['availability'] = ['in_stock' => false];
+        $payload['rating'] = 1.0;
+        $payload['review_count'] = 1;
+
+        $this->postJson('/api/v1/deep-scrape/submit', $payload, ['x-sync-token' => self::TOKEN])
+            ->assertOk();
+
+        $product->refresh();
+
+        $this->assertSame(5100.0, (float) $product->price);
+        $this->assertSame(6000.0, (float) $product->original_price);
+        $this->assertTrue($product->in_stock);
+        $this->assertSame(4.5, (float) $product->rating);
+        $this->assertSame(120, $product->review_count);
+        $this->assertNull($product->price_history_json);
+        $this->assertArrayNotHasKey('pricing', $product->deep_specs_json);
+        $this->assertArrayNotHasKey('availability', $product->deep_specs_json);
+    }
+
+    public function test_second_submit_with_changes_flags_specs_changed(): void
     {
         $product = $this->makeProduct();
 
@@ -124,24 +151,28 @@ class DeepScrapeApiTest extends TestCase
             ->assertOk();
 
         $changed = $this->payload($product);
-        $changed['warranty_addons'][0]['price'] = 547.2;
+        $changed['warranty_programs'][0]['price'] = 547.2;
         $changed['quick_specs'][0]['value'] = '1.6 حصان';
 
         $response = $this->postJson('/api/v1/deep-scrape/submit', $changed, ['x-sync-token' => self::TOKEN])
             ->assertOk();
 
         $response->assertJsonPath('success', true)
-            ->assertJsonPath('status', Product::DEEP_SCRAPE_STATUS_UPDATED_WITH_DIFF)
+            ->assertJsonPath('status', Product::DEEP_SCRAPE_STATUS_SPECS_CHANGED)
             ->assertJsonPath('diff_count', 2);
 
         $product->refresh();
 
-        $this->assertSame(Product::DEEP_SCRAPE_STATUS_UPDATED_WITH_DIFF, $product->deep_scrape_status);
+        $this->assertSame(Product::DEEP_SCRAPE_STATUS_SPECS_CHANGED, $product->deep_scrape_status);
         $this->assertCount(2, $product->spec_diff_json);
 
         $changes = implode(' | ', array_column($product->spec_diff_json, 'change'));
         $this->assertStringContainsString('تغيّر ضمان إضافي سنتين — السعر من 500 ج.م إلى 547.2 ج.م', $changes);
         $this->assertStringContainsString('تغيّر سعة التبريد من 1.5 حصان إلى 1.6 حصان', $changes);
+
+        $sections = array_column($product->spec_diff_json, 'section');
+        $this->assertContains('الضمان', $sections);
+        $this->assertContains('المواصفات السريعة', $sections);
     }
 
     public function test_second_submit_with_identical_payload_stays_synced(): void
@@ -160,40 +191,6 @@ class DeepScrapeApiTest extends TestCase
         $product->refresh();
         $this->assertSame(Product::DEEP_SCRAPE_STATUS_SYNCED, $product->deep_scrape_status);
         $this->assertNull($product->spec_diff_json);
-    }
-
-    public function test_out_of_stock_keeps_last_good_price(): void
-    {
-        $product = $this->makeProduct();
-
-        $payload = $this->payload($product);
-        $payload['pricing']['live_price'] = 0;
-        $payload['availability']['in_stock'] = false;
-
-        $this->postJson('/api/v1/deep-scrape/submit', $payload, ['x-sync-token' => self::TOKEN])
-            ->assertOk();
-
-        $product->refresh();
-
-        $this->assertFalse($product->in_stock);
-        $this->assertSame(5100.0, (float) $product->price);
-    }
-
-    public function test_material_price_change_is_recorded_in_price_history(): void
-    {
-        $product = $this->makeProduct();
-
-        $payload = $this->payload($product);
-        $payload['pricing']['live_price'] = 2500;
-
-        $this->postJson('/api/v1/deep-scrape/submit', $payload, ['x-sync-token' => self::TOKEN])
-            ->assertOk();
-
-        $product->refresh();
-
-        $this->assertSame(2500.0, (float) $product->price);
-        $this->assertNotNull($product->price_history_json);
-        $this->assertSame(2500.0, (float) $product->lowest_price);
     }
 
     public function test_submit_rejects_asin_mismatch(): void
@@ -219,11 +216,12 @@ class DeepScrapeApiTest extends TestCase
             'asin' => 'B0H2BF6HKJ',
         ], ['x-sync-token' => self::TOKEN])
             ->assertStatus(422)
-            ->assertJsonValidationErrors(['id']);
+            ->assertJsonValidationErrors(['id', 'raw_amazon_data_text']);
 
         $this->postJson('/api/v1/deep-scrape/submit', [
             'id' => 999999,
             'asin' => 'B0H2BF6HKJ',
+            'raw_amazon_data_text' => 'نص',
         ], ['x-sync-token' => self::TOKEN])
             ->assertStatus(422)
             ->assertJsonValidationErrors(['id']);
