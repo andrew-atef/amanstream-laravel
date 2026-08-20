@@ -14,7 +14,7 @@
     // own "category + سعر/مراجعة في مصر" query.
     if ($categoryPage && $selectedCategory) {
         $categoryTitle = \App\Services\SEOHelper::cleanTitle((string) $selectedCategory->name);
-        $hubTitle = "سعر {$categoryTitle} وأفضل أنواعه في مصر 2025 | مراجعات وأسعار | {$brandName}";
+        $hubTitle = "سعر {$categoryTitle} وأفضل أنواعه في مصر ".date('Y')." | مراجعات وأسعار | {$brandName}";
         $categoryDesc = trim((string) $selectedCategory->description);
         $hubDescription = $categoryDesc !== ''
             ? \Illuminate\Support\Str::limit($categoryDesc, 155)

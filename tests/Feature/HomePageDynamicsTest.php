@@ -153,7 +153,7 @@ final class HomePageDynamicsTest extends TestCase
         $this->assertStringContainsString('/category/air-conditioners', $html);
         // Category hubs must carry a unique, keyword-targeted <title> and a
         // clean meta description — not the generic homepage fallback.
-        $this->assertStringContainsString('<title>سعر تكييفات وأفضل أنواعه في مصر 2025', $html);
+        $this->assertStringContainsString('<title>سعر تكييفات وأفضل أنواعه في مصر '.date('Y'), $html);
         $this->assertStringContainsString('name="description"', $html);
         $this->assertStringContainsString('name="description" content="', $html);
         // An ItemList of the hub's top articles lets the hub surface as a
