@@ -20,7 +20,7 @@ class HomeController extends Controller
         $comparisonsOnly = $request->boolean('comparisons', false);
 
         $query = Article::query()
-            ->with(['category', 'product', 'products'])
+            ->with(['category', 'product', 'products', 'articleProducts.product'])
             ->where('is_published', true)
             // The home feed is a product-review surface: editorial blog posts
             // (type=blog) live on /blog and must never render as deal/product
@@ -100,7 +100,7 @@ class HomeController extends Controller
             ->where('products.in_stock', true)
             ->where('products.original_price', '>', 0)
             ->whereColumn('products.original_price', '>', 'products.price')
-            ->with(['category', 'product', 'products'])
+            ->with(['category', 'product', 'products', 'articleProducts.product'])
             ->select('articles.*')
             ->selectRaw('((products.original_price - products.price) / products.original_price) * 100 as discount_percentage')
             ->orderByDesc('discount_percentage')
@@ -111,7 +111,7 @@ class HomeController extends Controller
         // long and decision-critical, so the slider renders them unclamped.
         $comparisons = Article::query()
             ->comparisons()
-            ->with(['category', 'products'])
+            ->with(['category', 'product', 'products', 'articleProducts.product'])
             ->where('is_published', true)
             ->latest()
             ->take(8)

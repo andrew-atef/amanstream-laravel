@@ -61,7 +61,7 @@ class ServeMarkdownForAgents
 
         if (preg_match('#^articles/([^/]+)$#', $path, $matches)) {
             $article = Article::query()
-                ->with(['product', 'category', 'articleProducts.product'])
+                ->with(['product', 'category', 'products', 'articleProducts.product'])
                 ->where('slug', $matches[1])
                 ->where('is_published', true)
                 ->first();
@@ -151,7 +151,23 @@ class ServeMarkdownForAgents
             $frontmatter[] = 'description: '.$description;
         }
 
-        if ($product) {
+        if ($article->isComparison()) {
+            $frontmatter[] = 'article_type: comparison';
+            $frontmatter[] = 'compared_products:';
+            foreach ($article->articleProducts->sortBy('sort_order') as $row) {
+                $variant = $row->product;
+                if (! $variant) {
+                    continue;
+                }
+                $variantOffer = SEOHelper::cleanAffiliateUrl((string) $variant->affiliate_url, (string) $variant->asin);
+                $frontmatter[] = '  - title: "'.str_replace('"', '\"', SEOHelper::cleanTitle((string) $variant->title)).'"';
+                $frontmatter[] = '    asin: "'.$variant->asin.'"';
+                $frontmatter[] = '    offer_url: "'.$variantOffer.'"';
+                if ((float) $variant->price > 0) {
+                    $frontmatter[] = '    price_egp: "'.number_format((float) $variant->price, 2, '.', '').'"';
+                }
+            }
+        } elseif ($product) {
             if (filled($product->asin)) {
                 $frontmatter[] = 'asin: '.$product->asin;
             }
@@ -205,14 +221,36 @@ class ServeMarkdownForAgents
         $parser = app(ShortcodeParser::class);
         $parsedMarkdownContent = $parser->parseForMarkdown($article);
 
-        // Verified-entity hook paragraph: embeds the affiliate URL inside a
-        // factual warranty/merchant phrase (before the shortcode body) instead
-        // of leaving a lone isolated CTA at the bottom that LLM summarizers
-        // classify as boilerplate and drop.
+        // For comparisons, prepend a clear table so AI agents can resolve every SKU.
+        $multiVariantComparisonTable = null;
+        if ($article->isComparison()) {
+            $rows = $article->articleProducts->sortBy('sort_order')->map(function ($row) {
+                $v = $row->product;
+                if (! $v) {
+                    return null;
+                }
+                $cleanUrl = SEOHelper::cleanAffiliateUrl((string) $v->affiliate_url, (string) $v->asin);
+                $availability = $v->in_stock ? 'متوفر' : 'غير متوفر';
+                return '| '.str_replace('|', '\\|', SEOHelper::cleanTitle((string) $v->title)).' ('.$v->asin.') | '.number_format((float) $v->price, 2, '.', '').' ج.م | '.$availability.' | [شراء]('.$cleanUrl.') |';
+            })->filter()->implode(PHP_EOL);
+            if ($rows !== '') {
+                $multiVariantComparisonTable = '| المنتج | السعر الحالي | التوفر | رابط الشراء |'.PHP_EOL.'| :--- | :--- | :--- | :--- |'.PHP_EOL.$rows;
+            }
+        }
+
+        // Verified-entity hook paragraph
         $introParagraph = null;
-        $cleanOfferUrl = SEOHelper::cleanAffiliateUrl((string) ($product?->affiliate_url ?? ''), (string) ($product?->asin ?? ''));
-        if ($product && filled($cleanOfferUrl)) {
-            $introParagraph = 'يمكنك الاطلاع على المواصفات والطلب مباشرة عبر [صفحة العرض والضمان المعتمد على أمازون مصر]('.$cleanOfferUrl.') مع تفعيل خيارات التقسيط البنكي 0% فائدة.';
+        if ($article->isComparison()) {
+            $firstProduct = $article->articleProducts->sortBy('sort_order')->first()?->product;
+            $firstUrl = $firstProduct ? SEOHelper::cleanAffiliateUrl((string) $firstProduct->affiliate_url, (string) $firstProduct->asin) : null;
+            if (filled($firstUrl)) {
+                $introParagraph = 'تتضمن هذه المقارنة '.$article->articleProducts->whereNotNull('product_id')->count().' منتجات — يمكنك مراجعة المواصفات واختيار الأنسب عبر [صفحات العروض المعتمدة على أمازون مصر]('.$firstUrl.') مع خيارات التقسيط 0% فائدة.';
+            }
+        } else {
+            $cleanOfferUrl = SEOHelper::cleanAffiliateUrl((string) ($product?->affiliate_url ?? ''), (string) ($product?->asin ?? ''));
+            if ($product && filled($cleanOfferUrl)) {
+                $introParagraph = 'يمكنك الاطلاع على المواصفات والطلب مباشرة عبر [صفحة العرض والضمان المعتمد على أمازون مصر]('.$cleanOfferUrl.') مع تفعيل خيارات التقسيط البنكي 0% فائدة.';
+            }
         }
 
         return implode(PHP_EOL, [
@@ -223,6 +261,7 @@ class ServeMarkdownForAgents
             '# '.$cleanTitle,
             '',
             ...($introParagraph !== null ? [$introParagraph, ''] : []),
+            ...($multiVariantComparisonTable !== null ? [$multiVariantComparisonTable, ''] : []),
             $parsedMarkdownContent,
             '',
         ]).PHP_EOL;

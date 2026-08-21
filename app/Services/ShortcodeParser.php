@@ -142,6 +142,13 @@ class ShortcodeParser
             $content = str_replace('[summary_box]', $markdown, $content);
         }
 
+        if (str_contains($content, '[variants_selector]')) {
+            $markdown = $article->isComparison()
+                ? $this->variantSelectorMarkdown($article)
+                : ($single !== null ? $this->priceMarkdown($single).' — '.$this->buyButtonMarkdown($single) : '');
+            $content = str_replace('[variants_selector]', $markdown, $content);
+        }
+
         if (str_contains($content, '[price]')) {
             $markdown = $single !== null
                 ? $this->priceMarkdown($single)
@@ -333,6 +340,78 @@ class ShortcodeParser
         return $products
             ->map(fn (Product $p) => "**{$p->title}:**\n".$this->priceHistoryMarkdown($p))
             ->implode("\n\n");
+    }
+
+    protected function variantSelectorMarkdown(Article $article): string
+    {
+        $variants = $article->products;
+        if ($variants->isEmpty()) {
+            return '';
+        }
+
+        $lines = ['| الموديل | السعر الحالي | التوفر | رابط الشراء |', '| :--- | :--- | :--- | :--- |'];
+        foreach ($variants as $variant) {
+            $cleanUrl = SEOHelper::cleanAffiliateUrl((string) $variant->affiliate_url, (string) $variant->asin);
+            $availability = $variant->in_stock ? 'متوفر' : 'غير متوفر';
+            $lines[] = sprintf(
+                '| %s (%s) | %s ج.م | %s | [شراء](%s) |',
+                str_replace('|', '\\|', SEOHelper::cleanTitle((string) $variant->title)),
+                $variant->asin ?: '—',
+                $this->formatPrice((float) $variant->price),
+                $availability,
+                $cleanUrl
+            );
+        }
+
+        return implode("\n", $lines);
+    }
+
+    protected function variantInstallmentMatrixMarkdown(Article $article): string
+    {
+        $variants = $article->products;
+        if ($variants->isEmpty()) {
+            return '';
+        }
+
+        $header = '| البنك | '.implode(' | ', $variants->map(fn ($v) => 'قسط '.($v->asin ?: Str::limit($v->title, 14)).' ('.$this->formatPrice((float) $v->price).' ج.م)')->all()).' | نوع العرض |';
+        $separator = '| :--- |'.str_repeat(' :--- |', $variants->count()).' :--- |';
+
+        $banks = collect();
+        $planMap = [];
+        foreach ($variants as $variant) {
+            foreach ($variant->getEligibleInstallmentPlans() as $plan) {
+                $banks->put($plan->bank->id, $plan->bank);
+                $planMap[$variant->id][$plan->bank->id] = $plan;
+            }
+        }
+
+        if ($banks->isEmpty()) {
+            // Fallback: 12-month split per variant
+            $lines = [$header, $separator];
+            $lines[] = '| افتراضي (12 شهر) | '.implode(' | ', $variants->map(fn ($v) => $this->formatPrice((float) $v->price / 12).' ج.م/شهر')->all()).' | 0% فائدة |';
+
+            return implode("\n", $lines);
+        }
+
+        $lines = [$header, $separator];
+        foreach ($banks as $bank) {
+            $cells = [];
+            foreach ($variants as $variant) {
+                $plan = $planMap[$variant->id][$bank->id] ?? null;
+                $cells[] = $plan ? $this->formatPrice($plan->calculateMonthlyPayment((float) $variant->price)).' ج.م/شهر ('.$plan->months.'ش)' : '—';
+            }
+            $isZero = false;
+            foreach ($variants as $variant) {
+                $plan = $planMap[$variant->id][$bank->id] ?? null;
+                if ($plan && $plan->is_zero_interest) {
+                    $isZero = true;
+                    break;
+                }
+            }
+            $lines[] = '| '.$bank->name_ar.' | '.implode(' | ', $cells).' | '.($isZero ? '0% فائدة' : 'بفائدة').' |';
+        }
+
+        return implode("\n", $lines);
     }
 
     /**
@@ -683,6 +762,14 @@ class ShortcodeParser
         $single = $article->product;
         $compared = $this->comparedProducts($article);
 
+        // [variants_selector] — legacy family deck; now maps to comparison product cards
+        if (str_contains($content, '[variants_selector]')) {
+            $html = $article->isComparison()
+                ? $this->variantSelector($article)
+                : ($single !== null ? $this->variantSelectorFallback($single) : '');
+            $content = str_replace('[variants_selector]', $html, $content);
+        }
+
         // [summary_box] adapts: single -> product story; multi -> per-product stories
         if (str_contains($content, '[summary_box]')) {
             $html = $single !== null
@@ -691,7 +778,7 @@ class ShortcodeParser
             $content = str_replace('[summary_box]', $html, $content);
         }
 
-        // [interactive_installment] — multi => stacked interactive plans.
+        // [interactive_installment] — single vs stacked comparison
         // NOTE: must run BEFORE plain [installment] since its token contains it.
         if (str_contains($content, '[interactive_installment]')) {
             $html = $single !== null
@@ -708,7 +795,7 @@ class ShortcodeParser
             $content = str_replace('[installment]', $html, $content);
         }
 
-        // [price_history] — multi => stacked Kanbakam-style bars.
+        // [price_history] — single vs stacked comparison
         if (str_contains($content, '[price_history]')) {
             $html = $single !== null
                 ? $this->priceHistory($single)
@@ -1150,7 +1237,7 @@ class ShortcodeParser
         $content = preg_replace('/\[summary_box[^\]]*\]/u', '', $content) ?? $content;
 
         return str_replace(
-            ['[price]', '[rating]', '[installment]', '[buy_button]', '[summary_box]', '[interactive_installment]', '[price_history]', '[comparison_table]', '[product_cards]'],
+            ['[price]', '[rating]', '[installment]', '[buy_button]', '[summary_box]', '[interactive_installment]', '[price_history]', '[comparison_table]', '[product_cards]', '[variants_selector]'],
             '',
             $content
         );
@@ -1217,6 +1304,39 @@ class ShortcodeParser
     {
         return view('components.shortcodes.price-history', [
             'product' => $product,
+        ])->render();
+    }
+
+    protected function variantSelector(Article $article): string
+    {
+        return view('components.shortcodes.variant-selector', [
+            'article' => $article,
+        ])->render();
+    }
+
+    protected function variantSelectorFallback(Product $product): string
+    {
+        // Single product fallback: render a minimal variant card via the same deck
+        $article = new Article(['is_published' => true]);
+        $article->setRelation('products', collect([$product]));
+        $article->setRelation('articleProducts', collect());
+
+        return view('components.shortcodes.variant-selector', [
+            'article' => $article,
+        ])->render();
+    }
+
+    protected function multiInstallmentMatrix(Article $article): string
+    {
+        return view('components.shortcodes.multi-installment-matrix', [
+            'article' => $article,
+        ])->render();
+    }
+
+    protected function multiPriceHistoryTabs(Article $article): string
+    {
+        return view('components.shortcodes.multi-price-history-tabs', [
+            'article' => $article,
         ])->render();
     }
 }

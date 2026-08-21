@@ -6,7 +6,7 @@
 @php
     $primaryProduct = $article->product;
     $product = $primaryProduct ?: $article->products->first();
-    $isComparison = ! $primaryProduct && $article->products->count() > 1;
+    $isComparison = $article->isComparison();
 
     // No primary product and no comparison products: an editorial article must
     // never render as a phantom deal ("لا توجد صورة"/"0 ج.م").
@@ -59,36 +59,48 @@
     </h2>
 
     <!-- Specs Pills -->
-    <div class="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] font-medium text-ink/60">
-        @if ($product)
-            <span class="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-ink/80">
-                <svg class="h-3 w-3 text-primary-500" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l2.9 6.3 6.9.9-5 4.8 1.2 6.9-6-3.2-6 3.2 1.2-6.9-5-4.8 6.9-.9L12 2z"/></svg>
-                {{ number_format((float) $product->rating, 1) }}
-            </span>
-            <span class="rounded border border-primary-100 bg-primary-50 px-2 py-0.5 font-bold text-primary-700">تقسيط 0%</span>
-        @endif
-    </div>
+    @if (! $isComparison)
+        <div class="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] font-medium text-ink/60">
+            @if ($product)
+                <span class="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-ink/80">
+                    <svg class="h-3 w-3 text-primary-500" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l2.9 6.3 6.9.9-5 4.8 1.2 6.9-6-3.2-6 3.2 1.2-6.9-5-4.8 6.9-.9L12 2z"/></svg>
+                    {{ number_format((float) $product->rating, 1) }}
+                </span>
+                <span class="rounded border border-primary-100 bg-primary-50 px-2 py-0.5 font-bold text-primary-700">تقسيط 0%</span>
+            @endif
+        </div>
+    @endif
 
-    <!-- Kanbakam Price Area & Trend Badge -->
-    <div class="mt-auto flex items-end justify-between border-t border-slate-100 pt-3">
-        <div>
-            <div class="text-lg font-black text-ink">
-                {{ number_format($current, 0) }} <span class="text-[10px] font-semibold text-ink/60">ج.م</span>
+    <!-- Price Area / CTA -->
+    @if ($isComparison)
+        <div class="mt-auto border-t border-slate-100 pt-3">
+            @if ($article->category)
+                <span class="inline-flex rounded-full bg-primary-50 border border-primary-100 px-2.5 py-1 text-[11px] font-bold text-primary-700">{{ $article->category->name }}</span>
+            @endif
+            <a href="{{ route('articles.show', $article->slug) }}" class="mt-3 flex w-full items-center justify-center gap-1 rounded-xl bg-slate-900 px-3 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-black">قراءة المقارنة والمواصفات 👈</a>
+        </div>
+    @else
+        <div class="mt-auto flex items-end justify-between border-t border-slate-100 pt-3">
+            <div>
+                <div class="text-lg font-black text-ink">
+                    {{ number_format($current, 0) }} <span class="text-[10px] font-semibold text-ink/60">ج.م</span>
+                </div>
+                @if ($hasDiscount)
+                    <div class="text-[11px] font-semibold text-slate-500 line-through">
+                        {{ number_format($original, 0) }}
+                    </div>
+                @endif
             </div>
+
             @if ($hasDiscount)
-                <div class="text-[11px] font-semibold text-slate-500 line-through">
-                    {{ number_format($original, 0) }}
+                <div class="flex items-center gap-1 rounded-md border border-primary-200 bg-primary-50 px-2 py-1 text-xs font-extrabold text-primary-700">
+                    <svg class="h-3.5 w-3.5 text-primary-600" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M13 17h8m0 0v-8m0 8l-8-8-4 4-6-6"/>
+                    </svg>
+                    -{{ $discountPct }}%
                 </div>
             @endif
         </div>
-
-        @if ($hasDiscount)
-            <div class="flex items-center gap-1 rounded-md border border-primary-200 bg-primary-50 px-2 py-1 text-xs font-extrabold text-primary-700">
-                <svg class="h-3.5 w-3.5 text-primary-600" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M13 17h8m0 0v-8m0 8l-8-8-4 4-6-6"/>
-                </svg>
-                -{{ $discountPct }}%
-            </div>
-        @endif
-    </div>
+        <a href="{{ route('articles.show', $article->slug) }}" class="mt-3 flex w-full items-center justify-center gap-1 rounded-lg bg-primary-50 border border-primary-100 px-3 py-2 text-xs font-bold text-primary-700 transition hover:bg-primary-100">عرض السعر والمراجعة 👈</a>
+    @endif
 </article>

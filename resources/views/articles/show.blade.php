@@ -120,11 +120,39 @@
                 return $node;
             };
 
+            // 1. Single Product Review (Tier 3): standalone Product with full Merchant details
             $productSchema = $product ? [
                 '@context' => 'https://schema.org',
                 ...$buildProductNode($product),
             ] : null;
 
+            // 2. Comparison / Listicle (Tier 1 & 2): ItemList of Product nodes
+            $listicleItems = $article->articleProducts
+                ->sortBy('sort_order')
+                ->filter(fn ($row) => $row->product !== null)
+                ->values();
+
+            $itemListSchema = $listicleItems->count() >= 2 ? [
+                '@context' => 'https://schema.org',
+                '@type' => 'ItemList',
+                'name' => $cleanArticleTitle,
+                'itemListOrder' => 'https://schema.org/ItemListOrderAscending',
+                'numberOfItems' => $listicleItems->count(),
+                'itemListElement' => $listicleItems->map(function ($row, $index) use ($buildProductNode): array {
+                    $p = $row->product;
+                    $title = \App\Services\SEOHelper::cleanTitle((string) $p->title);
+                    return [
+                        '@type' => 'ListItem',
+                        'position' => $index + 1,
+                        'name' => $title,
+                        'url' => $p->clean_affiliate_url,
+                        'image' => $p->image_url ?: \App\Services\SEOHelper::url('favicon.svg'),
+                        'item' => $buildProductNode($p),
+                    ];
+                })->values()->all(),
+            ] : null;
+
+            // 3. Article schema (always, enriched with about on comparisons)
             $articleImageUrl = $primaryImage ?: $siteUrl.'/favicon.svg';
             $brandName = config('app.name', 'أمان برايس');
 
@@ -154,6 +182,10 @@
                 ],
             ];
 
+            if ($listicleItems->count() >= 2) {
+                $articleSchema['about'] = $listicleItems->map(fn ($row) => $buildProductNode($row->product))->values()->all();
+            }
+
             $categoryName = $article->category?->name ?? 'مقالات';
             $categoryUrl = $article->category ? route('categories.show', $article->category->slug) : $siteUrl;
 
@@ -167,39 +199,7 @@
                 ],
             ];
 
-            // Listicle / round-up articles (2+ attached comparison products) get
-            // a Google ItemList so the page can surface as a carousel/collection
-            // of ranked items inside the SERP.
-            $listicleItems = $article->articleProducts
-                ->sortBy('sort_order')
-                ->filter(fn ($row) => $row->product !== null)
-                ->values();
-
-            $itemListSchema = $listicleItems->count() >= 2 ? [
-                '@context' => 'https://schema.org',
-                '@type' => 'ItemList',
-                'name' => $cleanArticleTitle,
-                'itemListOrder' => 'https://schema.org/ItemListOrderAscending',
-                'numberOfItems' => $listicleItems->count(),
-                'itemListElement' => $listicleItems->map(function ($row, $index) use ($buildProductNode): array {
-                    $product = $row->product;
-                    $title = \App\Services\SEOHelper::cleanTitle((string) $product->title);
-
-                    return [
-                        '@type' => 'ListItem',
-                        'position' => $index + 1,
-                        'name' => $title,
-                        'url' => \App\Services\SEOHelper::cleanAffiliateUrl((string) $product->affiliate_url, (string) $product->asin),
-                        'image' => $product->image_url ?: \App\Services\SEOHelper::url('favicon.svg'),
-                        'item' => $buildProductNode($product),
-                    ];
-                })->values()->all(),
-            ] : null;
-
-            // Built here inside the @php block (NOT inline in the Blade body)
-            // so `'@context'` stays a plain string — Blade would otherwise
-            // compile it into Livewire's @context directive PHP, corrupting
-            // the emitted JSON-LD.
+            // FAQPage (always when questions exist)
             $faqQuestions = $article->getFaqSchemaData();
             $faqPageSchema = ! empty($faqQuestions) ? [
                 '@context' => 'https://schema.org',

@@ -366,6 +366,67 @@ class Article extends Model
         ) ?? $content;
     }
 
+    public function isComparison(): bool
+    {
+        return $this->articleProducts->whereNotNull('product_id')->count() >= 2;
+    }
+
+    public function isMultiVariant(): bool
+    {
+        if ($this->articleProducts->whereNotNull('product_id')->count() < 2) {
+            return false;
+        }
+
+        // Legacy variant-family helper (now subsumed by isComparison for the
+        // certified 3-tier architecture). Kept for backward-compatible view
+        // logic but schema no longer emits ProductGroup.
+        if ($this->products->isEmpty()) {
+            return false;
+        }
+
+        $brands = $this->products
+            ->pluck('brand')
+            ->filter()
+            ->map(fn ($b) => mb_strtolower(trim((string) $b)))
+            ->unique();
+
+        return $brands->count() === 1;
+    }
+
+    public function getLowestVariantPrice(): float
+    {
+        $prices = $this->products->where('in_stock', true)->pluck('price')->filter(fn ($p) => (float) $p > 0);
+        if ($prices->isEmpty()) {
+            $prices = $this->products->pluck('price')->filter(fn ($p) => (float) $p > 0);
+        }
+
+        return $prices->isNotEmpty() ? (float) $prices->min() : (float) ($this->product?->price ?? 0);
+    }
+
+    public function getHighestVariantPrice(): float
+    {
+        $prices = $this->products->pluck('price')->filter(fn ($p) => (float) $p > 0);
+
+        return $prices->isNotEmpty() ? (float) $prices->max() : (float) ($this->product?->price ?? 0);
+    }
+
+    public function getMaxVariantDiscount(): int
+    {
+        $maxDiscount = 0;
+        foreach ($this->products as $p) {
+            $price = (float) $p->price;
+            $original = (float) ($p->original_price ?? 0);
+            if ($original > $price && $original > 0) {
+                $discount = (int) round((($original - $price) / $original) * 100);
+                if ($discount > $maxDiscount) {
+                    $maxDiscount = $discount;
+                }
+            }
+        }
+
+        return $maxDiscount;
+    }
+
     protected static function booted(): void
     {
         static::saving(function (Article $article) {

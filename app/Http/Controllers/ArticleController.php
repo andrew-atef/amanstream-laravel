@@ -26,7 +26,7 @@ class ArticleController extends Controller
 
         // مقالات من نفس القسم (مع استبعاد المقال الحالي) — للـ Dwell Time وعدم الارتداد
         $relatedArticles = Article::query()
-            ->with(['product', 'products', 'category'])
+            ->with(['product', 'products', 'category', 'articleProducts.product'])
             ->where('type', 'review')
             ->whereNotNull('product_id')
             ->where('category_id', $article->category_id)
@@ -45,7 +45,7 @@ class ArticleController extends Controller
             ->where('products.in_stock', true)
             ->where('products.original_price', '>', 0)
             ->whereColumn('products.original_price', '>', 'products.price')
-            ->with(['category', 'product', 'products'])
+            ->with(['category', 'product', 'products', 'articleProducts.product'])
             ->select('articles.*')
             ->selectRaw('((products.original_price - products.price) / products.original_price) * 100 as discount_percentage')
             ->orderByDesc('discount_percentage')
