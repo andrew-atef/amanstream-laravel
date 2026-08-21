@@ -245,7 +245,12 @@ class ProductResource extends Resource
                     ->label('المنتج')
                     ->searchable()
                     ->sortable()
-                    ->limit(40),
+                    ->wrap()
+                    ->tooltip(fn (Product $record): ?string => $record->title)
+                    ->copyable()
+                    ->copyMessage('تم النسخ')
+                    ->weight('medium')
+                    ->extraHeaderAttributes(['class' => 'min-w-[280px]']),
                 TextColumn::make('category.name')
                     ->label('التصنيف')
                     ->sortable(),
@@ -258,22 +263,27 @@ class ProductResource extends Resource
                     ->sortable(),
                 TextColumn::make('rating')
                     ->label('التقييم')
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(),
                 TextColumn::make('review_count')
                     ->label('المراجعات')
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(),
                 IconColumn::make('in_stock')
                     ->label('المخزون')
                     ->boolean()
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(),
                 IconColumn::make('is_active')
                     ->label('نشط')
                     ->boolean()
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(),
                 IconColumn::make('supports_installment')
                     ->label('تقسيط')
                     ->boolean()
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('sync_status')
                     ->label('الحالة')
                     ->badge()
@@ -282,7 +292,8 @@ class ProductResource extends Resource
                         'failed' => 'danger',
                         default => 'warning',
                     })
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(),
                 TextColumn::make('deep_scrape_status')
                     ->label('السحب العميق')
                     ->badge()
@@ -299,14 +310,17 @@ class ProductResource extends Resource
                         Product::DEEP_SCRAPE_STATUS_SYNCED => 'success',
                         default => 'gray',
                     })
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(),
                 TextColumn::make('sync_attempts')
                     ->label('المحاولات')
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('last_synced_at')
                     ->label('آخر مزامنة')
                     ->since()
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 Tables\Filters\TernaryFilter::make('in_stock')

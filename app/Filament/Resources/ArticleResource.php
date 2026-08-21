@@ -284,8 +284,12 @@ class ArticleResource extends Resource
                     ->label('العنوان')
                     ->searchable()
                     ->sortable()
-                    ->limit(35)
-                    ->tooltip(fn ($record) => $record->title),
+                    ->wrap()
+                    ->tooltip(fn (Article $record): ?string => $record->title)
+                    ->copyable()
+                    ->copyMessage('تم النسخ')
+                    ->weight('medium')
+                    ->extraHeaderAttributes(['class' => 'min-w-[320px]']),
 
                 TextColumn::make('category.name')
                     ->label('التصنيف')
@@ -297,8 +301,11 @@ class ArticleResource extends Resource
                     ->label('المنتج المرتبط')
                     ->searchable()
                     ->sortable()
-                    ->limit(25)
-                    ->default('— مقارنة / تجميعة —'),
+                    ->wrap()
+                    ->tooltip(fn (Article $record): ?string => $record->product?->title)
+                    ->limit(60)
+                    ->default('— مقارنة / تجميعة —')
+                    ->toggleable(),
 
                 IconColumn::make('is_published')
                     ->label('منشور')
