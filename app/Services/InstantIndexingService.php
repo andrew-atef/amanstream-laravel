@@ -27,6 +27,12 @@ class InstantIndexingService
     public function notifyGoogle(string $url): bool
     {
         try {
+            if (! filter_var(config('services.google_indexing.enabled', true), FILTER_VALIDATE_BOOLEAN)) {
+                Log::info('InstantIndexing: Google indexing paused by config (GOOGLE_INDEXING_ENABLED=false).', ['url' => $url]);
+
+                return false;
+            }
+
             $credentialsPath = config('services.google_indexing.credentials_path');
 
             if (blank($credentialsPath) || ! is_file($credentialsPath)) {
@@ -80,6 +86,12 @@ class InstantIndexingService
     public function notifyIndexNow(string $url): bool
     {
         try {
+            if (! filter_var(config('services.indexnow.enabled', true), FILTER_VALIDATE_BOOLEAN)) {
+                Log::info('InstantIndexing: IndexNow paused by config (INDEXNOW_ENABLED=false).', ['url' => $url]);
+
+                return false;
+            }
+
             $key = config('services.indexnow.key');
 
             if (blank($key) || app()->environment('local')) {

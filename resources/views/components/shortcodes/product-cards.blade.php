@@ -41,7 +41,31 @@
                                 <span class="text-sm font-semibold text-slate-500 line-through">{{ number_format((float) $product->original_price, 0) }} ج.م</span>
                             @endif
                             <span class="text-3xl font-black text-primary-700">{{ number_format((float) $product->price, 0) }} ج.م</span>
-                            <x-shortcodes.buy-button :product="$product" compact />
+                        </div>
+                        @php
+                            $reviewArticle = \App\Models\Article::where('type', 'review')->where('product_id', $product->id)->where('is_published', true)->first();
+                        @endphp
+                        <div class="mt-4 flex flex-wrap items-center gap-3 pt-3 border-t border-slate-100">
+                            <a
+                                href="{{ $product->clean_affiliate_url }}"
+                                target="_blank"
+                                rel="nofollow sponsored noopener"
+                                class="inline-flex h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-primary-600 px-5 text-xs font-bold text-white shadow-md shadow-primary-600/20 transition-all hover:bg-primary-700 active:scale-95"
+                            >
+                                <span class="flex h-4 items-center justify-center rounded bg-white px-1">
+                                    <img src="/icons/amazon.png" alt="Amazon" width="40" height="12" loading="lazy" class="h-2.5 w-auto object-contain">
+                                </span>
+                                <span>اشترِ الآن</span>
+                            </a>
+                            @if ($reviewArticle)
+                                <a
+                                    href="{{ route('articles.show', $reviewArticle->slug) }}"
+                                    class="inline-flex h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-slate-200 bg-white px-4 text-xs font-bold text-slate-700 shadow-sm transition-all hover:border-primary-500 hover:text-primary-600 hover:shadow"
+                                >
+                                    <span>📄 قراءة المراجعة الشاملة وتجارب الفنيين</span>
+                                    <span>👈</span>
+                                </a>
+                            @endif
                         </div>
                     </div>
                 </div>

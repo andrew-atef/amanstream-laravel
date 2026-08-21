@@ -30,7 +30,19 @@ class ShortcodeParser
         $content = $this->replacePositionalBuyButtons($content, $article);
         $content = $this->replaceCustomSummaryBoxes($content, $article);
 
+        // Extract TOC items from markdown headings before conversion for consistent ids
+        $tocItems = $this->extractTocItems($content);
+
         $content = $this->markdownToHtml($content);
+
+        // Replace [toc] placeholder (rendered as <p>[toc]</p> by CommonMark) with TOC component
+        if (! empty($tocItems) && (str_contains($content, '[toc]') || str_contains($content, '<p>[toc]</p>'))) {
+            $tocHtml = $this->renderToc($tocItems);
+            $content = str_replace(['<p>[toc]</p>', '[toc]'], $tocHtml, $content);
+        } else {
+            // Ensure stray [toc] without headings is removed
+            $content = str_replace(['<p>[toc]</p>', '[toc]'], '', $content);
+        }
 
         $content = $this->replaceListicleShortcodes($content, $article);
         $content = $this->replaceAdaptiveShortcodes($content, $article);
@@ -140,6 +152,12 @@ class ShortcodeParser
                 ? $this->summaryBoxMarkdown($single)
                 : $this->summaryBoxesMarkdown($compared);
             $content = str_replace('[summary_box]', $markdown, $content);
+        }
+
+        if (str_contains($content, '[toc]')) {
+            $tocItems = $this->extractTocItems($content);
+            $markdown = $this->tocMarkdown($tocItems);
+            $content = str_replace('[toc]', $markdown, $content);
         }
 
         if (str_contains($content, '[variants_selector]')) {
@@ -1076,7 +1094,131 @@ class ShortcodeParser
         $environment->addExtension(new TableExtension);
         $environment->addExtension(new StrikethroughExtension);
 
-        return (new MarkdownConverter($environment))->convert($content)->getContent();
+        $html = (new MarkdownConverter($environment))->convert($content)->getContent();
+
+        return $this->injectHeadingIds($html, $content);
+    }
+
+    /**
+     * Sanitize heading text into a URL-safe anchor id (keeps Arabic letters).
+     */
+    private function slugifyHeading(string $text): string
+    {
+        $text = trim(strip_tags(html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8')));
+        $text = preg_replace('/\s+/u', ' ', $text) ?? $text;
+        $slug = mb_strtolower($text, 'UTF-8');
+        $slug = preg_replace('/[\s_]+/u', '-', $slug) ?? $slug;
+        $slug = preg_replace('/[^\p{Arabic}a-z0-9\-]/u', '', $slug) ?? $slug;
+        $slug = preg_replace('/-+/', '-', $slug) ?? $slug;
+        $slug = trim($slug, '-');
+        if ($slug === '' || preg_match('/^[0-9]/u', $slug)) {
+            $slug = 'section-' . ltrim($slug, '-');
+            $slug = trim($slug, '-');
+            if ($slug === 'section' || $slug === '') {
+                $slug = 'section-' . substr(md5($text . microtime()), 0, 6);
+            }
+        }
+        if (preg_match('/^[0-9]/', $slug)) {
+            $slug = 'section-' . $slug;
+        }
+        return $slug;
+    }
+
+    private function generateUniqueSlug(string $text, array &$seen): string
+    {
+        $base = $this->slugifyHeading($text);
+        $slug = $base;
+        $i = 2;
+        while (isset($seen[$slug])) {
+            $slug = $base . '-' . $i;
+            $i++;
+        }
+        $seen[$slug] = true;
+        return $slug;
+    }
+
+    /**
+     * Extract TOC items from markdown source (## and ### headings).
+     *
+     * @return array<int, array{id: string, title: string}>
+     */
+    private function extractTocItems(string $markdown): array
+    {
+        $items = [];
+        $seen = [];
+        if (preg_match_all('/^#{2,3}\s+(.+)$/m', $markdown, $matches)) {
+            foreach ($matches[1] as $rawTitle) {
+                $title = trim(strip_tags($rawTitle));
+                $title = preg_replace('/\s+#+\s*$/u', '', $title) ?? $title;
+                $title = trim($title);
+                if ($title === '') {
+                    continue;
+                }
+                $id = $this->generateUniqueSlug($title, $seen);
+                $items[] = ['id' => $id, 'title' => $title];
+            }
+        }
+        return $items;
+    }
+
+    /**
+     * Inject id="..." and class="scroll-mt-24" into <h2>/<h3> tags.
+     * Uses TOC items order when available for consistency; falls back to slugifying inner HTML.
+     */
+    private function injectHeadingIds(string $html, string $markdownSource = ''): string
+    {
+        $tocItems = [];
+        if ($markdownSource !== '') {
+            $tocItems = $this->extractTocItems($markdownSource);
+        }
+
+        $index = 0;
+        $seen = [];
+
+        return preg_replace_callback('/<h([23])>(.*?)<\/h\1>/s', function (array $m) use (&$index, &$seen, $tocItems): string {
+            $level = $m[1];
+            $inner = $m[2];
+            // Prefer pre-generated TOC id if available and in order
+            if (isset($tocItems[$index])) {
+                $id = $tocItems[$index]['id'];
+                $index++;
+                // Ensure uniqueness even if HTML has extra headings not in markdown
+                if (isset($seen[$id])) {
+                    $id = $this->generateUniqueSlug($id, $seen);
+                } else {
+                    $seen[$id] = true;
+                }
+            } else {
+                $text = trim(strip_tags($inner));
+                $id = $this->generateUniqueSlug($text, $seen);
+                $index++;
+            }
+
+            return '<h' . $level . ' id="' . e($id) . '" class="scroll-mt-24">' . $inner . '</h' . $level . '>';
+        }, $html) ?? $html;
+    }
+
+    private function renderToc(array $items): string
+    {
+        if (empty($items)) {
+            return '';
+        }
+
+        return view('components.shortcodes.toc', ['items' => $items])->render();
+    }
+
+    private function tocMarkdown(array $items): string
+    {
+        if (empty($items)) {
+            return '';
+        }
+
+        $lines = ['### 📌 فهرس المحتويات السريع:'];
+        foreach ($items as $item) {
+            $lines[] = '- [📌 ' . $item['title'] . '](#' . $item['id'] . ')';
+        }
+
+        return implode("\n", $lines);
     }
 
     /**
@@ -1247,7 +1389,7 @@ class ShortcodeParser
         $content = preg_replace('/\[summary_box[^\]]*\]/u', '', $content) ?? $content;
 
         return str_replace(
-            ['[price]', '[rating]', '[installment]', '[buy_button]', '[summary_box]', '[interactive_installment]', '[price_history]', '[comparison_table]', '[product_cards]', '[variants_selector]'],
+            ['[price]', '[rating]', '[installment]', '[buy_button]', '[summary_box]', '[interactive_installment]', '[price_history]', '[comparison_table]', '[product_cards]', '[variants_selector]', '[toc]'],
             '',
             $content
         );

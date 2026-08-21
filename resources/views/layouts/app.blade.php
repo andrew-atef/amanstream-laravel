@@ -8,7 +8,7 @@
     'robots' => 'index, follow',
 ])
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="ar" dir="rtl" class="scroll-smooth">
 <head>
     <!-- Google tag (gtag.js) — async loader + config deferred off the main
          thread (requestIdleCallback) to keep TBT/interaction-low on small hosts. -->

@@ -36,11 +36,13 @@ return [
     ],
 
     'google_indexing' => [
+        'enabled' => env('GOOGLE_INDEXING_ENABLED', true),
         'base_uri' => env('GOOGLE_INDEXING_BASE_URI', 'https://indexing.googleapis.com'),
         'credentials_path' => env('GOOGLE_INDEXING_CREDENTIALS_PATH'),
     ],
 
     'indexnow' => [
+        'enabled' => env('INDEXNOW_ENABLED', true),
         'base_uri' => env('INDEXNOW_ENDPOINT', 'https://api.indexnow.org/indexnow'),
         'key' => env('INDEXNOW_KEY'),
         'key_location' => env('INDEXNOW_KEY_LOCATION'),

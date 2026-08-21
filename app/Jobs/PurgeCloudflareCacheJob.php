@@ -40,6 +40,13 @@ class PurgeCloudflareCacheJob implements ShouldQueue
      */
     protected function notifySearchEngines(): void
     {
+        $indexNowEnabled = filter_var(config('services.indexnow.enabled', true), FILTER_VALIDATE_BOOLEAN);
+        $googleEnabled = filter_var(config('services.google_indexing.enabled', true), FILTER_VALIDATE_BOOLEAN);
+
+        if (! $indexNowEnabled && ! $googleEnabled) {
+            return;
+        }
+
         $articleBase = url('/articles/');
 
         foreach ($this->urls as $url) {
