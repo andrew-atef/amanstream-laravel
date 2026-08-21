@@ -34,19 +34,19 @@
             $seoHelper = \App\Services\SEOHelper::class;
             $pageUrl = $seoHelper::canonical('articles/'.$article->slug);
             $siteUrl = $seoHelper::url();
-            $cleanContent = \App\Services\SEOHelper::renderDynamicYear(\App\Services\ShortcodeParser::stripShortcodes($article->content));
+            $cleanContent = $seoHelper::renderDynamicYear(\App\Services\ShortcodeParser::stripShortcodes($article->content));
             $schemaDescription = $article->meta_description ?: Str::limit(strip_tags($cleanContent), 300);
             $shortDescription = $article->meta_description ?: Str::limit(strip_tags($cleanContent), 160);
             $cleanArticleTitle = $seoHelper::cleanTitle($article->title);
 
-            // Build a complete Product node from a model. Used for BOTH the main
-            // product schema and every item inside a comparison ItemList, so
-            // merchant/product rich results never report a missing image,
-            // description, rating or shipping/return policy on either path.
-            $buildProductNode = function (App\Models\Product $p) use ($schemaDescription, $siteUrl, $seoHelper): array {
+            $isListicle = $article->articleProducts->whereNotNull('product_id')->count() >= 2;
+
+            // 1. Build Single Product Node (For Dedicated Review Tier 3)
+            $buildSingleProductNode = function (App\Models\Product $p) use ($schemaDescription, $siteUrl, $seoHelper): array {
                 $title = $seoHelper::cleanTitle((string) $p->title);
                 $rating = (float) $p->rating;
                 $reviewCount = (int) $p->review_count;
+                $cleanAffiliateUrl = $seoHelper::cleanAffiliateUrl((string) $p->affiliate_url, (string) $p->asin);
 
                 $node = [
                     '@type' => 'Product',
@@ -58,7 +58,7 @@
                     'mpn' => $p->asin,
                     'offers' => [
                         '@type' => 'Offer',
-                        'url' => $seoHelper::cleanAffiliateUrl((string) $p->affiliate_url, (string) $p->asin),
+                        'url' => $cleanAffiliateUrl,
                         'priceCurrency' => 'EGP',
                         'price' => number_format((float) $p->price, 2, '.', ''),
                         'priceValidUntil' => now()->addDays(7)->format('Y-m-d'),
@@ -68,45 +68,9 @@
                             '@type' => 'Organization',
                             'name' => 'أمازون مصر',
                         ],
-                        'shippingDetails' => [
-                            '@type' => 'OfferShippingDetails',
-                            'shippingRate' => [
-                                '@type' => 'MonetaryAmount',
-                                'value' => '0.00',
-                                'currency' => 'EGP',
-                            ],
-                            'shippingDestination' => [
-                                '@type' => 'DefinedRegion',
-                                'addressCountry' => 'EG',
-                            ],
-                            'deliveryTime' => [
-                                '@type' => 'ShippingDeliveryTime',
-                                'handlingTime' => [
-                                    '@type' => 'QuantitativeValue',
-                                    'minValue' => 0,
-                                    'maxValue' => 1,
-                                    'unitCode' => 'DAY',
-                                ],
-                                'transitTime' => [
-                                    '@type' => 'QuantitativeValue',
-                                    'minValue' => 1,
-                                    'maxValue' => 3,
-                                    'unitCode' => 'DAY',
-                                ],
-                            ],
-                        ],
-                        'hasMerchantReturnPolicy' => [
-                            '@type' => 'MerchantReturnPolicy',
-                            'applicableCountry' => 'EG',
-                            'returnPolicyCategory' => 'https://schema.org/MerchantReturnFiniteReturnWindow',
-                            'merchantReturnDays' => 14,
-                            'returnMethod' => 'https://schema.org/ReturnByMail',
-                            'returnFees' => 'https://schema.org/FreeReturn',
-                        ],
                     ],
                 ];
 
-                // Real Amazon rating data only — never invent a rating/review.
                 if ($rating > 0 && $reviewCount > 0) {
                     $node['aggregateRating'] = [
                         '@type' => 'AggregateRating',
@@ -120,39 +84,81 @@
                 return $node;
             };
 
-            // 1. Single Product Review (Tier 3): standalone Product with full Merchant details
-            $productSchema = $product ? [
+            // 2. Build Clean Listicle Item Node (Zero Merchant Conflict)
+            $buildListicleItemNode = function (App\Models\Product $p) use ($schemaDescription, $siteUrl, $seoHelper): array {
+                $title = $seoHelper::cleanTitle((string) $p->title);
+                $rating = (float) $p->rating;
+                $reviewCount = (int) $p->review_count;
+                $cleanAffiliateUrl = $seoHelper::cleanAffiliateUrl((string) $p->affiliate_url, (string) $p->asin);
+
+                $node = [
+                    '@type' => 'Product',
+                    'name' => $title,
+                    'image' => $p->image_url ?: $siteUrl.'/favicon.svg',
+                    'description' => Str::limit($schemaDescription, 200),
+                    'brand' => ['@type' => 'Brand', 'name' => $p->brand ?: $title],
+                    'sku' => $p->asin,
+                    'mpn' => $p->asin,
+                    'offers' => [
+                        '@type' => 'Offer',
+                        'url' => $cleanAffiliateUrl,
+                        'priceCurrency' => 'EGP',
+                        'price' => number_format((float) $p->price, 2, '.', ''),
+                        'priceValidUntil' => now()->addDays(7)->format('Y-m-d'),
+                        'availability' => $p->in_stock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+                        'seller' => [
+                            '@type' => 'Organization',
+                            'name' => 'أمازون مصر',
+                        ],
+                    ],
+                ];
+
+                if ($rating > 0 && $reviewCount > 0) {
+                    $node['aggregateRating'] = [
+                        '@type' => 'AggregateRating',
+                        'ratingValue' => number_format($rating, 1, '.', ''),
+                        'reviewCount' => $reviewCount,
+                        'bestRating' => 5,
+                        'worstRating' => 1,
+                    ];
+                }
+
+                return $node;
+            };
+
+            // Standalone Product Schema (ONLY when single product review)
+            $productSchema = (! $isListicle && $product) ? [
                 '@context' => 'https://schema.org',
-                ...$buildProductNode($product),
+                ...$buildSingleProductNode($product),
             ] : null;
 
-            // 2. Comparison / Listicle (Tier 1 & 2): ItemList of Product nodes
+            // ItemList Schema for Listicles & Comparisons
             $listicleItems = $article->articleProducts
                 ->sortBy('sort_order')
                 ->filter(fn ($row) => $row->product !== null)
                 ->values();
 
-            $itemListSchema = $listicleItems->count() >= 2 ? [
+            $itemListSchema = $isListicle ? [
                 '@context' => 'https://schema.org',
                 '@type' => 'ItemList',
                 'name' => $cleanArticleTitle,
                 'itemListOrder' => 'https://schema.org/ItemListOrderAscending',
                 'numberOfItems' => $listicleItems->count(),
-                'itemListElement' => $listicleItems->map(function ($row, $index) use ($buildProductNode): array {
+                'itemListElement' => $listicleItems->map(function ($row, $index) use ($buildListicleItemNode, $pageUrl): array {
                     $p = $row->product;
                     $title = \App\Services\SEOHelper::cleanTitle((string) $p->title);
                     return [
                         '@type' => 'ListItem',
                         'position' => $index + 1,
                         'name' => $title,
-                        'url' => $p->clean_affiliate_url,
+                        'url' => $pageUrl . '#product-' . ($index + 1),
                         'image' => $p->image_url ?: \App\Services\SEOHelper::url('favicon.svg'),
-                        'item' => $buildProductNode($p),
+                        'item' => $buildListicleItemNode($p),
                     ];
                 })->values()->all(),
             ] : null;
 
-            // 3. Article schema (always, enriched with about on comparisons)
+            // Article Schema (Universal)
             $articleImageUrl = $primaryImage ?: $siteUrl.'/favicon.svg';
             $brandName = config('app.name', 'أمان برايس');
 
@@ -182,8 +188,8 @@
                 ],
             ];
 
-            if ($listicleItems->count() >= 2) {
-                $articleSchema['about'] = $listicleItems->map(fn ($row) => $buildProductNode($row->product))->values()->all();
+            if ($isListicle && $listicleItems->isNotEmpty()) {
+                $articleSchema['about'] = $listicleItems->map(fn ($row) => $buildListicleItemNode($row->product))->values()->all();
             }
 
             $categoryName = $article->category?->name ?? 'مقالات';
@@ -199,7 +205,6 @@
                 ],
             ];
 
-            // FAQPage (always when questions exist)
             $faqQuestions = $article->getFaqSchemaData();
             $faqPageSchema = ! empty($faqQuestions) ? [
                 '@context' => 'https://schema.org',
@@ -208,7 +213,7 @@
             ] : null;
         @endphp
 
-        @if ($product && $productSchema)
+        @if ($productSchema)
             <script type="application/ld+json">{!! json_encode(array_filter($productSchema), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
         @endif
 
