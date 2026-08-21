@@ -14,15 +14,15 @@
         href="{{ $cleanUrl }}"
         target="_blank"
         rel="nofollow sponsored noopener"
-        class="inline-flex {{ $compact ? 'h-8 px-2.5 text-[11px]' : 'h-9 px-4 text-xs' }} items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-primary-600 font-bold text-white shadow-md shadow-primary-600/20 transition-all hover:bg-primary-700 hover:shadow-lg active:scale-95"
+        class="inline-flex h-11 px-6 text-sm items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-primary-600 font-bold text-white shadow-lg shadow-primary-600/30 transition-all hover:bg-primary-700 hover:shadow-xl active:scale-95"
     >
-        <span class="flex h-4 items-center justify-center rounded bg-white px-1 py-0.5">
-            <img src="/icons/amazon.png" alt="Amazon" width="40" height="12" loading="lazy" class="h-2.5 w-auto object-contain">
+        <span class="flex h-5 items-center justify-center rounded-md bg-white px-2 py-1">
+            <img src="/icons/amazon.png" alt="Amazon" width="80" height="24" loading="lazy" class="h-5 w-auto object-contain">
         </span>
         <span>اشترِ الآن</span>
     </a>
 @else
-    <span class="inline-flex {{ $compact ? 'h-8 px-2.5 text-[11px]' : 'h-9 px-3 text-xs' }} items-center justify-center whitespace-nowrap rounded-xl border border-slate-200 bg-slate-100 font-bold text-slate-500 cursor-not-allowed">
+    <span class="inline-flex h-11 px-6 text-sm items-center justify-center whitespace-nowrap rounded-xl border border-slate-200 bg-slate-100 font-bold text-slate-500 cursor-not-allowed">
         غير متوفر حالياً
     </span>
 @endif
