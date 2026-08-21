@@ -16,8 +16,8 @@
         rel="nofollow sponsored noopener"
         class="inline-flex h-11 px-6 text-sm items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-primary-600 font-bold text-white shadow-lg shadow-primary-600/30 transition-all hover:bg-primary-700 hover:shadow-xl active:scale-95"
     >
-        <span class="flex h-5 items-center justify-center rounded-md bg-white px-2 py-1">
-            <img src="/icons/amazon.png" alt="Amazon" width="80" height="24" loading="lazy" class="h-5 w-auto object-contain">
+        <span class="flex items-center justify-center rounded-md bg-white px-2 py-1">
+            <img src="/icons/amazon.png" alt="Amazon" width="80" height="24" loading="lazy" class="h-4 w-auto object-contain">
         </span>
         <span>اشترِ الآن</span>
     </a>
