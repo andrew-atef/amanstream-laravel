@@ -1138,7 +1138,60 @@ class ShortcodeParser
     }
 
     /**
-     * Extract TOC items from markdown source (## and ### headings).
+     * Clean long heading for concise TOC display.
+     */
+    private function cleanTocTitle(string $title): string
+    {
+        $title = trim($title);
+        // Remove trailing # markers
+        $title = preg_replace('/\s+#+\s*$/u', '', $title) ?? $title;
+        $original = $title;
+
+        // Direct concise mappings for known long headings
+        if (mb_strpos($title, 'جدول المقارنة') !== false) {
+            return 'جدول المقارنة';
+        }
+        if (mb_strpos($title, 'استعراض') !== false && mb_strpos($title, 'الموديلات') !== false) {
+            return 'استعراض الموديلات';
+        }
+        if (mb_strpos($title, 'الفروق الجوهرية') !== false) {
+            return 'الفروق الجوهرية';
+        }
+        if (mb_strpos($title, 'تنبيهات') !== false || mb_strpos($title, 'قبل الشراء') !== false) {
+            return 'تنبيهات قبل الشراء';
+        }
+        if (mb_strpos($title, 'الأسئلة الشائعة') !== false || $title === 'الأسئلة الشائعة') {
+            return 'الأسئلة الشائعة';
+        }
+        if (mb_strpos($title, 'الخلاصة') !== false && mb_strpos($title, 'رأي الخبراء') !== false) {
+            return 'الخلاصة ورأي الخبراء';
+        }
+        if (mb_strpos($title, 'لماذا') !== false && mb_strpos($title, 'يُعد') !== false) {
+            // "لماذا يُعد اختيار تكييف..." -> "لماذا تختار"
+            return preg_replace('/لماذا\s+يُعد\s+اختيار/u', 'لماذا تختار', $title) ?? $title;
+        }
+
+        // Generic cleanup: remove redundant prefixes
+        $title = preg_replace('/^لماذا\s+يُعد\s+اختيار\s+/u', '', $title) ?? $title;
+        $title = preg_replace('/^جدول\s+المقارنة\s+الشامل\s+بين\s+/u', 'جدول المقارنة ', $title) ?? $title;
+
+        // Trim and limit length for display (keep concise)
+        $title = trim($title);
+        if (mb_strlen($title, 'UTF-8') > 32) {
+            // Keep first 30 chars at word boundary
+            $cut = mb_substr($title, 0, 30, 'UTF-8');
+            $lastSpace = mb_strrpos($cut, ' ', 0, 'UTF-8');
+            if ($lastSpace !== false && $lastSpace > 15) {
+                $title = mb_substr($cut, 0, $lastSpace, 'UTF-8') . '…';
+            }
+        }
+
+        return $title !== '' ? $title : $original;
+    }
+
+    /**
+     * Extract TOC items - ONLY major <h2> (##) headings, strictly ignoring FAQ and h3.
+     * Cleans titles and limits to 5-7 milestones.
      *
      * @return array<int, array{id: string, title: string}>
      */
@@ -1146,7 +1199,8 @@ class ShortcodeParser
     {
         $items = [];
         $seen = [];
-        if (preg_match_all('/^#{2,3}\s+(.+)$/m', $markdown, $matches)) {
+        // Only ## (exactly 2 hashes, not ###) - use negative lookahead for third #
+        if (preg_match_all('/^##(?!#)\s+(.+)$/m', $markdown, $matches)) {
             foreach ($matches[1] as $rawTitle) {
                 $title = trim(strip_tags($rawTitle));
                 $title = preg_replace('/\s+#+\s*$/u', '', $title) ?? $title;
@@ -1154,46 +1208,37 @@ class ShortcodeParser
                 if ($title === '') {
                     continue;
                 }
+                // STRICTLY IGNORE FAQ questions starting with س:
+                if (preg_match('/^\s*س\s*:/u', $title)) {
+                    continue;
+                }
+                // Skip empty after cleaning
+                $cleanTitle = $this->cleanTocTitle($title);
+                if ($cleanTitle === '') {
+                    continue;
+                }
                 $id = $this->generateUniqueSlug($title, $seen);
-                $items[] = ['id' => $id, 'title' => $title];
+                $items[] = ['id' => $id, 'title' => $cleanTitle];
+                if (count($items) >= 7) {
+                    break;
+                }
             }
         }
         return $items;
     }
 
     /**
-     * Inject id="..." and class="scroll-mt-24" into <h2>/<h3> tags.
-     * Uses TOC items order when available for consistency; falls back to slugifying inner HTML.
+     * Inject id="..." and class="scroll-mt-24" into all <h2>/<h3>/<h4> tags.
+     * Generates ids independently from heading inner text for reliable anchors.
      */
     private function injectHeadingIds(string $html, string $markdownSource = ''): string
     {
-        $tocItems = [];
-        if ($markdownSource !== '') {
-            $tocItems = $this->extractTocItems($markdownSource);
-        }
-
-        $index = 0;
         $seen = [];
-
-        return preg_replace_callback('/<h([23])>(.*?)<\/h\1>/s', function (array $m) use (&$index, &$seen, $tocItems): string {
+        return preg_replace_callback('/<h([234])>(.*?)<\/h\1>/s', function (array $m) use (&$seen): string {
             $level = $m[1];
             $inner = $m[2];
-            // Prefer pre-generated TOC id if available and in order
-            if (isset($tocItems[$index])) {
-                $id = $tocItems[$index]['id'];
-                $index++;
-                // Ensure uniqueness even if HTML has extra headings not in markdown
-                if (isset($seen[$id])) {
-                    $id = $this->generateUniqueSlug($id, $seen);
-                } else {
-                    $seen[$id] = true;
-                }
-            } else {
-                $text = trim(strip_tags($inner));
-                $id = $this->generateUniqueSlug($text, $seen);
-                $index++;
-            }
-
+            $text = trim(strip_tags($inner));
+            $id = $this->generateUniqueSlug($text, $seen);
             return '<h' . $level . ' id="' . e($id) . '" class="scroll-mt-24">' . $inner . '</h' . $level . '>';
         }, $html) ?? $html;
     }
