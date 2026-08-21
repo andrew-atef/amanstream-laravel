@@ -185,6 +185,12 @@ class ArticleResource extends Resource
                                 'الأكواد: [price] السعر | [rating] التقييم | [installment] التقسيط (أو [installment]) | [interactive_installment] حاسبة التقسيط التفاعلية | [price_history] مخطط الأسعار | [buy_button] زر الشراء | [buy_button position="1"] لزر منتج محدد بالمقارنة | [summary_box] ملخص مميزات وعيوب | [summary_box pros="أ|ب" cons="ج|د" verdict="الحكم"] نسخة مخصصة | [summary_box position="1" pros="أ|ب" cons="ج|د" verdict="الحكم"] لملخص منتج محدد بالمقارنة | [comparison_table] جدول المقارنة | [product_cards] كروت المنتجات'
                             )
                             ->columnSpanFull(),
+                        Textarea::make('comparison_markdown')
+                            ->label('جدول المقارنة المخصص (Markdown Custom Table)')
+                            ->placeholder("| وجه المقارنة | كاريير | ميديا | فريش |\n| :--- | :--- | :--- | :--- |\n| الكباس | T3 انفرتر | T3 AI | انفرتر اقتصادي |")
+                            ->rows(6)
+                            ->helperText('اختياري: اكتب جدول مقارنة منسق بـ Markdown ليظهر في [comparison_table]. إذا تُرك فارغاً، سيقوم النظام ببناء جدول تلقائي من مواصفات المنتجات.')
+                            ->columnSpanFull(),
                     ]),
                 Section::make('المنتجات المقارنة في المقال (Listicle Products)')
                     ->description('أضف منتجات متعددة هنا لتصنيع مقالات "أفضل X" والمقارنات. تظهر عبر [comparison_table] و [product_cards] داخل المحتوى.')

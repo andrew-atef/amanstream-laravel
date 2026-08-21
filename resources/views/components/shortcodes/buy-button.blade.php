@@ -4,26 +4,25 @@
 ])
 
 @php
-    $inStock = $product?->in_stock !== false;
-    $url = $product?->affiliate_url ?? '#';
+    if (! $product) return;
+    $cleanUrl = \App\Services\SEOHelper::cleanAffiliateUrl((string) $product->affiliate_url, (string) $product->asin);
+    $inStock = (bool) $product->in_stock;
 @endphp
 
-@if (! $inStock)
-    @if ($compact)
-        <span class="rounded-lg border border-slate-200 bg-slate-100 px-2.5 py-1 text-xs font-bold leading-none text-ink/60 cursor-not-allowed whitespace-nowrap">غير متوفر</span>
-    @else
-        <span class="inline-flex items-center gap-2 rounded-xl bg-slate-100 border border-slate-200 text-ink/60 px-6 py-3 font-bold">غير متوفر حالياً بأمازون</span>
-    @endif
+@if ($inStock && filled($cleanUrl))
+    <a
+        href="{{ $cleanUrl }}"
+        target="_blank"
+        rel="nofollow sponsored noopener"
+        class="inline-flex {{ $compact ? 'h-8 px-2.5 text-[11px]' : 'h-9 px-4 text-xs' }} items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-primary-600 font-bold text-white shadow-md shadow-primary-600/20 transition-all hover:bg-primary-700 hover:shadow-lg active:scale-95"
+    >
+        <span class="flex h-4 items-center justify-center rounded bg-white px-1 py-0.5">
+            <img src="/icons/amazon.png" alt="Amazon" width="40" height="12" loading="lazy" class="h-2.5 w-auto object-contain">
+        </span>
+        <span>اشترِ الآن</span>
+    </a>
 @else
-    @if ($compact)
-        <a href="{{ $url }}" target="_blank" rel="nofollow sponsored noopener" class="inline-flex items-center justify-center gap-1 whitespace-nowrap rounded-lg bg-primary-600 px-2.5 py-1 text-xs font-bold leading-none text-white shadow-md shadow-primary-600/20 transition-colors hover:bg-primary-700">
-            <span class="flex items-center justify-center rounded bg-white px-0.5 py-0.5"><img src="/icons/amazon.png" alt="Amazon" width="36" height="12" loading="lazy" class="h-3 w-auto object-contain"></span>
-            اشترِ الآن
-        </a>
-    @else
-        <a href="{{ $url }}" target="_blank" rel="nofollow sponsored noopener" class="inline-flex items-center justify-center gap-2 rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-bold text-lg px-8 py-4 shadow-lg shadow-primary-600/30 transition-colors">
-            <span class="flex items-center justify-center rounded-md bg-white px-2 py-1"><img src="/icons/amazon.png" alt="Amazon" width="80" height="24" loading="lazy" class="h-5 w-auto object-contain"></span>
-            اشترِ الآن
-        </a>
-    @endif
+    <span class="inline-flex {{ $compact ? 'h-8 px-2.5 text-[11px]' : 'h-9 px-3 text-xs' }} items-center justify-center whitespace-nowrap rounded-xl border border-slate-200 bg-slate-100 font-bold text-slate-500 cursor-not-allowed">
+        غير متوفر حالياً
+    </span>
 @endif

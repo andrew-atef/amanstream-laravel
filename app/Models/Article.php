@@ -22,6 +22,7 @@ class Article extends Model
         'title',
         'slug',
         'content',
+        'comparison_markdown',
         'featured_image_url',
         'meta_title',
         'meta_description',
@@ -191,8 +192,8 @@ class Article extends Model
         // HTML form: <h3>Question</h3> immediately followed by a <p>Answer</p>.
         if (preg_match_all('/<h3[^>]*>(.*?)<\/h3>\s*<p[^>]*>(.*?)<\/p>/is', $content, $matches, PREG_SET_ORDER)) {
             foreach ($matches as $match) {
-                $question = trim(strip_tags($match[1]));
-                $answer = trim(strip_tags($match[2]));
+                $question = SEOHelper::renderDynamicYear(trim(strip_tags($match[1])));
+                $answer = SEOHelper::renderDynamicYear(trim(strip_tags($match[2])));
 
                 if ($this->isPlausibleFaqPair($question, $answer)) {
                     $faqs[] = $this->faqEntry($question, $answer);
@@ -226,13 +227,13 @@ class Article extends Model
 
                 if (preg_match('/^#{2,3}\s+(.+)$/u', $line, $headingMatch)) {
                     $flushCurrent();
-                    $currentQuestion = trim($headingMatch[1]);
+                    $currentQuestion = SEOHelper::renderDynamicYear(trim($headingMatch[1]));
 
                     continue;
                 }
 
                 if ($currentQuestion !== null && $line !== '') {
-                    $answerParts[] = $line;
+                    $answerParts[] = SEOHelper::renderDynamicYear($line);
                 }
             }
 
@@ -357,11 +358,56 @@ class Article extends Model
      * Only numbers that are explicitly followed by an EGP currency marker are
      * touched, so real specs like "1.5 حصان" or "284 مراجعة" are never harmed.
      */
-    public static function normalizeHardcodedPrices(string $content): string
+    public static function normalizeHardcodedPrices(string $content, ?Article $article = null): string
     {
+        $currency = 'ج\.?\s?م\.?|جنيهاً\s*مصرياً|جنيهات\s*مصرية|جنيهات\s*مصرياً|جنيه\s*مصرياً|جنيه\s*مصري|جنيهات|جنيهاً|جنيه|EGP|LE|£';
+        $pattern = '/(?<![\d])\d[\d.,]*\s*(?:'.$currency.')/iu';
+
+        // Track byte offset and previous match to detect accessory price ranges
+        // like "700 إلى 850 جنيه" where the second number should also be skipped.
+        $offset = 0;
+        $prevCharPos = null;
+        $prevWasAccessory = false;
+
         return preg_replace_callback(
-            '/(?<![\d])\d[\d.,]*\s*(?:ج\.?\s?م\.?|جنيهاً\s*مصرياً|جنيهات\s*مصرية|جنيهات\s*مصرياً|جنيه\s*مصرياً|جنيه\s*مصري|جنيهات|جنيهاً|جنيه|EGP|LE|£)/iu',
-            fn (): string => '[price]',
+            $pattern,
+            function (array $m) use (&$offset, &$prevCharPos, &$prevWasAccessory, $content, $article): string {
+                $match = $m[0];
+                $pos = strpos($content, $match, $offset);
+                if ($pos === false) {
+                    $pos = $offset;
+                }
+                $charPos = mb_strlen(substr($content, 0, $pos), 'UTF-8');
+                $offset = $pos + strlen($match);
+
+                $before25 = mb_substr($content, max(0, $charPos - 25), min(25, $charPos), 'UTF-8');
+                $before8 = mb_substr($content, max(0, $charPos - 8), min(8, $charPos), 'UTF-8');
+
+                // حامل/كابولي/مصاريف/تركيب within 25 chars; تكلفة only when directly before number
+                $hasAccessoryContext = (bool) preg_match('/حامل|كابولي|مصاريف|تركيب/iu', $before25)
+                    || (bool) preg_match('/تكلفة\s*$/iu', $before8);
+
+                // Range continuation: "700 إلى 850 جنيه" — second number's immediate before is " إلى "
+                // but it belongs to the same accessory phrase as the first number.
+                if (! $hasAccessoryContext && $prevWasAccessory && $prevCharPos !== null) {
+                    $distance = $charPos - $prevCharPos;
+                    if ($distance > 0 && $distance < 30) {
+                        $between = mb_substr($content, $prevCharPos, $distance, 'UTF-8');
+                        if (mb_strpos($between, 'إلى') !== false) {
+                            $hasAccessoryContext = true;
+                        }
+                    }
+                }
+
+                $prevCharPos = $charPos;
+                $prevWasAccessory = $hasAccessoryContext;
+
+                if ($hasAccessoryContext) {
+                    return $match;
+                }
+
+                return '[price]';
+            },
             $content
         ) ?? $content;
     }
@@ -439,7 +485,7 @@ class Article extends Model
             }
 
             if ($article->content !== null && $article->isDirty('content')) {
-                $article->content = static::normalizeHardcodedPrices((string) $article->content);
+                $article->content = static::normalizeHardcodedPrices((string) $article->content, $article);
             }
         });
     }

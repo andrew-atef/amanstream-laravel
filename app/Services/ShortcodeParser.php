@@ -565,9 +565,14 @@ class ShortcodeParser
 
     /**
      * [comparison_table] — a Markdown comparison matrix for listicles.
+     * If comparison_markdown is filled, it is returned as-is for AI markdown.
      */
     protected function comparisonTableMarkdown(Article $article): string
     {
+        if (filled($article->comparison_markdown)) {
+            return trim($article->comparison_markdown);
+        }
+
         $rows = $this->listicleProducts($article);
 
         if ($rows->isEmpty()) {
@@ -742,7 +747,7 @@ class ShortcodeParser
         }
 
         if (str_contains($content, '[comparison_table]')) {
-            $content = str_replace('[comparison_table]', $this->comparisonTable($rows), $content);
+            $content = str_replace('[comparison_table]', $this->comparisonTable($rows, $article), $content);
         }
 
         if (str_contains($content, '[product_cards]')) {
@@ -1078,11 +1083,16 @@ class ShortcodeParser
      * [comparison_table] — Responsive RTL comparison matrix built from the
      * article's attached products: product name, live price, buy link, and
      * every spec label shared across the selected devices.
+     * If comparison_markdown is filled, it overrides the auto-generated spec table.
      *
      * @param  Collection<int, ArticleProduct>  $rows
      */
-    public function comparisonTable(Collection $rows): string
+    public function comparisonTable(Collection $rows, ?Article $article = null): string
     {
+        if ($article && filled($article->comparison_markdown)) {
+            return $this->markdownToHtml($article->comparison_markdown);
+        }
+
         $items = $rows
             ->map(fn (ArticleProduct $row): array => [
                 'product' => $row->product,
