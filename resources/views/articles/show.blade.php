@@ -41,8 +41,8 @@
 
             $isListicle = $article->articleProducts->whereNotNull('product_id')->count() >= 2;
 
-            // 1. Build Single Product Node (For Dedicated Review Tier 3)
-            $buildSingleProductNode = function (App\Models\Product $p) use ($schemaDescription, $siteUrl, $seoHelper): array {
+            // 1. Build Standalone Product Node (For Dedicated Review Tier 3 ONLY)
+            $buildSingleProductNode = function (App\Models\Product $p) use ($schemaDescription, $siteUrl, $seoHelper, $pageUrl): array {
                 $title = $seoHelper::cleanTitle((string) $p->title);
                 $rating = (float) $p->rating;
                 $reviewCount = (int) $p->review_count;
@@ -78,6 +78,7 @@
                 $node = [
                     '@type' => 'Product',
                     'name' => $title,
+                    'url' => $pageUrl,
                     'image' => $p->image_url ?: $siteUrl.'/favicon.svg',
                     'description' => $schemaDescription,
                     'brand' => ['@type' => 'Brand', 'name' => $p->brand ?: $title],
@@ -99,8 +100,8 @@
                 return $node;
             };
 
-            // 2. Build Clean Listicle Item Node (Zero Merchant Conflict)
-            $buildListicleItemNode = function (App\Models\Product $p) use ($schemaDescription, $siteUrl, $seoHelper): array {
+            // 2. Build Nested ItemList Product (Clean and Google Rich Results Compliant)
+            $buildListItemProduct = function (App\Models\Product $p, int $index) use ($schemaDescription, $siteUrl, $seoHelper, $pageUrl): array {
                 $title = $seoHelper::cleanTitle((string) $p->title);
                 $rating = (float) $p->rating;
                 $reviewCount = (int) $p->review_count;
@@ -133,9 +134,10 @@
                     ];
                 }
 
-                $node = [
+                $productNode = [
                     '@type' => 'Product',
                     'name' => $title,
+                    'url' => $pageUrl . '#product-' . $index,
                     'image' => $p->image_url ?: $siteUrl.'/favicon.svg',
                     'description' => Str::limit($schemaDescription, 200),
                     'brand' => ['@type' => 'Brand', 'name' => $p->brand ?: $title],
@@ -145,7 +147,7 @@
                 ];
 
                 if ($rating > 0 && $reviewCount > 0) {
-                    $node['aggregateRating'] = [
+                    $productNode['aggregateRating'] = [
                         '@type' => 'AggregateRating',
                         'ratingValue' => number_format($rating, 1, '.', ''),
                         'reviewCount' => $reviewCount,
@@ -154,16 +156,20 @@
                     ];
                 }
 
-                return $node;
+                return [
+                    '@type' => 'ListItem',
+                    'position' => $index,
+                    'item' => $productNode,
+                ];
             };
 
-            // Standalone Product Schema (ONLY when single product review)
+            // Standalone Product Schema (Tier 3 Single Reviews ONLY)
             $productSchema = (! $isListicle && $product) ? [
                 '@context' => 'https://schema.org',
                 ...$buildSingleProductNode($product),
             ] : null;
 
-            // ItemList Schema for Listicles & Comparisons
+            // ItemList Schema (Tier 1 & 2 Listicles and Comparisons)
             $listicleItems = $article->articleProducts
                 ->sortBy('sort_order')
                 ->filter(fn ($row) => $row->product !== null)
@@ -175,17 +181,8 @@
                 'name' => $cleanArticleTitle,
                 'itemListOrder' => 'https://schema.org/ItemListOrderAscending',
                 'numberOfItems' => $listicleItems->count(),
-                'itemListElement' => $listicleItems->map(function ($row, $index) use ($buildListicleItemNode, $pageUrl): array {
-                    $p = $row->product;
-                    $title = \App\Services\SEOHelper::cleanTitle((string) $p->title);
-                    return [
-                        '@type' => 'ListItem',
-                        'position' => $index + 1,
-                        'name' => $title,
-                        'url' => $pageUrl . '#product-' . ($index + 1),
-                        'image' => $p->image_url ?: \App\Services\SEOHelper::url('favicon.svg'),
-                        'item' => $buildListicleItemNode($p),
-                    ];
+                'itemListElement' => $listicleItems->map(function ($row, $index) use ($buildListItemProduct): array {
+                    return $buildListItemProduct($row->product, $index + 1);
                 })->values()->all(),
             ] : null;
 
@@ -218,10 +215,6 @@
                     ],
                 ],
             ];
-
-            if ($isListicle && $listicleItems->isNotEmpty()) {
-                $articleSchema['about'] = $listicleItems->map(fn ($row) => $buildListicleItemNode($row->product))->values()->all();
-            }
 
             $categoryName = $article->category?->name ?? 'مقالات';
             $categoryUrl = $article->category ? route('categories.show', $article->category->slug) : $siteUrl;
