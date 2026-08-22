@@ -5,7 +5,7 @@
     // (near-duplicates of the canonical homepage — don't split index equity).
     $robotsMeta = ($searchQuery !== '' || $dealsOnly || $comparisonsOnly || (! $categoryPage && $selectedCategory !== null) || request()->has('page'))
         ? 'noindex, follow'
-        : 'index, follow';
+        : 'index, follow, max-image-size:large, max-snippet:-1, max-video-preview:-1';
 
     $brandName = config('app.name', 'أمان برايس');
 

@@ -46,7 +46,34 @@
                 $title = $seoHelper::cleanTitle((string) $p->title);
                 $rating = (float) $p->rating;
                 $reviewCount = (int) $p->review_count;
+                $price = (float) $p->price;
+                $originalPrice = (float) ($p->original_price ?? 0);
+                $hasDiscount = $originalPrice > $price && $originalPrice > 0;
                 $cleanAffiliateUrl = $seoHelper::cleanAffiliateUrl((string) $p->affiliate_url, (string) $p->asin);
+
+                $offerData = [
+                    '@type' => 'Offer',
+                    'url' => $cleanAffiliateUrl,
+                    'priceCurrency' => 'EGP',
+                    'price' => number_format($price, 2, '.', ''),
+                    'availability' => $p->in_stock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+                    'itemCondition' => 'https://schema.org/NewCondition',
+                    'seller' => [
+                        '@type' => 'Organization',
+                        'name' => 'أمازون مصر',
+                    ],
+                    'validFrom' => now()->subDays(1)->toIso8601String(),
+                    'priceValidUntil' => now()->addDays(7)->format('Y-m-d'),
+                ];
+
+                if ($hasDiscount) {
+                    $offerData['priceSpecification'] = [
+                        '@type' => 'UnitPriceSpecification',
+                        'priceType' => 'https://schema.org/StrikethroughPrice',
+                        'price' => number_format($originalPrice, 2, '.', ''),
+                        'priceCurrency' => 'EGP',
+                    ];
+                }
 
                 $node = [
                     '@type' => 'Product',
@@ -56,19 +83,7 @@
                     'brand' => ['@type' => 'Brand', 'name' => $p->brand ?: $title],
                     'sku' => $p->asin,
                     'mpn' => $p->asin,
-                    'offers' => [
-                        '@type' => 'Offer',
-                        'url' => $cleanAffiliateUrl,
-                        'priceCurrency' => 'EGP',
-                        'price' => number_format((float) $p->price, 2, '.', ''),
-                        'priceValidUntil' => now()->addDays(7)->format('Y-m-d'),
-                        'availability' => $p->in_stock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
-                        'itemCondition' => 'https://schema.org/NewCondition',
-                        'seller' => [
-                            '@type' => 'Organization',
-                            'name' => 'أمازون مصر',
-                        ],
-                    ],
+                    'offers' => $offerData,
                 ];
 
                 if ($rating > 0 && $reviewCount > 0) {
@@ -89,7 +104,34 @@
                 $title = $seoHelper::cleanTitle((string) $p->title);
                 $rating = (float) $p->rating;
                 $reviewCount = (int) $p->review_count;
+                $price = (float) $p->price;
+                $originalPrice = (float) ($p->original_price ?? 0);
+                $hasDiscount = $originalPrice > $price && $originalPrice > 0;
                 $cleanAffiliateUrl = $seoHelper::cleanAffiliateUrl((string) $p->affiliate_url, (string) $p->asin);
+
+                $offerData = [
+                    '@type' => 'Offer',
+                    'url' => $cleanAffiliateUrl,
+                    'priceCurrency' => 'EGP',
+                    'price' => number_format($price, 2, '.', ''),
+                    'availability' => $p->in_stock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+                    'itemCondition' => 'https://schema.org/NewCondition',
+                    'seller' => [
+                        '@type' => 'Organization',
+                        'name' => 'أمازون مصر',
+                    ],
+                    'validFrom' => now()->subDays(1)->toIso8601String(),
+                    'priceValidUntil' => now()->addDays(7)->format('Y-m-d'),
+                ];
+
+                if ($hasDiscount) {
+                    $offerData['priceSpecification'] = [
+                        '@type' => 'UnitPriceSpecification',
+                        'priceType' => 'https://schema.org/StrikethroughPrice',
+                        'price' => number_format($originalPrice, 2, '.', ''),
+                        'priceCurrency' => 'EGP',
+                    ];
+                }
 
                 $node = [
                     '@type' => 'Product',
@@ -99,18 +141,7 @@
                     'brand' => ['@type' => 'Brand', 'name' => $p->brand ?: $title],
                     'sku' => $p->asin,
                     'mpn' => $p->asin,
-                    'offers' => [
-                        '@type' => 'Offer',
-                        'url' => $cleanAffiliateUrl,
-                        'priceCurrency' => 'EGP',
-                        'price' => number_format((float) $p->price, 2, '.', ''),
-                        'priceValidUntil' => now()->addDays(7)->format('Y-m-d'),
-                        'availability' => $p->in_stock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
-                        'seller' => [
-                            '@type' => 'Organization',
-                            'name' => 'أمازون مصر',
-                        ],
-                    ],
+                    'offers' => $offerData,
                 ];
 
                 if ($rating > 0 && $reviewCount > 0) {

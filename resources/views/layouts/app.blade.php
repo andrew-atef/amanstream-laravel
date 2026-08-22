@@ -5,7 +5,7 @@
     'ogDescription' => null,
     'ogImage' => null,
     'ogType' => 'website',
-    'robots' => 'index, follow',
+    'robots' => 'index, follow, max-image-size:large, max-snippet:-1, max-video-preview:-1',
 ])
 <!DOCTYPE html>
 <html lang="ar" dir="rtl" class="scroll-smooth">
