@@ -276,6 +276,21 @@ class ArticleResource extends Resource
                             ->readOnly()
                             ->rows(8)
                             ->columnSpanFull(),
+                        Textarea::make('product.facebook_insights')
+                            ->label('بوستات ومناقشات جروبات الفيسبوك (تجارب حقيقية)')
+                            ->readOnly()
+                            ->rows(6)
+                            ->columnSpanFull(),
+                        Textarea::make('product.video_transcripts')
+                            ->label('نصوص وتفريغ فيديوهات مراجعات اليوتيوب')
+                            ->readOnly()
+                            ->rows(6)
+                            ->columnSpanFull(),
+                        Textarea::make('product.catalog_manual')
+                            ->label('نصوص الكتالوج ودليل المستخدم الرسمي')
+                            ->readOnly()
+                            ->rows(6)
+                            ->columnSpanFull(),
                     ])
                     ->collapsible()
                     ->collapsed(),

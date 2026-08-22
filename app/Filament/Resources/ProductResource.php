@@ -234,6 +234,27 @@ class ProductResource extends Resource
                     ])
                     ->collapsible()
                     ->collapsed(),
+                Section::make('المراجع المعرفية لصياغة المقالات (AI Intelligence Hub)')
+                    ->description('مراجع خارجية تُغذّي كائن الذكاء الاصطناعي ببيانات أعمق من فيسبوك واليوتيوب والكتالوجات الرسمية لصياغة مقالات أدق.')
+                    ->schema([
+                        Textarea::make('facebook_insights')
+                            ->label('بوستات ومناقشات جروبات الفيسبوك (تجارب حقيقية)')
+                            ->rows(6)
+                            ->columnSpanFull()
+                            ->placeholder('الصق هنا منشورات جروبات فيسبوك关于 هذا المنتج: شكاوى المستخدمين، نصائح التركيب، تجارب طويلة المدى...'),
+                        Textarea::make('video_transcripts')
+                            ->label('نصوص وتفريغ فيديوهات مراجعات اليوتيوب')
+                            ->rows(6)
+                            ->columnSpanFull()
+                            ->placeholder('الصق هنا تفريغ فيديوهات مراجعات اليوتيوب: مقارنات جانبية، فك وتركيب، اختبارات أداء...'),
+                        Textarea::make('catalog_manual')
+                            ->label('نصوص الكتالوج ودليل المستخدم الرسمي')
+                            ->rows(6)
+                            ->columnSpanFull()
+                            ->placeholder('الصق هنا مواصفات الكتالوج الرسمي: أبعاد التثبيت، شروط الضمان، مواصفات الكهرباء والموصلات...'),
+                    ])
+                    ->collapsible()
+                    ->collapsed(),
             ]);
     }
 

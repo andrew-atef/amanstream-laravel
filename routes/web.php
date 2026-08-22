@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AdminMcpController;
 use App\Http\Controllers\ArticleController;
 use App\Http\Controllers\BlogController;
 use App\Http\Controllers\HomeController;
@@ -16,6 +17,11 @@ Route::get('/', [HomeController::class, 'index'])->name('home');
 Route::match(['post', 'options'], '/mcp', [McpController::class, 'handle'])
     ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class])
     ->name('mcp');
+
+// Private Admin MCP Editorial Server — secret-header gated, CSRF-exempt.
+Route::match(['post', 'options'], '/mcp/admin', [AdminMcpController::class, 'handle'])
+    ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class])
+    ->name('mcp.admin');
 
 // Clean, crawlable category hub URLs (replaces the faceted `?category=` links).
 Route::get('/category/{slug}', [HomeController::class, 'index'])->name('categories.show');

@@ -70,4 +70,8 @@ return [
         'platform' => env('AMAZON_SCRAPER_PLATFORM', 'amazon'),
     ],
 
+    'mcp' => [
+        'admin_key' => env('ADMIN_MCP_KEY'),
+    ],
+
 ];
