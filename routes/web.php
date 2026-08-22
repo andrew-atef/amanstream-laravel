@@ -6,6 +6,7 @@ use App\Http\Controllers\BlogController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\LlmsTxtController;
 use App\Http\Controllers\McpController;
+use App\Http\Controllers\RedirectController;
 use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\WellKnownController;
 use Illuminate\Support\Facades\Route;
@@ -22,6 +23,11 @@ Route::match(['post', 'options'], '/mcp', [McpController::class, 'handle'])
 Route::match(['post', 'options'], '/mcp/admin', [AdminMcpController::class, 'handle'])
     ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class])
     ->name('mcp.admin');
+
+// First-party cloaked affiliate redirect: /go/{ASIN} → Amazon Egypt with tag.
+Route::get('/go/{asin}', [RedirectController::class, 'go'])
+    ->where('asin', '[A-Za-z0-9]{10}')
+    ->name('redirect.go');
 
 // Clean, crawlable category hub URLs (replaces the faceted `?category=` links).
 Route::get('/category/{slug}', [HomeController::class, 'index'])->name('categories.show');
@@ -94,6 +100,7 @@ Disallow:
 User-agent: * 
 Disallow: /admin
 Disallow: /cart
+Disallow: /go/
 
 Sitemap: {$sitemapUrl}
 TXT;

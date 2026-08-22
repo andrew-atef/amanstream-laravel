@@ -95,6 +95,17 @@ class SEOHelper
     }
 
     /**
+     * Build the first-party cloaked affiliate redirect URL for a given ASIN.
+     * All Markdown generators, Blade components and MCP output MUST use this
+     * instead of the raw Amazon URL so the outbound link is never exposed in
+     * HTML source, Markdown or schema.org offers.
+     */
+    public static function goUrl(?string $asin): string
+    {
+        return self::url('go/'.strtoupper(trim((string) $asin)));
+    }
+
+    /**
      * Normalize a raw scraped/affiliate URL into a clean canonical Amazon Egypt
      * purchase link. The single source of truth behind every CTA rendered in
      * HTML, Markdown, MCP output and schema.org offers:

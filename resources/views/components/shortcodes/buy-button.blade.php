@@ -5,13 +5,13 @@
 
 @php
     if (! $product) return;
-    $cleanUrl = \App\Services\SEOHelper::cleanAffiliateUrl((string) $product->affiliate_url, (string) $product->asin);
+    $goUrl = \App\Services\SEOHelper::goUrl((string) $product->asin);
     $inStock = (bool) $product->in_stock;
 @endphp
 
-@if ($inStock && filled($cleanUrl))
+@if ($inStock && filled($goUrl))
     <a
-        href="{{ $cleanUrl }}"
+        href="{{ $goUrl }}"
         target="_blank"
         rel="nofollow sponsored noopener"
         class="inline-flex h-11 px-6 text-sm items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-primary-600 font-bold text-white shadow-lg shadow-primary-600/30 transition-all hover:bg-primary-700 hover:shadow-xl active:scale-95"

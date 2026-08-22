@@ -49,11 +49,11 @@
                 $price = (float) $p->price;
                 $originalPrice = (float) ($p->original_price ?? 0);
                 $hasDiscount = $originalPrice > $price && $originalPrice > 0;
-                $cleanAffiliateUrl = $seoHelper::cleanAffiliateUrl((string) $p->affiliate_url, (string) $p->asin);
+                $goUrl = $seoHelper::goUrl((string) $p->asin);
 
                 $offerData = [
                     '@type' => 'Offer',
-                    'url' => $cleanAffiliateUrl,
+                    'url' => $goUrl,
                     'priceCurrency' => 'EGP',
                     'price' => number_format($price, 2, '.', ''),
                     'availability' => $p->in_stock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
@@ -108,11 +108,11 @@
                 $price = (float) $p->price;
                 $originalPrice = (float) ($p->original_price ?? 0);
                 $hasDiscount = $originalPrice > $price && $originalPrice > 0;
-                $cleanAffiliateUrl = $seoHelper::cleanAffiliateUrl((string) $p->affiliate_url, (string) $p->asin);
+                $goUrl = $seoHelper::goUrl((string) $p->asin);
 
                 $offerData = [
                     '@type' => 'Offer',
-                    'url' => $cleanAffiliateUrl,
+                    'url' => $goUrl,
                     'priceCurrency' => 'EGP',
                     'price' => number_format($price, 2, '.', ''),
                     'availability' => $p->in_stock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',

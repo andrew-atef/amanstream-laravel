@@ -94,6 +94,8 @@ class ServeMarkdownForAgents
         return $path === 'up'
             || $path === 'mcp'
             || str_starts_with($path, 'mcp/')
+            || $path === 'go'
+            || str_starts_with($path, 'go/')
             || str_starts_with($path, 'admin')
             || str_starts_with($path, 'api/')
             || str_starts_with($path, 'livewire/')
@@ -159,7 +161,7 @@ class ServeMarkdownForAgents
                 if (! $variant) {
                     continue;
                 }
-                $variantOffer = SEOHelper::cleanAffiliateUrl((string) $variant->affiliate_url, (string) $variant->asin);
+                $variantOffer = SEOHelper::goUrl((string) $variant->asin);
                 $frontmatter[] = '  - title: "'.str_replace('"', '\"', SEOHelper::cleanTitle((string) $variant->title)).'"';
                 $frontmatter[] = '    asin: "'.$variant->asin.'"';
                 $frontmatter[] = '    offer_url: "'.$variantOffer.'"';
@@ -193,11 +195,11 @@ class ServeMarkdownForAgents
             // Explicit commercial entity metadata so AI agents (Perplexity,
             // AutoGPT, ChatGPT/Search) can resolve the buyable offer straight
             // from the frontmatter without treating the CTA as boilerplate.
-            // offer_url is ALWAYS the clean canonical link — no scraped
-            // tracking junk (dib/crid/sprefix/qid) ever reaches the agent.
-            $cleanOfferUrl = SEOHelper::cleanAffiliateUrl((string) $product->affiliate_url, (string) $product->asin);
-            if (filled($cleanOfferUrl)) {
-                $frontmatter[] = 'offer_url: '.$cleanOfferUrl;
+            // offer_url is ALWAYS the first-party /go/ redirect — the raw
+            // Amazon URL is never exposed in Markdown, schema.org or agents.
+            $goUrl = SEOHelper::goUrl((string) $product->asin);
+            if (filled($goUrl)) {
+                $frontmatter[] = 'offer_url: '.$goUrl;
                 $frontmatter[] = 'merchant: أمازون مصر';
                 $frontmatter[] = 'currency: EGP';
                 $frontmatter[] = 'availability: '.($product->in_stock ? 'in_stock' : 'out_of_stock');
@@ -229,9 +231,9 @@ class ServeMarkdownForAgents
                 if (! $v) {
                     return null;
                 }
-                $cleanUrl = SEOHelper::cleanAffiliateUrl((string) $v->affiliate_url, (string) $v->asin);
+                $goUrl = SEOHelper::goUrl((string) $v->asin);
                 $availability = $v->in_stock ? 'متوفر' : 'غير متوفر';
-                return '| '.str_replace('|', '\\|', SEOHelper::cleanTitle((string) $v->title)).' ('.$v->asin.') | '.number_format((float) $v->price, 2, '.', '').' ج.م | '.$availability.' | [شراء]('.$cleanUrl.') |';
+                return '| '.str_replace('|', '\\|', SEOHelper::cleanTitle((string) $v->title)).' ('.$v->asin.') | '.number_format((float) $v->price, 2, '.', '').' ج.م | '.$availability.' | [شراء]('.$goUrl.') |';
             })->filter()->implode(PHP_EOL);
             if ($rows !== '') {
                 $multiVariantComparisonTable = '| المنتج | السعر الحالي | التوفر | رابط الشراء |'.PHP_EOL.'| :--- | :--- | :--- | :--- |'.PHP_EOL.$rows;
@@ -242,14 +244,14 @@ class ServeMarkdownForAgents
         $introParagraph = null;
         if ($article->isComparison()) {
             $firstProduct = $article->articleProducts->sortBy('sort_order')->first()?->product;
-            $firstUrl = $firstProduct ? SEOHelper::cleanAffiliateUrl((string) $firstProduct->affiliate_url, (string) $firstProduct->asin) : null;
+            $firstUrl = $firstProduct ? SEOHelper::goUrl((string) $firstProduct->asin) : null;
             if (filled($firstUrl)) {
                 $introParagraph = 'تتضمن هذه المقارنة '.$article->articleProducts->whereNotNull('product_id')->count().' منتجات — يمكنك مراجعة المواصفات واختيار الأنسب عبر [صفحات العروض المعتمدة على أمازون مصر]('.$firstUrl.') مع خيارات التقسيط 0% فائدة.';
             }
         } else {
-            $cleanOfferUrl = SEOHelper::cleanAffiliateUrl((string) ($product?->affiliate_url ?? ''), (string) ($product?->asin ?? ''));
-            if ($product && filled($cleanOfferUrl)) {
-                $introParagraph = 'يمكنك الاطلاع على المواصفات والطلب مباشرة عبر [صفحة العرض والضمان المعتمد على أمازون مصر]('.$cleanOfferUrl.') مع تفعيل خيارات التقسيط البنكي 0% فائدة.';
+            $goUrl = SEOHelper::goUrl((string) ($product?->asin ?? ''));
+            if ($product && filled($goUrl)) {
+                $introParagraph = 'يمكنك الاطلاع على المواصفات والطلب مباشرة عبر [صفحة العرض والضمان المعتمد على أمازون مصر]('.$goUrl.') مع تفعيل خيارات التقسيط البنكي 0% فائدة.';
             }
         }
 

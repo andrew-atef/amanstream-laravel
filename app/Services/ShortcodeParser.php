@@ -252,10 +252,10 @@ class ShortcodeParser
 
     protected function priceMarkdown(Product $product): string
     {
-        $cleanUrl = SEOHelper::cleanAffiliateUrl((string) $product->affiliate_url, (string) $product->asin);
+        $goUrl = SEOHelper::goUrl((string) $product->asin);
 
         return (float) $product->price > 0
-            ? '**'.$this->formatPrice((float) $product->price).' ج.م** (سعر محدث اليوم — [التحقق من السعر والضمان على أمازون مصر]('.$cleanUrl.'))'
+            ? '**'.$this->formatPrice((float) $product->price).' ج.م** (سعر محدث اليوم — [التحقق من السعر والضمان على أمازون مصر]('.$goUrl.'))'
             : 'السعر قيد التحديث ⏳';
     }
 
@@ -286,10 +286,10 @@ class ShortcodeParser
 
     protected function buyButtonMarkdown(Product $product): string
     {
-        $cleanUrl = SEOHelper::cleanAffiliateUrl((string) $product->affiliate_url, (string) $product->asin);
+        $goUrl = SEOHelper::goUrl((string) $product->asin);
 
-        return filled($cleanUrl)
-            ? '[صفحة العرض والضمان المعتمد لـ '.SEOHelper::cleanTitle((string) $product->title).' على أمازون مصر]('.$cleanUrl.')'
+        return filled($goUrl)
+            ? '[صفحة العرض والضمان المعتمد لـ '.SEOHelper::cleanTitle((string) $product->title).' على أمازون مصر]('.$goUrl.')'
             : '';
     }
 
@@ -369,7 +369,7 @@ class ShortcodeParser
 
         $lines = ['| الموديل | السعر الحالي | التوفر | رابط الشراء |', '| :--- | :--- | :--- | :--- |'];
         foreach ($variants as $variant) {
-            $cleanUrl = SEOHelper::cleanAffiliateUrl((string) $variant->affiliate_url, (string) $variant->asin);
+            $goUrl = SEOHelper::goUrl((string) $variant->asin);
             $availability = $variant->in_stock ? 'متوفر' : 'غير متوفر';
             $lines[] = sprintf(
                 '| %s (%s) | %s ج.م | %s | [شراء](%s) |',
@@ -377,7 +377,7 @@ class ShortcodeParser
                 $variant->asin ?: '—',
                 $this->formatPrice((float) $variant->price),
                 $availability,
-                $cleanUrl
+                $goUrl
             );
         }
 
@@ -607,13 +607,13 @@ class ShortcodeParser
             }
 
             $title = str_replace('|', '\\|', SEOHelper::cleanTitle((string) $product->title));
-            $cleanUrl = SEOHelper::cleanAffiliateUrl((string) $product->affiliate_url, (string) $product->asin);
+            $goUrl = SEOHelper::goUrl((string) $product->asin);
 
             $markdown .= sprintf(
                 "| %s | %s ج.م | [صفحة الشراء والضمان](%s) |\n",
                 $title,
                 $this->formatPrice((float) $product->price),
-                $cleanUrl
+                $goUrl
             );
         }
 
@@ -657,8 +657,8 @@ class ShortcodeParser
             }
 
             if (filled($product->affiliate_url)) {
-                $cleanUrl = SEOHelper::cleanAffiliateUrl((string) $product->affiliate_url, (string) $product->asin);
-                $markdown .= '- [🔗 رابط العرض والضمان المعتمد على أمازون مصر]('.$cleanUrl.")\n";
+                $goUrl = SEOHelper::goUrl((string) $product->asin);
+                $markdown .= '- [🔗 رابط العرض والضمان المعتمد على أمازون مصر]('.$goUrl.")\n";
             }
 
             $markdown .= "\n";

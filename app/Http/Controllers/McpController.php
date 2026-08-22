@@ -262,12 +262,12 @@ class McpController extends Controller
             $lines[] = '- **التقسيط:** '.$this->formatPrice($monthly).' ج.م شهرياً عبر البنوك المصرية (0% فائدة)';
         }
 
-        $cleanUrl = SEOHelper::cleanAffiliateUrl((string) $product->affiliate_url, (string) $product->asin);
+        $goUrl = SEOHelper::goUrl((string) $product->asin);
 
-        if (filled($cleanUrl)) {
+        if (filled($goUrl)) {
             $lines[] = '';
-            $lines[] = '- **رابط الشراء المباشر:** '.$cleanUrl;
-            $lines[] = '- [🔗 صفحة العرض والضمان المعتمد على أمازون مصر]('.$cleanUrl.')';
+            $lines[] = '- **رابط الشراء المباشر:** '.$goUrl;
+            $lines[] = '- [🔗 صفحة العرض والضمان المعتمد على أمازون مصر]('.$goUrl.')';
         }
 
         $slug = $articleSlugs->get($product->getKey());

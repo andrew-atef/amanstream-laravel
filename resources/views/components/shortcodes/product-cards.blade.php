@@ -47,7 +47,7 @@
                         @endphp
                         <div class="mt-4 flex flex-wrap items-center gap-3 pt-3 border-t border-slate-100">
                             <a
-                                href="{{ $product->clean_affiliate_url }}"
+                                href="{{ \App\Services\SEOHelper::goUrl((string) $product->asin) }}"
                                 target="_blank"
                                 rel="nofollow sponsored noopener"
                                 class="inline-flex h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-primary-600 px-5 text-xs font-bold text-white shadow-md shadow-primary-600/20 transition-all hover:bg-primary-700 active:scale-95"
