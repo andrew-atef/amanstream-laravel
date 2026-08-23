@@ -299,9 +299,15 @@ class ArticleResource extends Resource
 
     public static function table(Table $table): Table
     {
-        return $table
-            ->columns([
-                TextColumn::make('title')
+    return $table
+        ->columns([
+            TextColumn::make('id')
+                ->label('#')
+                ->sortable()
+                ->searchable()
+                ->toggleable(),
+
+            TextColumn::make('title')
                     ->label('العنوان')
                     ->searchable()
                     ->sortable()
