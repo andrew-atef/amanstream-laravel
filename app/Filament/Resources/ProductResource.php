@@ -347,7 +347,7 @@ class ProductResource extends Resource
                     ->label('آخر مزامنة')
                     ->since()
                     ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->toggleable(),
             ])
             ->filters([
                 Tables\Filters\TernaryFilter::make('in_stock')
