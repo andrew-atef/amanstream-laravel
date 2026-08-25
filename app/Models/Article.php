@@ -360,6 +360,14 @@ class Article extends Model
      */
     public static function normalizeHardcodedPrices(string $content, ?Article $article = null): string
     {
+        // If the article has no linked product and no compared products, there
+        // is nothing that can resolve the [price] shortcode at render time.
+        // Leaving the hardcoded price in place ensures the price still shows
+        // in the rendered article instead of collapsing to an empty <strong></strong>.
+        if ($article && $article->product_id === null && $article->articleProducts()->count() === 0) {
+            return $content;
+        }
+
         $currency = 'ج\.?\s?م\.?|جنيهاً\s*مصرياً|جنيهات\s*مصرية|جنيهات\s*مصرياً|جنيه\s*مصرياً|جنيه\s*مصري|جنيهات|جنيهاً|جنيه|EGP|LE|£';
         $pattern = '/(?<![\d])\d[\d.,]*\s*(?:'.$currency.')/iu';
 
