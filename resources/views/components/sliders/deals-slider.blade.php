@@ -16,8 +16,8 @@
                 {{ $title }}
             </h2>
             @if ($moreHref)
-                <a href="{{ $moreHref }}" class="shrink-0 rounded-lg border border-primary-200 bg-primary-50 px-3 py-1.5 text-xs font-bold text-primary-700 transition hover:bg-primary-100 hover:text-primary-900">
-                    المزيد ←
+                <a href="{{ $moreHref }}" aria-label="تصفح جميع {{ $title }}" class="shrink-0 rounded-lg border border-primary-200 bg-primary-50 px-3 py-1.5 text-xs font-bold text-primary-700 transition hover:bg-primary-100 hover:text-primary-900">
+                    تصفح كل {{ $title }} ←
                 </a>
             @else
                 <span class="text-xs font-bold text-slate-500">اسحب للمزيد ←</span>

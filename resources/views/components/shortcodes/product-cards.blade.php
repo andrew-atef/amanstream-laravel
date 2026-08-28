@@ -50,10 +50,10 @@
                                 href="{{ \App\Services\SEOHelper::goUrl((string) $product->asin) }}"
                                 target="_blank"
                                 rel="nofollow sponsored noopener"
-                                class="inline-flex h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-primary-600 px-5 text-xs font-bold text-white shadow-md shadow-primary-600/20 transition-all hover:bg-primary-700 active:scale-95"
+                                class="inline-flex h-9 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-primary-600 px-4 text-xs font-bold text-white no-underline shadow-md shadow-primary-600/25 transition-all hover:bg-primary-700 hover:shadow-lg hover:no-underline active:scale-95"
                             >
-                                <span class="flex h-4 items-center justify-center rounded bg-white px-1">
-                                    <img src="/icons/amazon.svg" alt="Amazon" width="12" height="12" loading="lazy" class="h-2.5 w-2.5 object-contain">
+                                <span class="flex shrink-0 items-center justify-center rounded bg-white px-1.5 py-0.5">
+                                    <img src="/icons/amazon.svg" alt="Amazon" width="24" height="24" loading="lazy" class="h-4 w-auto object-contain">
                                 </span>
                                 <span>اشترِ الآن</span>
                             </a>

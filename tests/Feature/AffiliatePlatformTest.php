@@ -63,7 +63,7 @@ class AffiliatePlatformTest extends TestCase
         $response->assertSee('18,521.00 ج.م', false);
         $response->assertSee('nofollow sponsored', false);
         $response->assertSee('application/ld+json', false);
-        $response->assertSee('amazon.eg', false);
+        $response->assertSee('/go/', false);
 
         $html = $response->getContent();
         $this->assertStringNotContainsString('[price]', $html);

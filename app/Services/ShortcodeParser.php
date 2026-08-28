@@ -1015,15 +1015,22 @@ class ShortcodeParser
         $buttons = '';
 
         foreach ($products as $product) {
+            $goUrl = SEOHelper::goUrl((string) $product->asin);
+            $inStock = (bool) $product->in_stock;
+
+            $cta = $inStock && filled($goUrl)
+                ? '<a href="'.e($goUrl).'" target="_blank" rel="nofollow sponsored noopener" class="inline-flex h-9 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-primary-600 px-4 text-xs font-bold text-white no-underline shadow-md shadow-primary-600/25 transition-all hover:bg-primary-700 hover:shadow-lg hover:no-underline active:scale-95"><span class="flex shrink-0 items-center justify-center rounded bg-white px-1.5 py-0.5"><img src="/icons/amazon.svg" alt="Amazon" width="24" height="24" loading="lazy" class="h-4 w-auto object-contain"></span><span>اشترِ الآن</span></a>'
+                : '<span class="inline-flex h-9 shrink-0 items-center justify-center whitespace-nowrap rounded-xl border border-slate-200 bg-slate-100 px-4 text-xs font-bold text-slate-500 cursor-not-allowed">غير متوفر حالياً</span>';
+
             $buttons .= sprintf(
                 '<div class="my-2 flex flex-col items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center">
                     <span class="text-center text-sm font-bold text-slate-900 sm:text-right">%s</span>
-                    <span class="whitespace-nowrap text-sm font-black text-blue-700">%s ج.م</span>
+                    <span class="whitespace-nowrap text-sm font-black text-primary-700">%s ج.م</span>
                     %s
                 </div>',
                 e($product->title),
                 number_format((float) $product->price, 0),
-                $this->buyButton($product)
+                $cta
             );
         }
 
@@ -1043,7 +1050,7 @@ class ShortcodeParser
     protected function priceBadges(Collection $products): string
     {
         if ($products->isEmpty()) {
-            return '';
+            return '[price]';
         }
 
         $badges = $products->map(function (Product $product): string {

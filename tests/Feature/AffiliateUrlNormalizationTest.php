@@ -12,14 +12,22 @@ use Tests\TestCase;
  * Guards the central Amazon Affiliate URL Normalization Engine:
  * scraped tracking junk (&dib=, &dib_tag=, &crid=, &sprefix=, &qid=, psc ...)
  * must NEVER reach HTML output, Markdown variants, MCP results or schema.org
- * offers — every emitted link is the clean canonical
- * https://www.amazon.eg/dp/{ASIN}?tag={tag}.
+ * offers — every emitted link is the clean first-party /go/{ASIN} redirect.
  */
 class AffiliateUrlNormalizationTest extends TestCase
 {
     use RefreshDatabase;
 
     private const CANONICAL = 'https://www.amazon.eg/dp/NORMASIN01?tag=khatfadeals2-21';
+
+    /** First-party cloaked URL that must appear in public DOM/Markdown. */
+    private string $goUrl;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->goUrl = config('app.url').'/go/NORMASIN01';
+    }
 
     private const MESSY = 'https://www.amazon.eg/dp/NORMASIN01?ref_=ppx_yo_mob_b_populate_td_t2&dib=eyJ2IjoiMSJ9&dib_tag=se&sprefix=%2Caps%2C247&crid=3GK0X2VX&qid=1716110000&psc=1&tag=demo';
 
@@ -71,9 +79,9 @@ class AffiliateUrlNormalizationTest extends TestCase
 
         $html = $this->get('/articles/'.$article->slug)->getContent();
 
-        // The canonical buy-bar CTA (h1 hero + sticky bar) carries the clean link.
-        $this->assertStringContainsString('href="'.self::CANONICAL.'"', $html);
-        $this->assertStringContainsString(self::CANONICAL, $html);
+        // The canonical buy-bar CTA (h1 hero + sticky bar) carries the clean /go/ link.
+        $this->assertStringContainsString('href="'.$this->goUrl.'"', $html);
+        $this->assertStringContainsString($this->goUrl, $html);
         $this->assertStringNotContainsString('&dib=', $html);
         $this->assertStringNotContainsString('&crid=', $html);
         $this->assertStringNotContainsString('&sprefix=', $html);
@@ -88,8 +96,8 @@ class AffiliateUrlNormalizationTest extends TestCase
 
         $content = $this->get('/articles/'.$article->slug, ['Accept' => 'text/markdown'])->getContent();
 
-        $this->assertStringContainsString('offer_url: '.self::CANONICAL, $content);
-        $this->assertStringContainsString('('.$product->affiliate_url.')', $content);
+        $this->assertStringContainsString('offer_url: '.$this->goUrl, $content);
+        $this->assertStringContainsString($this->goUrl, $content);
         $this->assertStringNotContainsString('&dib=', $content);
         $this->assertStringNotContainsString('&sprefix=', $content);
         $this->assertStringNotContainsString('&crid=', $content);
@@ -114,8 +122,8 @@ class AffiliateUrlNormalizationTest extends TestCase
         $response->assertOk();
         $text = $response->json('result.content.0.text');
 
-        $this->assertStringContainsString('**رابط الشراء المباشر:** '.self::CANONICAL, $text);
-        $this->assertStringContainsString(']('.self::CANONICAL.')', $text);
+        $this->assertStringContainsString('**رابط الشراء المباشر:** '.$this->goUrl, $text);
+        $this->assertStringContainsString(']('.$this->goUrl.')', $text);
         $this->assertStringNotContainsString('&dib=', $text);
         $this->assertStringNotContainsString('&sprefix=', $text);
         $this->assertStringNotContainsString('&crid=', $text);
@@ -139,9 +147,9 @@ class AffiliateUrlNormalizationTest extends TestCase
         $this->assertStringContainsString('property="product:brand" content="فريش"', $html);
         $this->assertStringContainsString('property="product:retailer_item_id" content="NORMASIN01"', $html);
 
-        // Google Merchant schema: clean offers.url, 7-day freshness, return policy, shipping.
+        // Google Merchant schema: clean offers.url via /go/ redirect, 7-day freshness, return policy, shipping.
         $this->assertStringContainsString('"@type":"Offer"', $html);
-        $this->assertStringContainsString('"url":"'.self::CANONICAL.'"', $html);
+        $this->assertStringContainsString('"url":"'.$this->goUrl.'"', $html);
         $this->assertStringContainsString('"priceValidUntil":"'.now()->addDays(7)->format('Y-m-d').'"', $html);
         $this->assertStringContainsString('"hasMerchantReturnPolicy"', $html);
         $this->assertStringContainsString('"merchantReturnDays":14', $html);

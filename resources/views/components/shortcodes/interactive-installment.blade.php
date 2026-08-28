@@ -20,7 +20,8 @@
                     <p class="text-xs text-slate-500">محسوبة بالنظام المصرفي على سعر اليوم ({{ number_format($price, 2) }} ج.م)</p>
                 </div>
             </div>
-            <a href="{{ $product?->affiliate_url }}" target="_blank" rel="nofollow sponsored noopener" class="hidden sm:inline-block bg-primary-600 hover:bg-primary-700 text-white font-bold text-xs px-4 py-2.5 rounded-lg transition">
+            <a href="{{ \App\Services\SEOHelper::goUrl((string) ($product->asin ?? '')) }}" target="_blank" rel="nofollow sponsored noopener" class="hidden sm:inline-flex h-9 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-primary-600 px-4 text-xs font-bold text-white no-underline shadow-md shadow-primary-600/25 transition-all hover:bg-primary-700 hover:shadow-lg hover:no-underline active:scale-95">
+                <span class="flex shrink-0 items-center justify-center rounded bg-white px-1.5 py-0.5"><img src="/icons/amazon.svg" alt="Amazon" width="24" height="24" loading="lazy" class="h-4 w-auto object-contain"></span>
                 اختر خطة التقسيط في أمازون
             </a>
         </div>

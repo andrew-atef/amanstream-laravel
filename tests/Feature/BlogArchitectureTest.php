@@ -338,7 +338,7 @@ class BlogArchitectureTest extends TestCase
 
         $response->assertOk();
         $response->assertSee($review->title);
-        $response->assertSee('المزيد', false);
+        $response->assertSee('تصفح كل مقارنات', false);
         $response->assertSee('?comparisons=1', false);
 
         // The comparison renders once — in its dedicated slider (full title), it

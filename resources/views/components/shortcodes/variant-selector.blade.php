@@ -59,12 +59,12 @@
                 @endif
                 <div class="mt-4">
                     @if ($variant->in_stock)
-                        <a href="{{ \App\Services\SEOHelper::goUrl((string) $variant->asin) }}" target="_blank" rel="nofollow sponsored noopener" class="inline-flex w-full h-11 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-primary-600 px-6 text-sm font-bold text-white shadow-lg shadow-primary-600/30 transition-all hover:bg-primary-700 hover:shadow-xl active:scale-95">
-                            <span class="flex items-center justify-center rounded-md bg-white px-2 py-1"><img src="/icons/amazon.svg" alt="Amazon" width="24" height="24" loading="lazy" class="h-4 w-4 object-contain"></span>
+                        <a href="{{ \App\Services\SEOHelper::goUrl((string) $variant->asin) }}" target="_blank" rel="nofollow sponsored noopener" class="inline-flex w-full h-11 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-primary-600 px-6 text-sm font-bold text-white no-underline shadow-md shadow-primary-600/25 transition-all hover:bg-primary-700 hover:shadow-lg hover:no-underline active:scale-95">
+                            <span class="flex shrink-0 items-center justify-center rounded bg-white px-1.5 py-0.5"><img src="/icons/amazon.svg" alt="Amazon" width="24" height="24" loading="lazy" class="h-4 w-auto object-contain"></span>
                             <span>اشترِ الآن من أمازون مصر</span>
                         </a>
                     @else
-                        <span class="inline-flex w-full h-11 items-center justify-center whitespace-nowrap rounded-xl border border-slate-200 bg-slate-100 px-6 text-sm font-bold text-slate-500 cursor-not-allowed">غير متوفر حالياً</span>
+                        <span class="inline-flex w-full h-11 items-center justify-center whitespace-nowrap rounded-xl border border-slate-200 bg-slate-100 px-5 text-xs font-bold text-slate-500 cursor-not-allowed">غير متوفر حالياً</span>
                     @endif
                 </div>
             </div>

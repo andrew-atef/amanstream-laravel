@@ -358,16 +358,8 @@ class Article extends Model
      * Only numbers that are explicitly followed by an EGP currency marker are
      * touched, so real specs like "1.5 حصان" or "284 مراجعة" are never harmed.
      */
-    public static function normalizeHardcodedPrices(string $content, ?Article $article = null): string
+    public static function normalizeHardcodedPrices(string $content): string
     {
-        // If the article has no linked product and no compared products, there
-        // is nothing that can resolve the [price] shortcode at render time.
-        // Leaving the hardcoded price in place ensures the price still shows
-        // in the rendered article instead of collapsing to an empty <strong></strong>.
-        if ($article && $article->product_id === null && $article->articleProducts()->count() === 0) {
-            return $content;
-        }
-
         $currency = 'ج\.?\s?م\.?|جنيهاً\s*مصرياً|جنيهات\s*مصرية|جنيهات\s*مصرياً|جنيه\s*مصرياً|جنيه\s*مصري|جنيهات|جنيهاً|جنيه|EGP|LE|£';
         $pattern = '/(?<![\d])\d[\d.,]*\s*(?:'.$currency.')/iu';
 
@@ -379,7 +371,7 @@ class Article extends Model
 
         return preg_replace_callback(
             $pattern,
-            function (array $m) use (&$offset, &$prevCharPos, &$prevWasAccessory, $content, $article): string {
+            function (array $m) use (&$offset, &$prevCharPos, &$prevWasAccessory, $content): string {
                 $match = $m[0];
                 $pos = strpos($content, $match, $offset);
                 if ($pos === false) {
@@ -493,7 +485,14 @@ class Article extends Model
             }
 
             if ($article->content !== null && $article->isDirty('content')) {
-                $article->content = static::normalizeHardcodedPrices((string) $article->content, $article);
+                // Normalize only single-product review articles. Blog posts and
+                // comparison articles (no primary product_id) keep their
+                // hardcoded prices intact so illustrative numbers stay as-is.
+                // type === null means the DB default 'review' will apply.
+                $isReview = ($article->type ?? 'review') === 'review';
+                if ($isReview && $article->product_id !== null) {
+                    $article->content = static::normalizeHardcodedPrices((string) $article->content);
+                }
             }
         });
     }

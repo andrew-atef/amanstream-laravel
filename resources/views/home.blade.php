@@ -144,7 +144,7 @@
         </aside>
 
         <!-- Main Feed Column (Kanbakam Grid) -->
-        <main class="space-y-4 lg:col-span-3">
+        <section class="space-y-4 lg:col-span-3" aria-label="أحدث المراجعات ومقارنات الأجهزة">
 
             <!-- Active Filters Notification Bar -->
             @if ($searchQuery || $selectedCategory || $comparisonsOnly)
@@ -214,7 +214,7 @@
                 {{ $articles->links() }}
             </div>
 
-        </main>
+        </section>
 
     </div>
 </x-layouts.app>

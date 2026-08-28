@@ -77,7 +77,7 @@
             @if ($article->category)
                 <span class="inline-flex rounded-full bg-primary-50 border border-primary-100 px-2.5 py-1 text-[11px] font-bold text-primary-700">{{ $article->category->name }}</span>
             @endif
-            <a href="{{ route('articles.show', $article->slug) }}" class="mt-3 flex w-full items-center justify-center gap-1 rounded-xl bg-slate-900 px-3 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-black">قراءة المقارنة والمواصفات 👈</a>
+            <a href="{{ route('articles.show', $article->slug) }}" class="mt-3 flex w-full items-center justify-center gap-1 rounded-xl bg-slate-900 px-3 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-black">مقارنة ومواصفات {{ \App\Services\SEOHelper::cleanTitle(Str::limit((string) $article->title, 35)) }} 👈</a>
         </div>
     @else
         <div class="mt-auto flex items-end justify-between border-t border-slate-100 pt-3">
@@ -101,6 +101,6 @@
                 </div>
             @endif
         </div>
-        <a href="{{ route('articles.show', $article->slug) }}" class="mt-3 flex w-full items-center justify-center gap-1 rounded-lg bg-primary-50 border border-primary-100 px-3 py-2 text-xs font-bold text-primary-700 transition hover:bg-primary-100">عرض السعر والمراجعة 👈</a>
+        <a href="{{ route('articles.show', $article->slug) }}" class="mt-3 flex w-full items-center justify-center gap-1 rounded-lg bg-primary-50 border border-primary-100 px-3 py-2 text-xs font-bold text-primary-700 transition hover:bg-primary-100">سعر ومراجعة {{ \App\Services\SEOHelper::cleanTitle(Str::limit((string) ($product->title ?: $article->title), 35)) }} 👈</a>
     @endif
 </article>

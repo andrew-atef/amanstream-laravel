@@ -95,8 +95,9 @@ class ArticlePriceNormalizationTest extends TestCase
 
         $article->refresh();
 
-        $this->assertStringNotContainsString('1,475', $article->content);
-        $this->assertStringContainsString('الأول سعره [price] فقط.', $article->content);
+        // Comparison articles without a primary product_id are NOT normalized
+        // — only single-product reviews (type=review + product_id set) are.
+        $this->assertStringContainsString('1,475', $article->content);
         $this->assertStringContainsString('[comparison_table]', $article->content);
     }
 
@@ -121,6 +122,6 @@ class ArticlePriceNormalizationTest extends TestCase
         // url frontmatter must be a single clean join — no "//" anywhere.
         $this->assertStringNotContainsString('//', str_replace(['http://', 'https://'], '', $content));
         $this->assertStringContainsString('url: '.config('app.url').'/articles/price-url', $content);
-        $this->assertStringContainsString('**1479.00 ج.م** (سعر محدث اليوم — [التحقق من السعر والضمان على أمازون مصر](https://www.amazon.eg/dp/PRICE00001?tag=khatfadeals2-21))', $content);
+        $this->assertStringContainsString('**1479.00 ج.م** (سعر محدث اليوم — [التحقق من السعر والضمان على أمازون مصر]('.config('app.url').'/go/PRICE00001))', $content);
     }
 }

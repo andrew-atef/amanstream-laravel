@@ -64,6 +64,35 @@
                     ],
                     'validFrom' => now()->subDays(1)->toIso8601String(),
                     'priceValidUntil' => now()->addDays(7)->format('Y-m-d'),
+                    'shippingDetails' => [
+                        '@type' => 'OfferShippingDetails',
+                        'shippingDestination' => [
+                            '@type' => 'DefinedRegion',
+                            'addressCountry' => 'EG',
+                        ],
+                        'deliveryTime' => [
+                            '@type' => 'ShippingDeliveryTime',
+                            'handlingTime' => [
+                                '@type' => 'QuantitativeValue',
+                                'minValue' => 0,
+                                'maxValue' => 1,
+                                'unitCode' => 'DAY',
+                            ],
+                            'transitTime' => [
+                                '@type' => 'QuantitativeValue',
+                                'minValue' => 1,
+                                'maxValue' => 5,
+                                'unitCode' => 'DAY',
+                            ],
+                        ],
+                    ],
+                    'hasMerchantReturnPolicy' => [
+                        '@type' => 'MerchantReturnPolicy',
+                        'applicableCountry' => 'EG',
+                        'returnPolicyCategory' => 'https://schema.org/MerchantReturnFiniteReturnWindow',
+                        'merchantReturnDays' => 14,
+                        'returnFees' => 'https://schema.org/FreeReturn',
+                    ],
                 ];
 
                 if ($hasDiscount) {
@@ -123,6 +152,35 @@
                     ],
                     'validFrom' => now()->subDays(1)->toIso8601String(),
                     'priceValidUntil' => now()->addDays(7)->format('Y-m-d'),
+                    'shippingDetails' => [
+                        '@type' => 'OfferShippingDetails',
+                        'shippingDestination' => [
+                            '@type' => 'DefinedRegion',
+                            'addressCountry' => 'EG',
+                        ],
+                        'deliveryTime' => [
+                            '@type' => 'ShippingDeliveryTime',
+                            'handlingTime' => [
+                                '@type' => 'QuantitativeValue',
+                                'minValue' => 0,
+                                'maxValue' => 1,
+                                'unitCode' => 'DAY',
+                            ],
+                            'transitTime' => [
+                                '@type' => 'QuantitativeValue',
+                                'minValue' => 1,
+                                'maxValue' => 5,
+                                'unitCode' => 'DAY',
+                            ],
+                        ],
+                    ],
+                    'hasMerchantReturnPolicy' => [
+                        '@type' => 'MerchantReturnPolicy',
+                        'applicableCountry' => 'EG',
+                        'returnPolicyCategory' => 'https://schema.org/MerchantReturnFiniteReturnWindow',
+                        'merchantReturnDays' => 14,
+                        'returnFees' => 'https://schema.org/FreeReturn',
+                    ],
                 ];
 
                 if ($hasDiscount) {
@@ -321,18 +379,18 @@
                     </div>
                     @if ($product->in_stock)
                         <a
-                            href="{{ $product->affiliate_url }}"
+                            href="{{ \App\Services\SEOHelper::goUrl((string) $product->asin) }}"
                             target="_blank"
                             rel="nofollow sponsored noopener"
-                            class="inline-flex h-11 w-full shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-primary-600 px-6 text-sm font-bold text-white shadow-lg shadow-primary-600/30 transition-all hover:bg-primary-700 hover:shadow-xl active:scale-95 sm:w-auto"
+                            class="inline-flex h-11 w-full shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-primary-600 px-6 text-sm font-bold text-white no-underline shadow-md shadow-primary-600/25 transition-all hover:bg-primary-700 hover:shadow-lg hover:no-underline active:scale-95 sm:w-auto"
                         >
-                            <span class="flex items-center justify-center rounded-md bg-white px-2 py-1">
-                                <img src="/icons/amazon.svg" alt="Amazon" width="24" height="24" loading="lazy" class="h-4 w-4 object-contain">
+                            <span class="flex shrink-0 items-center justify-center rounded bg-white px-1.5 py-0.5">
+                                <img src="/icons/amazon.svg" alt="Amazon" width="24" height="24" loading="lazy" class="h-4 w-auto object-contain">
                             </span>
                             اشترِ الآن
                         </a>
                     @else
-                        <span class="inline-flex h-11 w-full shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-slate-100 border border-slate-200 px-6 text-sm font-bold text-slate-500 cursor-not-allowed sm:w-auto">
+                        <span class="inline-flex h-11 w-full shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-slate-200 bg-slate-100 px-5 text-xs font-bold text-slate-500 cursor-not-allowed sm:w-auto">
                             غير متوفر حالياً في أمازون مصر
                         </span>
                     @endif
@@ -395,18 +453,18 @@
                 </div>
                 @if ($product->in_stock)
                     <a
-                        href="{{ $product->affiliate_url }}"
+                        href="{{ \App\Services\SEOHelper::goUrl((string) $product->asin) }}"
                         target="_blank"
                         rel="nofollow sponsored noopener"
-                        class="inline-flex h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-primary-600 px-6 text-sm font-bold text-white shadow-lg shadow-primary-600/30 transition-all hover:bg-primary-700 hover:shadow-xl active:scale-95"
+                        class="inline-flex h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-primary-600 px-6 text-sm font-bold text-white no-underline shadow-md shadow-primary-600/25 transition-all hover:bg-primary-700 hover:shadow-lg hover:no-underline active:scale-95"
                     >
-                        <span class="flex items-center justify-center rounded-md bg-white px-2 py-1">
-                            <img src="/icons/amazon.svg" alt="Amazon" width="24" height="24" loading="lazy" class="h-4 w-4 object-contain">
+                        <span class="flex shrink-0 items-center justify-center rounded bg-white px-1.5 py-0.5">
+                            <img src="/icons/amazon.svg" alt="Amazon" width="24" height="24" loading="lazy" class="h-4 w-auto object-contain">
                         </span>
                         <span>اشترِ الآن</span>
                     </a>
                 @else
-                    <span class="inline-flex h-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl border border-slate-200 bg-slate-100 px-6 text-sm font-bold text-slate-500 cursor-not-allowed">
+                    <span class="inline-flex h-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl border border-slate-200 bg-slate-100 px-5 text-xs font-bold text-slate-500 cursor-not-allowed">
                         غير متوفر حالياً
                     </span>
                 @endif
