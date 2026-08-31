@@ -86,9 +86,16 @@ class ArticleResource extends Resource
         return $form
             ->schema([
                 Section::make('📊 أداء المقال في جوجل ومخطط النمو')
-                    ->description(fn (?Article $record): string => $record?->gsc_synced_at
-                        ? 'آخر مزامنة: '.$record->gsc_synced_at->diffForHumans()
-                        : 'لم تتم المزامنة بعد — اضغط زر "تحديث بيانات جوجل GSC" في جدول المقالات.')
+                    ->description(function (?Article $record): string {
+                        if (! $record) {
+                            return 'اختر فترة التحليل لعرض البيانات.';
+                        }
+                        $latest = $record->searchAnalytics()->max('date');
+
+                        return $latest
+                            ? 'آخر بيانات: '.$latest.' — حدّث من جدول المقالات بضغط "تحديث بيانات جوجل GSC".'
+                            : 'لم تتم المزامنة بعد — اضغط زر "تحديث بيانات جوجل GSC" في جدول المقالات.';
+                    })
                     ->schema([
                         Select::make('gsc_period')
                             ->label('فترة التحليل')
@@ -160,14 +167,16 @@ class ArticleResource extends Resource
                             ->columnSpanFull(),
                         Placeholder::make('gsc_chart')
                             ->label('مخطط النقرات والظهور اليومي')
-                            ->content(function (Get $get, ?Article $record): string {
+                            ->content(function (Get $get, ?Article $record): \Illuminate\Support\HtmlString {
                                 if (! $record) {
-                                    return '';
+                                    return new \Illuminate\Support\HtmlString('');
                                 }
-                                [$start, $end] = self::resolveGscRange((string) $get('gsc_chart_period'));
+                                [$start, $end] = self::resolveGscRange((string) ($get('gsc_chart_period') ?? '28d'));
                                 $chartData = $record->getGscChartData($start, $end);
 
-                                return view('forms.gsc-chart', ['get' => fn (?string $key = null) => $chartData])->render();
+                                return new \Illuminate\Support\HtmlString(
+                                    view('forms.gsc-chart', ['chartData' => $chartData])->render()
+                                );
                             })
                             ->columnSpanFull(),
                     ])

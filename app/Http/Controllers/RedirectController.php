@@ -55,11 +55,19 @@ class RedirectController extends Controller
         // All click counters live in atomic cache; zero DB writes on this
         // request. The affiliate:flush-clicks scheduled command batch-flushes
         // them into SQLite every 30 minutes inside a single transaction.
+        // File cache driver returns false on increment of missing key, so ensure existence first.
         $cleanAsin = strtoupper(trim($asin));
+        $todayKey = 'pending_clicks_today_'.date('Y-m-d');
+
+        foreach (['pending_clicks_asin_'.$cleanAsin, 'pending_clicks_total', $todayKey] as $k) {
+            if (! Cache::has($k)) {
+                Cache::put($k, 0, now()->addDays(2));
+            }
+        }
 
         Cache::increment('pending_clicks_asin_'.$cleanAsin);
         Cache::increment('pending_clicks_total');
-        Cache::increment('pending_clicks_today_'.date('Y-m-d'));
+        Cache::increment($todayKey);
 
         $activeAsins = (array) Cache::get('pending_clicked_asins_list', []);
         if (! in_array($cleanAsin, $activeAsins, true)) {

@@ -1,5 +1,5 @@
 @php
-    $metrics = $get('gsc_chart_data') ?? [];
+    $metrics = $chartData ?? [];
     $clicks = $metrics['clicks'] ?? [];
     $impressions = $metrics['impressions'] ?? [];
     $labels = $metrics['labels'] ?? [];
