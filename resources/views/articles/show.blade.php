@@ -458,10 +458,10 @@
     @if ($stickyProductForBar)
         <div
             id="sticky-buy-bar"
-            class="fixed inset-x-0 bottom-0 z-50 hidden border-t border-slate-200 bg-white/95 px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] backdrop-blur lg:hidden"
+            class="fixed inset-x-0 bottom-0 z-50 hidden max-w-full overflow-hidden border-t border-slate-200 bg-white/95 px-3 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-[0_-4px_20px_rgba(0,0,0,0.08)] backdrop-blur sm:px-4 lg:hidden"
         >
-            <div class="mx-auto flex max-w-5xl items-center gap-3">
-                <div class="flex min-w-0 flex-1 items-center gap-2.5">
+            <div class="mx-auto flex w-full max-w-5xl items-center gap-2 overflow-hidden sm:gap-3">
+                <div class="flex min-w-0 flex-1 items-center gap-2 overflow-hidden sm:gap-2.5">
                     @if ($stickyProductForBar->image_url)
                         <img
                             src="{{ $stickyProductForBar->image_url }}"
@@ -469,21 +469,21 @@
                             width="40"
                             height="40"
                             loading="lazy"
-                            class="h-10 w-10 shrink-0 rounded-lg border border-slate-100 bg-white object-contain p-0.5"
+                            class="h-9 w-9 shrink-0 rounded-lg border border-slate-100 bg-white object-contain p-0.5 sm:h-10 sm:w-10"
                         >
                     @endif
-                    <div class="min-w-0 flex-1">
-                        <div class="truncate text-xs font-bold text-ink">{{ \App\Services\SEOHelper::cleanTitle($stickyProductForBar->title) }}</div>
-                        <div class="truncate">
+                    <div class="min-w-0 flex-1 overflow-hidden">
+                        <div class="truncate text-[11px] font-bold leading-tight text-ink sm:text-xs">{{ \App\Services\SEOHelper::cleanTitle($stickyProductForBar->title) }}</div>
+                        <div class="truncate leading-tight">
                             @if ($stickyIsComparison)
-                                <span class="text-sm font-bold text-slate-500">تبدأ من</span>
-                                <span class="text-xl font-black text-primary-700">{{ number_format($stickyPrice, 2) }} ج.م</span>
+                                <span class="text-xs font-bold text-slate-500 sm:text-sm">تبدأ من</span>
+                                <span class="text-base font-black text-primary-700 sm:text-xl">{{ number_format($stickyPrice, 2) }} ج.م</span>
                             @else
                                 @if ($stickyHasDiscount)
-                                    <span class="text-xs font-semibold text-slate-500 line-through">{{ number_format($stickyOriginal, 2) }} ج.م</span>
-                                    <span class="mx-1"></span>
+                                    <span class="hidden text-[11px] font-semibold text-slate-500 line-through sm:inline">{{ number_format($stickyOriginal, 2) }} ج.م</span>
+                                    <span class="mx-1 hidden sm:inline"></span>
                                 @endif
-                                <span class="text-xl font-black text-primary-700">{{ number_format($stickyPrice, 2) }} ج.م</span>
+                                <span class="text-base font-black text-primary-700 sm:text-xl">{{ number_format($stickyPrice, 2) }} ج.م</span>
                             @endif
                         </div>
                     </div>
@@ -493,15 +493,15 @@
                         href="{{ \App\Services\SEOHelper::goUrl((string) $stickyProductForBar->asin) }}"
                         target="_blank"
                         rel="nofollow sponsored noopener"
-                        class="inline-flex h-12 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-primary-600 px-6 text-sm font-bold text-white no-underline shadow-md shadow-primary-600/25 transition-all hover:bg-primary-700 hover:shadow-lg hover:no-underline active:scale-95"
+                        class="inline-flex h-11 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-primary-600 px-4 text-xs font-bold text-white no-underline shadow-md shadow-primary-600/25 transition-all hover:bg-primary-700 hover:shadow-lg hover:no-underline active:scale-95 sm:h-12 sm:gap-2 sm:px-6 sm:text-sm"
                     >
                         <span class="flex shrink-0 items-center justify-center rounded bg-white px-1.5 py-0.5">
-                            <img src="/icons/amazon.svg" alt="Amazon" width="24" height="24" loading="lazy" class="h-4 w-auto object-contain">
+                            <img src="/icons/amazon.svg" alt="Amazon" width="20" height="20" loading="lazy" class="h-3.5 w-auto object-contain sm:h-4">
                         </span>
                         <span>{{ $stickyIsComparison ? 'عرض الموديلات' : 'اشترِ الآن' }}</span>
                     </a>
                 @else
-                    <span class="inline-flex h-12 shrink-0 items-center justify-center whitespace-nowrap rounded-xl border border-slate-200 bg-slate-100 px-5 text-xs font-bold text-slate-500 cursor-not-allowed">
+                    <span class="inline-flex h-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl border border-slate-200 bg-slate-100 px-4 text-xs font-bold text-slate-500 cursor-not-allowed sm:h-12 sm:px-5">
                         غير متوفر حالياً
                     </span>
                 @endif
