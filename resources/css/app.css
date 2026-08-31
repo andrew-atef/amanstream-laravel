@@ -79,6 +79,10 @@
 .article-content a[class*="bg-primary"] img {
     margin: 0 !important;
     border-radius: 0.25rem !important;
+    height: 1rem !important;
+    width: auto !important;
+    max-width: none !important;
+    display: inline-block !important;
 }
 
 .article-content img {
