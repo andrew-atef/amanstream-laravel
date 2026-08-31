@@ -208,10 +208,12 @@ class GoogleSearchConsoleService
             Article::query()
                 ->where('is_published', true)
                 ->select(['id', 'slug', 'type'])
-                ->chunkById(200, function (Article $article) use (&$pathMap) {
-                    $routeName = $article->type === 'blog' ? 'blog.show' : 'articles.show';
-                    $path = parse_url(route($routeName, $article->slug), PHP_URL_PATH) ?: '/';
-                    $pathMap[rtrim($path, '/')] = $article->id;
+                ->chunkById(200, function ($articles) use (&$pathMap) {
+                    foreach ($articles as $article) {
+                        $routeName = $article->type === 'blog' ? 'blog.show' : 'articles.show';
+                        $path = parse_url(route($routeName, $article->slug), PHP_URL_PATH) ?: '/';
+                        $pathMap[rtrim($path, '/')] = $article->id;
+                    }
                 });
 
             $diagnostics['published_articles'] = count($pathMap);
