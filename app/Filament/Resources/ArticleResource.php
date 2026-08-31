@@ -54,10 +54,11 @@ class ArticleResource extends Resource
         $days = match ($period) {
             '48h' => 2,
             '7d' => 7,
+            '28d' => 28,
             '30d' => 30,
             '90d' => 90,
             '180d' => 180,
-            default => 30,
+            default => 28,
         };
 
         $endDate = Carbon::now()->subDays(1);
@@ -70,7 +71,7 @@ class ArticleResource extends Resource
     {
         $value = request()->input('tableFilters.gsc_period_filter.value');
 
-        return in_array($value, ['48h', '7d', '30d', '90d', '180d'], true) ? $value : '30d';
+        return in_array($value, ['48h', '7d', '28d', '30d', '90d', '180d'], true) ? $value : '28d';
     }
 
     protected static function applyGscAggregates(Builder $query, string $period): Builder
@@ -94,11 +95,12 @@ class ArticleResource extends Resource
                             ->options([
                                 '48h' => '⚡ آخر 48 ساعة',
                                 '7d' => '📅 آخر 7 أيام',
+                                '28d' => '📅 آخر 28 يوماً (افتراضي GSC)',
                                 '30d' => '📅 آخر 30 يوماً',
                                 '90d' => '📊 آخر 3 شهور',
                                 '180d' => '📈 آخر 6 شهور',
                             ])
-                            ->default('30d')
+                            ->default('28d')
                             ->live()
                             ->columnSpanFull(),
                         Placeholder::make('gsc_period_impressions')
@@ -149,10 +151,11 @@ class ArticleResource extends Resource
                             ->label('فترة المخطط')
                             ->options([
                                 '7d' => '7 أيام',
+                                '28d' => '28 يوماً',
                                 '30d' => '30 يوماً',
                                 '90d' => '3 شهور',
                             ])
-                            ->default('30d')
+                            ->default('28d')
                             ->live()
                             ->columnSpanFull(),
                         Placeholder::make('gsc_chart')
@@ -581,11 +584,12 @@ class ArticleResource extends Resource
                     ->options([
                         '48h' => '⚡ 48 ساعة',
                         '7d' => '📅 7 أيام',
-                        '30d' => '📅 30 يوم (افتراضي)',
+                        '28d' => '📅 28 يوم (افتراضي GSC)',
+                        '30d' => '📅 30 يوم',
                         '90d' => '📊 3 شهور',
                         '180d' => '📈 6 شهور',
                     ])
-                    ->default('30d')
+                    ->default('28d')
                     ->query(fn (Builder $query): Builder => $query),
                 Tables\Filters\Filter::make('gsc_improvement_opportunity')
                     ->label('⚠️ فرص تحسين (ظهور ≥300 و CTR < 3%)')
