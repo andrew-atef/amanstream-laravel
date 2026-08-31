@@ -179,6 +179,20 @@ class ArticleResource extends Resource
                                 );
                             })
                             ->columnSpanFull(),
+                        Placeholder::make('gsc_top_queries')
+                            ->label('🔍 أهم الكلمات المفتاحية (Top Queries)')
+                            ->content(function (Get $get, ?Article $record): \Illuminate\Support\HtmlString {
+                                if (! $record) {
+                                    return new \Illuminate\Support\HtmlString('');
+                                }
+                                [$start, $end] = self::resolveGscRange((string) ($get('gsc_period') ?? '28d'));
+                                $queries = $record->getTopQueriesForPeriod($start, $end, 20);
+
+                                return new \Illuminate\Support\HtmlString(
+                                    view('forms.gsc-queries', ['queries' => $queries])->render()
+                                );
+                            })
+                            ->columnSpanFull(),
                     ])
                     ->columns(4)
                     ->collapsible()

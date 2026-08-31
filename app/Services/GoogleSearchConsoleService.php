@@ -271,6 +271,140 @@ class GoogleSearchConsoleService
     }
 
     /**
+     * Fetch daily per-query analytics (page + query + date) and upsert into article_query_analytics.
+     *
+     * One row per (page_url, query, date). Uses same path→article_id mapping as page analytics.
+     *
+     * @return array{upserted: int, error: ?string, diagnostics: array}
+     */
+    public function syncQueryAnalytics(int $daysBack = 90): array
+    {
+        $diagnostics = [];
+
+        try {
+            if (! filter_var(config('services.google_search_console.enabled', true), FILTER_VALIDATE_BOOLEAN)) {
+                return ['upserted' => 0, 'error' => 'GSC sync disabled', 'diagnostics' => $diagnostics];
+            }
+
+            $credentialsPath = config('services.google_search_console.credentials_path');
+            if (blank($credentialsPath) || ! is_file($credentialsPath)) {
+                return ['upserted' => 0, 'error' => "Credentials file not found: {$credentialsPath}", 'diagnostics' => $diagnostics];
+            }
+
+            $credentials = json_decode(file_get_contents($credentialsPath), true);
+            if (! is_array($credentials) || blank($credentials['client_email'] ?? null)) {
+                return ['upserted' => 0, 'error' => 'Invalid credentials file', 'diagnostics' => $diagnostics];
+            }
+
+            $accessToken = $this->obtainAccessToken($credentialsPath);
+            if (blank($accessToken)) {
+                return ['upserted' => 0, 'error' => 'Could not obtain Google access token', 'diagnostics' => $diagnostics];
+            }
+
+            $siteUrl = rtrim(config('services.google_search_console.site_url', 'https://www.amanprice.tech/'), '/');
+            $encodedSiteUrl = rawurlencode($siteUrl);
+            $endDate = Carbon::now()->subDays(1)->format('Y-m-d');
+            $startDate = Carbon::now()->subDays($daysBack)->format('Y-m-d');
+
+            $diagnostics['site_url'] = $siteUrl;
+            $diagnostics['date_range'] = "{$startDate} → {$endDate}";
+
+            // Build path→article_id map
+            $pathMap = [];
+            Article::query()->where('is_published', true)->select(['id', 'slug', 'type'])
+                ->chunkById(200, function ($articles) use (&$pathMap) {
+                    foreach ($articles as $article) {
+                        $routeName = $article->type === 'blog' ? 'blog.show' : 'articles.show';
+                        $path = parse_url(route($routeName, $article->slug), PHP_URL_PATH) ?: '/';
+                        $pathMap[rtrim($path, '/')] = $article->id;
+                    }
+                });
+
+            $payload = [
+                'startDate' => $startDate,
+                'endDate' => $endDate,
+                'dimensions' => ['page', 'query', 'date'],
+                'rowLimit' => 25000,
+            ];
+
+            $apiUrl = self::GSC_BASE_URI.'/sites/'.$encodedSiteUrl.'/searchAnalytics/query';
+            $response = Http::withToken($accessToken)->timeout(60)->post($apiUrl, $payload);
+            $diagnostics['http_status'] = $response->status();
+
+            if (! $response->successful()) {
+                return ['upserted' => 0, 'error' => "GSC API returned HTTP {$response->status()}", 'diagnostics' => $diagnostics];
+            }
+
+            $data = $response->json('rows', []);
+            $diagnostics['rows_returned'] = count($data);
+
+            if ($data === []) {
+                return ['upserted' => 0, 'error' => 'GSC returned 0 rows for query dimension', 'diagnostics' => $diagnostics];
+            }
+
+            $diagnostics['published_articles'] = count($pathMap);
+            $upserted = 0;
+            $batch = [];
+            $batchSize = 500;
+
+            foreach ($data as $row) {
+                $pageUrl = $row['keys'][0] ?? null;
+                $query = $row['keys'][1] ?? null;
+                $dateStr = $row['keys'][2] ?? null;
+                if (blank($pageUrl) || blank($query) || blank($dateStr)) {
+                    continue;
+                }
+                $path = parse_url($pageUrl, PHP_URL_PATH) ?: '/';
+                $cleanUrl = rtrim($path, '/') ?: '/';
+                $dateOnly = substr($dateStr, 0, 10);
+                $articleId = $pathMap[$cleanUrl] ?? null;
+
+                $batch[] = [
+                    'article_id' => $articleId,
+                    'page_url' => $cleanUrl,
+                    'query' => mb_substr(trim((string) $query), 0, 500),
+                    'date' => $dateOnly,
+                    'clicks' => (int) ($row['clicks'] ?? 0),
+                    'impressions' => (int) ($row['impressions'] ?? 0),
+                    'ctr' => round((float) ($row['ctr'] ?? 0) * 100, 2),
+                    'position' => round((float) ($row['position'] ?? 0), 1),
+                ];
+
+                if (count($batch) >= $batchSize) {
+                    $upserted += $this->upsertQueryBatch($batch);
+                    $batch = [];
+                }
+            }
+
+            if ($batch !== []) {
+                $upserted += $this->upsertQueryBatch($batch);
+            }
+
+            $diagnostics['upserted'] = $upserted;
+
+            return ['upserted' => $upserted, 'error' => null, 'diagnostics' => $diagnostics];
+        } catch (ConnectionException|\Throwable $e) {
+            $diagnostics['exception'] = $e->getMessage();
+
+            return ['upserted' => 0, 'error' => 'Exception: '.$e->getMessage(), 'diagnostics' => $diagnostics];
+        }
+    }
+
+    protected function upsertQueryBatch(array $batch): int
+    {
+        if ($batch === []) {
+            return 0;
+        }
+        DB::table('article_query_analytics')->upsert(
+            $batch,
+            ['page_url', 'query', 'date'],
+            ['article_id', 'clicks', 'impressions', 'ctr', 'position']
+        );
+
+        return count($batch);
+    }
+
+    /**
      * Upsert a batch of daily analytics rows using a true SQL UPSERT.
      */
     protected function upsertBatch(array $batch): int

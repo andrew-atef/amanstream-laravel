@@ -366,6 +366,33 @@ class Article extends Model
     }
 
     /**
+     * Per-query GSC records for this article (page + query + date).
+     *
+     * @return HasMany<ArticleQueryAnalytic, $this>
+     */
+    public function queryAnalytics(): HasMany
+    {
+        return $this->hasMany(ArticleQueryAnalytic::class, 'article_id');
+    }
+
+    /**
+     * Top search queries for any period, aggregated across dates.
+     *
+     * @return \Illuminate\Support\Collection<int, mixed>
+     */
+    public function getTopQueriesForPeriod(\Carbon\CarbonInterface $startDate, \Carbon\CarbonInterface $endDate, int $limit = 20)
+    {
+        return $this->queryAnalytics()
+            ->whereBetween('date', [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')])
+            ->selectRaw('query, SUM(clicks) as total_clicks, SUM(impressions) as total_impressions, AVG(position) as avg_pos')
+            ->selectRaw('CASE WHEN SUM(impressions) > 0 THEN ROUND(SUM(clicks) * 100.0 / SUM(impressions), 2) ELSE 0 END as ctr')
+            ->groupBy('query')
+            ->orderByDesc('total_impressions')
+            ->limit($limit)
+            ->get();
+    }
+
+    /**
      * Eager-load GSC aggregates for a given date range as query aliases.
      * Used by the Filament table to make Clicks/Impressions/Position sortable at DB level.
      */

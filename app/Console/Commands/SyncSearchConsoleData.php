@@ -27,7 +27,7 @@ class SyncSearchConsoleData extends Command
         $result = $gsc->syncHistoricalSearchAnalytics($days);
 
         if ($result['error'] !== null) {
-            $this->error('❌ '.$result['error']);
+            $this->error('❌ Page analytics: '.$result['error']);
             $this->newLine();
 
             if ($this->option('verbose-diagnostics') && $result['diagnostics'] !== []) {
@@ -41,7 +41,6 @@ class SyncSearchConsoleData extends Command
                 $this->newLine();
             }
 
-            // Always show actionable hints
             $this->warn('── Troubleshooting ──');
             $this->line('  1. Verify credentials file exists and has client_email + private_key');
             $this->line('  2. Open Google Search Console → Settings → Users and permissions');
@@ -54,21 +53,43 @@ class SyncSearchConsoleData extends Command
         }
 
         $upserted = $result['upserted'];
-
-        if ($upserted === 0) {
-            $this->warn('⚠  Sync completed but no rows were upserted.');
-
-            return self::SUCCESS;
-        }
-
         $this->newLine();
-        $this->info("✅ Sync complete: {$upserted} daily rows upserted for the last {$days} days.");
+        $this->info($upserted === 0
+            ? '⚠  Page sync completed but no rows were upserted.'
+            : "✅ Page sync complete: {$upserted} daily rows upserted for the last {$days} days.");
 
         if ($this->option('verbose-diagnostics') && $result['diagnostics'] !== []) {
             $this->newLine();
-            $this->warn('── Diagnostic Info ──');
+            $this->warn('── Page Diagnostic Info ──');
             foreach ($result['diagnostics'] as $key => $value) {
                 $this->line("  {$key}: {$value}");
+            }
+        }
+
+        // ── Query analytics ──
+        $this->newLine();
+        $this->info("🔍 Fetching per-query analytics (page + query + date)...");
+        $qResult = $gsc->syncQueryAnalytics($days);
+
+        if ($qResult['error'] !== null) {
+            $this->warn('⚠  Query analytics: '.$qResult['error']);
+            if ($this->option('verbose-diagnostics') && $qResult['diagnostics'] !== []) {
+                $this->warn('── Query Diagnostic Info ──');
+                foreach ($qResult['diagnostics'] as $key => $value) {
+                    $this->line("  {$key}: {$value}");
+                }
+            }
+        } else {
+            $qUpserted = $qResult['upserted'];
+            $this->info($qUpserted === 0
+                ? '⚠  Query sync completed but no rows were upserted.'
+                : "✅ Query sync complete: {$qUpserted} query rows upserted for the last {$days} days.");
+            if ($this->option('verbose-diagnostics') && $qResult['diagnostics'] !== []) {
+                $this->newLine();
+                $this->warn('── Query Diagnostic Info ──');
+                foreach ($qResult['diagnostics'] as $key => $value) {
+                    $this->line("  {$key}: {$value}");
+                }
             }
         }
 
