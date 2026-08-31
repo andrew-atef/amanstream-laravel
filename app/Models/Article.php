@@ -366,6 +366,21 @@ class Article extends Model
     }
 
     /**
+     * Eager-load GSC aggregates for a given date range as query aliases.
+     * Used by the Filament table to make Clicks/Impressions/Position sortable at DB level.
+     */
+    public function scopeWithGscAggregates(Builder $query, \Carbon\CarbonInterface $startDate, \Carbon\CarbonInterface $endDate): Builder
+    {
+        $start = $startDate->format('Y-m-d');
+        $end = $endDate->format('Y-m-d');
+
+        return $query
+            ->withSum(['searchAnalytics as gsc_clicks_sum' => fn (Builder $q) => $q->whereBetween('date', [$start, $end])], 'clicks')
+            ->withSum(['searchAnalytics as gsc_impressions_sum' => fn (Builder $q) => $q->whereBetween('date', [$start, $end])], 'impressions')
+            ->withAvg(['searchAnalytics as gsc_position_avg' => fn (Builder $q) => $q->whereBetween('date', [$start, $end])], 'position');
+    }
+
+    /**
      * Aggregate GSC metrics for any arbitrary date range.
      */
     public function getGscMetricsForPeriod(CarbonInterface $startDate, CarbonInterface $endDate): array

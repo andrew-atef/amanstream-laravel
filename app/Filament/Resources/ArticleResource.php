@@ -66,6 +66,20 @@ class ArticleResource extends Resource
         return [$startDate, $endDate];
     }
 
+    protected static function getActiveGscPeriod(): string
+    {
+        $value = request()->input('tableFilters.gsc_period_filter.value');
+
+        return in_array($value, ['48h', '7d', '30d', '90d', '180d'], true) ? $value : '30d';
+    }
+
+    protected static function applyGscAggregates(Builder $query, string $period): Builder
+    {
+        [$start, $end] = self::resolveGscRange($period);
+
+        return $query->withGscAggregates($start, $end);
+    }
+
     public static function form(Form $form): Form
     {
         return $form
@@ -409,9 +423,13 @@ class ArticleResource extends Resource
 
     public static function table(Table $table): Table
     {
-        $defaultPeriod = '30d';
-
         return $table
+            ->modifyQueryUsing(function (Builder $query): Builder {
+                $period = self::getActiveGscPeriod();
+                [$start, $end] = self::resolveGscRange($period);
+
+                return $query->withGscAggregates($start, $end);
+            })
             ->columns([
                 TextColumn::make('id')
                     ->label('#')
@@ -428,13 +446,14 @@ class ArticleResource extends Resource
                     ->copyable()
                     ->copyMessage('تم النسخ')
                     ->weight('medium')
-                    ->extraHeaderAttributes(['class' => 'min-w-[320px]']),
+                    ->extraHeaderAttributes(['class' => 'min-w-[280px]']),
 
                 TextColumn::make('category.name')
                     ->label('التصنيف')
                     ->badge()
                     ->color('sky')
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(),
 
                 TextColumn::make('product.title')
                     ->label('المنتج المرتبط')
@@ -442,7 +461,7 @@ class ArticleResource extends Resource
                     ->sortable()
                     ->wrap()
                     ->tooltip(fn (Article $record): ?string => $record->product?->title)
-                    ->limit(60)
+                    ->limit(50)
                     ->default('— مقارنة / تجميعة —')
                     ->toggleable(),
 
@@ -451,56 +470,81 @@ class ArticleResource extends Resource
                     ->boolean()
                     ->sortable(),
 
-                TextColumn::make('gsc_clicks_dynamic')
+                TextColumn::make('gsc_clicks_sum')
                     ->label('النقرات')
-                    ->state(function (Article $record) use ($defaultPeriod): int {
-                        [$start, $end] = self::resolveGscRange($defaultPeriod);
-
-                        return $record->getGscMetricsForPeriod($start, $end)['clicks'];
+                    ->getStateUsing(fn (Article $record): int => (int) ($record->gsc_clicks_sum ?? 0))
+                    ->formatStateUsing(fn (int $state): string => $state > 0 ? number_format($state) : '—')
+                    ->sortable(query: function (Builder $query, string $direction): Builder {
+                        return $query->orderBy('gsc_clicks_sum', $direction);
                     })
-                    ->numeric(decimalPlaces: 0)
-                    ->sortable()
                     ->badge()
-                    ->color('success')
+                    ->color(fn (Article $record): string => ((int) ($record->gsc_clicks_sum ?? 0)) > 0 ? 'success' : 'gray')
+                    ->alignCenter()
                     ->toggleable(),
 
-                TextColumn::make('gsc_impressions_dynamic')
+                TextColumn::make('gsc_impressions_sum')
                     ->label('الظهور')
-                    ->state(function (Article $record) use ($defaultPeriod): int {
-                        [$start, $end] = self::resolveGscRange($defaultPeriod);
-
-                        return $record->getGscMetricsForPeriod($start, $end)['impressions'];
+                    ->getStateUsing(fn (Article $record): int => (int) ($record->gsc_impressions_sum ?? 0))
+                    ->formatStateUsing(fn (int $state): string => $state > 0 ? number_format($state) : '—')
+                    ->sortable(query: function (Builder $query, string $direction): Builder {
+                        return $query->orderBy('gsc_impressions_sum', $direction);
                     })
-                    ->numeric(decimalPlaces: 0)
-                    ->sortable()
+                    ->alignCenter()
                     ->toggleable(),
 
-                TextColumn::make('gsc_ctr_dynamic')
-                    ->label('نسبة النقر CTR %')
-                    ->state(function (Article $record) use ($defaultPeriod): string {
-                        [$start, $end] = self::resolveGscRange($defaultPeriod);
+                TextColumn::make('gsc_ctr_computed')
+                    ->label('CTR %')
+                    ->getStateUsing(function (Article $record): string {
+                        $clicks = (int) ($record->gsc_clicks_sum ?? 0);
+                        $imp = (int) ($record->gsc_impressions_sum ?? 0);
+                        if ($imp === 0) {
+                            return '—';
+                        }
+                        $ctr = round(($clicks / $imp) * 100, 2);
 
-                        return $record->getGscMetricsForPeriod($start, $end)['ctr'].'%';
+                        return $ctr.'%';
                     })
-                    ->sortable()
-                    ->toggleable(),
-
-                TextColumn::make('gsc_position_dynamic')
-                    ->label('متوسط الترتيب')
-                    ->state(function (Article $record) use ($defaultPeriod): string {
-                        [$start, $end] = self::resolveGscRange($defaultPeriod);
-                        $pos = $record->getGscMetricsForPeriod($start, $end)['position'];
-
-                        return $pos > 0 ? '#'.$pos : '—';
+                    ->sortable(query: function (Builder $query, string $direction): Builder {
+                        return $query->orderByRaw('(gsc_clicks_sum * 1.0 / NULLIF(gsc_impressions_sum, 0)) '.$direction);
                     })
-                    ->sortable()
                     ->badge()
-                    ->color(function (Article $record) use ($defaultPeriod): string {
-                        [$start, $end] = self::resolveGscRange($defaultPeriod);
-                        $pos = $record->getGscMetricsForPeriod($start, $end)['position'];
+                    ->color(function (Article $record): string {
+                        $clicks = (int) ($record->gsc_clicks_sum ?? 0);
+                        $imp = (int) ($record->gsc_impressions_sum ?? 0);
+                        if ($imp === 0) {
+                            return 'gray';
+                        }
+                        $ctr = ($clicks / $imp) * 100;
 
-                        return $pos <= 3 ? 'success' : ($pos <= 10 ? 'warning' : 'gray');
+                        return $ctr >= 5 ? 'success' : ($ctr >= 2 ? 'warning' : 'danger');
                     })
+                    ->alignCenter()
+                    ->toggleable(),
+
+                TextColumn::make('gsc_position_avg')
+                    ->label('الترتيب')
+                    ->getStateUsing(function (Article $record): string {
+                        $pos = $record->gsc_position_avg;
+                        if ($pos === null || (float) $pos === 0.0) {
+                            return '—';
+                        }
+
+                        return '#'.round((float) $pos, 1);
+                    })
+                    ->sortable(query: function (Builder $query, string $direction): Builder {
+                        return $query->orderBy('gsc_position_avg', $direction);
+                    })
+                    ->badge()
+                    ->color(function (Article $record): string {
+                        $pos = $record->gsc_position_avg;
+                        if ($pos === null || (float) $pos === 0.0) {
+                            return 'gray';
+                        }
+                        $v = (float) $pos;
+
+                        return $v <= 3 ? 'success' : ($v <= 10 ? 'warning' : 'gray');
+                    })
+                    ->alignCenter()
                     ->toggleable(),
 
                 TextColumn::make('gsc_synced_at')
@@ -521,7 +565,9 @@ class ArticleResource extends Resource
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
-            ->defaultSort('updated_at', 'desc')
+            ->defaultSort('gsc_impressions_sum', 'desc')
+            ->paginated([10, 25, 50, 100])
+            ->defaultPaginationPageOption(25)
             ->filters([
                 Tables\Filters\TernaryFilter::make('is_published')
                     ->label('حالة النشر')
@@ -531,46 +577,52 @@ class ArticleResource extends Resource
                     ->label('التصنيف')
                     ->relationship('category', 'name'),
                 Tables\Filters\SelectFilter::make('gsc_period_filter')
-                    ->label('فترة تحليلات جوجل (GSC Period)')
+                    ->label('فترة GSC')
                     ->options([
-                        '48h' => '⚡ آخر 48 ساعة',
-                        '7d' => '📅 آخر 7 أيام',
-                        '30d' => '📅 آخر 30 يوماً (افتراضي)',
-                        '90d' => '📊 آخر 3 شهور (90 يوماً)',
-                        '180d' => '📈 آخر 6 شهور',
+                        '48h' => '⚡ 48 ساعة',
+                        '7d' => '📅 7 أيام',
+                        '30d' => '📅 30 يوم (افتراضي)',
+                        '90d' => '📊 3 شهور',
+                        '180d' => '📈 6 شهور',
                     ])
                     ->default('30d')
-                    ->query(function (Builder $query, array $data): Builder {
-                        $period = $data['value'] ?? '30d';
+                    ->query(fn (Builder $query): Builder => $query),
+                Tables\Filters\Filter::make('gsc_improvement_opportunity')
+                    ->label('⚠️ فرص تحسين (ظهور ≥300 و CTR < 3%)')
+                    ->query(function (Builder $query): Builder {
+                        $period = self::getActiveGscPeriod();
                         [$start, $end] = self::resolveGscRange($period);
                         $startStr = $start->format('Y-m-d');
                         $endStr = $end->format('Y-m-d');
 
-                        return $query
-                            ->withCount(['searchAnalytics as gsc_clicks_sum' => fn ($q) => $q->whereBetween('date', [$startStr, $endStr])])
-                            ->withCount(['searchAnalytics as gsc_impressions_sum' => fn ($q) => $q->whereBetween('date', [$startStr, $endStr])])
-                            ->withCount(['searchAnalytics as gsc_position_count' => fn ($q) => $q->whereBetween('date', [$startStr, $endStr])]);
-                    }),
-                Tables\Filters\Filter::make('gsc_improvement_opportunity')
-                    ->label('فرص تحسين العناوين (ظهور عالي / CTR منخفض)')
-                    ->query(function (Builder $query): Builder {
-                        return $query->whereHas('searchAnalytics', function ($q) {
-                            $q->where('date', '>=', Carbon::now()->subDays(30)->format('Y-m-d'))
-                                ->selectRaw('article_id, SUM(impressions) as total_imp, SUM(clicks) as total_clk')
-                                ->groupBy('article_id')
-                                ->havingRaw('SUM(impressions) >= 300 AND (SUM(clicks) / NULLIF(SUM(impressions), 0)) * 100 < 3.0');
-                        });
+                        $ids = \App\Models\ArticleSearchAnalytic::query()
+                            ->whereBetween('date', [$startStr, $endStr])
+                            ->whereNotNull('article_id')
+                            ->groupBy('article_id')
+                            ->havingRaw('SUM(impressions) >= 300')
+                            ->havingRaw('(SUM(clicks) * 100.0 / NULLIF(SUM(impressions), 0)) < 3.0')
+                            ->pluck('article_id');
+
+                        return $query->whereIn('id', $ids);
                     })
                     ->toggle(),
                 Tables\Filters\Filter::make('gsc_zero_clicks')
-                    ->label('مقالات بدون نقرات (في آخر 30 يوم)')
+                    ->label('🚫 بدون نقرات (ظهور > 0)')
                     ->query(function (Builder $query): Builder {
-                        return $query->whereHas('searchAnalytics', function ($q) {
-                            $q->where('date', '>=', Carbon::now()->subDays(30)->format('Y-m-d'))
-                                ->selectRaw('article_id, SUM(clicks) as total_clk, SUM(impressions) as total_imp')
-                                ->groupBy('article_id')
-                                ->havingRaw('SUM(clicks) = 0 AND SUM(impressions) > 0');
-                        });
+                        $period = self::getActiveGscPeriod();
+                        [$start, $end] = self::resolveGscRange($period);
+                        $startStr = $start->format('Y-m-d');
+                        $endStr = $end->format('Y-m-d');
+
+                        $ids = \App\Models\ArticleSearchAnalytic::query()
+                            ->whereBetween('date', [$startStr, $endStr])
+                            ->whereNotNull('article_id')
+                            ->groupBy('article_id')
+                            ->havingRaw('SUM(clicks) = 0')
+                            ->havingRaw('SUM(impressions) > 0')
+                            ->pluck('article_id');
+
+                        return $query->whereIn('id', $ids);
                     })
                     ->toggle(),
             ])
