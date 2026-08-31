@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ArticleSearchAnalytic extends Model
 {
+    public $timestamps = false;
+
     protected $fillable = [
         'article_id',
         'page_url',
