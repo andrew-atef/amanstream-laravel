@@ -92,37 +92,37 @@
 @endphp
 
 <div class="my-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-    <div class="border-b border-slate-100 bg-slate-50 px-6 py-3.5 flex items-center gap-2">
-        <span class="text-primary-600 font-bold">
-            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M4 4h16v2H4V4zm0 4h16v2H4V8zm0 4h16v2H4v-2zm0 4h10v2H4v-2zm13-1l5 5-1.5 1.5-3.5-3.5-1.5 1.5-3-3 1.5-1.5 3 3L17 15z"/></svg>
+    <div class="border-b border-slate-100 bg-slate-50 flex items-center gap-2 px-4 py-3 sm:px-6 sm:py-3.5">
+        <span class="shrink-0 text-primary-600">
+            <svg class="h-4 w-4 sm:h-5 sm:w-5" fill="currentColor" viewBox="0 0 24 24"><path d="M4 4h16v2H4V4zm0 4h16v2H4V8zm0 4h16v2H4v-2zm0 4h10v2H4v-2zm13-1l5 5-1.5 1.5-3.5-3.5-1.5 1.5-3-3 1.5-1.5 3 3L17 15z"/></svg>
         </span>
-        <h3 class="font-bold text-ink text-base">ملخص سريع: {{ $product?->title }}</h3>
+        <h3 class="min-w-0 flex-1 text-sm font-bold leading-tight text-ink sm:text-base">ملخص سريع: {{ $product?->title }}</h3>
     </div>
-    <div class="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x rtl:divide-x-reverse divide-slate-200">
-        <div class="p-5">
-            <h4 class="font-bold text-primary-700 mb-3 flex items-center gap-2">المميزات الرئيسية</h4>
-            <ul class="space-y-2.5 text-sm text-ink/80">
+    <div class="grid grid-cols-1 divide-y divide-slate-200 md:grid-cols-2 md:divide-x md:divide-y-0 rtl:divide-x-reverse">
+        <div class="p-4 sm:p-5">
+            <h4 class="mb-2.5 flex items-center gap-2 text-sm font-bold text-primary-700 sm:mb-3 sm:text-base">المميزات الرئيسية</h4>
+            <ul class="space-y-2 text-xs leading-6 text-ink/80 sm:space-y-2.5 sm:text-sm sm:leading-7">
                 @foreach ($pros as $item)
-                    <li class="flex items-start gap-2">
-                        <svg class="w-5 h-5 mt-0.5 shrink-0 text-primary-500" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.2l-3.5-3.5L4 14.2 9 19l11-11-1.5-1.5L9 16.2z"/></svg>
-                        <span>{{ $item }}</span>
+                    <li class="flex items-start gap-1.5 sm:gap-2">
+                        <svg class="mt-0.5 h-4 w-4 shrink-0 text-primary-500 sm:h-5 sm:w-5" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.2l-3.5-3.5L4 14.2 9 19l11-11-1.5-1.5L9 16.2z"/></svg>
+                        <span class="min-w-0 flex-1">{{ $item }}</span>
                     </li>
                 @endforeach
             </ul>
         </div>
-        <div class="p-5">
-            <h4 class="font-bold text-ink mb-3 flex items-center gap-2">ملاحظات قبل الشراء</h4>
-            <ul class="space-y-2.5 text-sm text-ink/80">
+        <div class="p-4 sm:p-5">
+            <h4 class="mb-2.5 flex items-center gap-2 text-sm font-bold text-ink sm:mb-3 sm:text-base">ملاحظات قبل الشراء</h4>
+            <ul class="space-y-2 text-xs leading-6 text-ink/80 sm:space-y-2.5 sm:text-sm sm:leading-7">
                 @foreach ($cons as $item)
-                    <li class="flex items-start gap-2">
-                        <svg class="w-5 h-5 mt-0.5 shrink-0 text-ink/60" fill="currentColor" viewBox="0 0 24 24"><path d="M6.2 5L5 6.2 10.8 12 5 17.8 6.2 19 12 13.2 17.8 19 19 17.8 13.2 12 19 6.2 17.8 5 12 10.8 6.2 5z"/></svg>
-                        <span>{{ $item }}</span>
+                    <li class="flex items-start gap-1.5 sm:gap-2">
+                        <svg class="mt-0.5 h-4 w-4 shrink-0 text-ink/60 sm:h-5 sm:w-5" fill="currentColor" viewBox="0 0 24 24"><path d="M6.2 5L5 6.2 10.8 12 5 17.8 6.2 19 12 13.2 17.8 19 19 17.8 13.2 12 19 6.2 17.8 5 12 10.8 6.2 5z"/></svg>
+                        <span class="min-w-0 flex-1">{{ $item }}</span>
                     </li>
                 @endforeach
             </ul>
         </div>
     </div>
-    <div class="border-t border-slate-100 bg-primary-50/50 px-6 py-4 text-sm text-ink/80">
+    <div class="border-t border-slate-100 bg-primary-50/50 px-4 py-3 text-xs leading-6 text-ink/80 sm:px-6 sm:py-4 sm:text-sm">
         <strong>الخلاصة والتقييم:</strong> {{ $verdict }}
     </div>
 </div>
