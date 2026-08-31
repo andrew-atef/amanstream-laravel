@@ -340,6 +340,27 @@
                 </span>
             </div>
 
+            @php
+                // Hero pricing vars — used in both hero card and sticky bar
+                $showPrice = $product ? (float) $product->price : 0;
+                $showOriginal = $product ? (float) ($product->original_price ?? 0) : 0;
+                $hasDiscount = $product ? ($showOriginal > $showPrice && $showOriginal > 0) : false;
+                // Universal sticky product: single product OR cheapest of comparison
+                $stickyProduct = $product;
+                $isComparisonSticky = false;
+                if (! $stickyProduct && $article->isComparison()) {
+                    $stickyProduct = $article->products->where('in_stock', true)->sortBy('price')->first()
+                        ?? $article->products->first();
+                    $isComparisonSticky = $stickyProduct !== null;
+                    if ($isComparisonSticky) {
+                        $showPrice = (float) $article->getLowestVariantPrice();
+                        $showOriginal = (float) $stickyProduct->original_price;
+                        // For comparison, recompute discount vs cheapest original
+                        $hasDiscount = false;
+                    }
+                }
+            @endphp
+
             @if ($product)
                 <div class="mt-6 flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
                     <div class="flex min-w-0 flex-1 items-center gap-4">
@@ -359,11 +380,6 @@
                             <div class="mt-1 text-sm text-slate-500">
                                 {{ $product->brand }} · ASIN: {{ $product->asin }}
                             </div>
-                            @php
-                                $showPrice = (float) $product->price;
-                                $showOriginal = (float) ($product->original_price ?? 0);
-                                $hasDiscount = $showOriginal > $showPrice && $showOriginal > 0;
-                            @endphp
                             <div class="mt-2 flex flex-wrap items-center gap-2 text-2xl font-black text-primary-700">
                                 @if ($hasDiscount)
                                     <span class="text-base font-semibold text-slate-500 line-through">{{ number_format($showOriginal, 2) }} ج.م</span>
@@ -382,7 +398,7 @@
                             href="{{ \App\Services\SEOHelper::goUrl((string) $product->asin) }}"
                             target="_blank"
                             rel="nofollow sponsored noopener"
-                            class="inline-flex h-11 w-full shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-primary-600 px-6 text-sm font-bold text-white no-underline shadow-md shadow-primary-600/25 transition-all hover:bg-primary-700 hover:shadow-lg hover:no-underline active:scale-95 sm:w-auto"
+                            class="inline-flex h-12 w-full shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-primary-600 px-6 text-sm font-bold text-white no-underline shadow-md shadow-primary-600/25 transition-all hover:bg-primary-700 hover:shadow-lg hover:no-underline active:scale-95 sm:h-11 sm:w-auto"
                         >
                             <span class="flex shrink-0 items-center justify-center rounded bg-white px-1.5 py-0.5">
                                 <img src="/icons/amazon.svg" alt="Amazon" width="24" height="24" loading="lazy" class="h-4 w-auto object-contain">
@@ -390,7 +406,7 @@
                             اشترِ الآن
                         </a>
                     @else
-                        <span class="inline-flex h-11 w-full shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-slate-200 bg-slate-100 px-5 text-xs font-bold text-slate-500 cursor-not-allowed sm:w-auto">
+                        <span class="inline-flex h-12 w-full shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-slate-200 bg-slate-100 px-5 text-xs font-bold text-slate-500 cursor-not-allowed sm:h-11 sm:w-auto">
                             غير متوفر حالياً في أمازون مصر
                         </span>
                     @endif
@@ -398,9 +414,7 @@
             @endif
         </header>
 
-        @if ($product)
-            <div class="buy-bar-sentinel" aria-hidden="true"></div>
-        @endif
+        <div class="buy-bar-sentinel h-px w-full" aria-hidden="true"></div>
 
         <div class="article-content mx-auto max-w-none space-y-6 text-lg leading-8 text-ink/80">
             {!! $parsedContent !!}
@@ -423,17 +437,35 @@
         :more-href="route('home', ['deals' => 1])"
     />
 
-    @if ($product)
+    @php
+        // Resolve universal sticky product for both single & comparison
+        $stickyProductForBar = $product ?? null;
+        $stickyIsComparison = false;
+        $stickyPrice = $product ? (float) $product->price : 0;
+        $stickyHasDiscount = $product ? ((float) ($product->original_price ?? 0) > $stickyPrice) : false;
+        $stickyOriginal = $product ? (float) ($product->original_price ?? 0) : 0;
+        if (! $stickyProductForBar && $article->isComparison()) {
+            $stickyProductForBar = $article->products->where('in_stock', true)->sortBy('price')->first() ?? $article->products->first();
+            if ($stickyProductForBar) {
+                $stickyIsComparison = true;
+                $stickyPrice = (float) $article->getLowestVariantPrice();
+                $stickyOriginal = (float) $stickyProductForBar->original_price;
+                $stickyHasDiscount = false;
+            }
+        }
+    @endphp
+
+    @if ($stickyProductForBar)
         <div
             id="sticky-buy-bar"
-            class="fixed inset-x-0 bottom-0 z-40 hidden border-t border-slate-200 bg-white/95 px-4 pb-4 pt-3 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] backdrop-blur lg:hidden"
+            class="fixed inset-x-0 bottom-0 z-50 hidden border-t border-slate-200 bg-white/95 px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] backdrop-blur lg:hidden"
         >
             <div class="mx-auto flex max-w-5xl items-center gap-3">
                 <div class="flex min-w-0 flex-1 items-center gap-2.5">
-                    @if ($product->image_url)
+                    @if ($stickyProductForBar->image_url)
                         <img
-                            src="{{ $product->image_url }}"
-                            alt="{{ \App\Services\SEOHelper::cleanTitle($product->title) }}"
+                            src="{{ $stickyProductForBar->image_url }}"
+                            alt="{{ \App\Services\SEOHelper::cleanTitle($stickyProductForBar->title) }}"
                             width="40"
                             height="40"
                             loading="lazy"
@@ -441,50 +473,72 @@
                         >
                     @endif
                     <div class="min-w-0 flex-1">
-                        <div class="truncate text-xs font-bold text-ink">{{ \App\Services\SEOHelper::cleanTitle($product->title) }}</div>
+                        <div class="truncate text-xs font-bold text-ink">{{ \App\Services\SEOHelper::cleanTitle($stickyProductForBar->title) }}</div>
                         <div class="truncate">
-                            @if ($hasDiscount)
-                                <span class="text-xs font-semibold text-slate-500 line-through">{{ number_format($showOriginal, 2) }} ج.م</span>
-                                <span class="mx-1"></span>
+                            @if ($stickyIsComparison)
+                                <span class="text-sm font-bold text-slate-500">تبدأ من</span>
+                                <span class="text-xl font-black text-primary-700">{{ number_format($stickyPrice, 2) }} ج.م</span>
+                            @else
+                                @if ($stickyHasDiscount)
+                                    <span class="text-xs font-semibold text-slate-500 line-through">{{ number_format($stickyOriginal, 2) }} ج.م</span>
+                                    <span class="mx-1"></span>
+                                @endif
+                                <span class="text-xl font-black text-primary-700">{{ number_format($stickyPrice, 2) }} ج.م</span>
                             @endif
-                            <span class="text-xl font-black text-primary-700">{{ number_format($showPrice, 2) }} ج.م</span>
                         </div>
                     </div>
                 </div>
-                @if ($product->in_stock)
+                @if ($stickyProductForBar->in_stock)
                     <a
-                        href="{{ \App\Services\SEOHelper::goUrl((string) $product->asin) }}"
+                        href="{{ \App\Services\SEOHelper::goUrl((string) $stickyProductForBar->asin) }}"
                         target="_blank"
                         rel="nofollow sponsored noopener"
-                        class="inline-flex h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-primary-600 px-6 text-sm font-bold text-white no-underline shadow-md shadow-primary-600/25 transition-all hover:bg-primary-700 hover:shadow-lg hover:no-underline active:scale-95"
+                        class="inline-flex h-12 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-primary-600 px-6 text-sm font-bold text-white no-underline shadow-md shadow-primary-600/25 transition-all hover:bg-primary-700 hover:shadow-lg hover:no-underline active:scale-95"
                     >
                         <span class="flex shrink-0 items-center justify-center rounded bg-white px-1.5 py-0.5">
                             <img src="/icons/amazon.svg" alt="Amazon" width="24" height="24" loading="lazy" class="h-4 w-auto object-contain">
                         </span>
-                        <span>اشترِ الآن</span>
+                        <span>{{ $stickyIsComparison ? 'عرض الموديلات' : 'اشترِ الآن' }}</span>
                     </a>
                 @else
-                    <span class="inline-flex h-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl border border-slate-200 bg-slate-100 px-5 text-xs font-bold text-slate-500 cursor-not-allowed">
+                    <span class="inline-flex h-12 shrink-0 items-center justify-center whitespace-nowrap rounded-xl border border-slate-200 bg-slate-100 px-5 text-xs font-bold text-slate-500 cursor-not-allowed">
                         غير متوفر حالياً
                     </span>
                 @endif
             </div>
         </div>
 
+        <div id="sticky-buy-spacer" class="h-20 lg:hidden" aria-hidden="true"></div>
+
         <script>
             (function () {
                 var bar = document.getElementById('sticky-buy-bar');
                 var sentinel = document.querySelector('.buy-bar-sentinel');
-                if (! bar || ! sentinel || typeof IntersectionObserver === 'undefined') return;
-
-                var observer = new IntersectionObserver(function (entries) {
-                    entries.forEach(function (entry) {
-                        bar.classList.toggle('flex', ! entry.isIntersecting);
-                        bar.classList.toggle('hidden', entry.isIntersecting);
-                    });
-                });
-
-                observer.observe(sentinel);
+                if (!bar) return;
+                var show = function(){ bar.classList.remove('hidden'); bar.classList.add('flex'); };
+                var hide = function(){ bar.classList.add('hidden'); bar.classList.remove('flex'); };
+                var onScrollFallback = function(){
+                    if (window.scrollY > 350) show(); else hide();
+                };
+                if (sentinel && 'IntersectionObserver' in window) {
+                    var obs = new IntersectionObserver(function(entries){
+                        entries.forEach(function(e){ e.isIntersecting ? hide() : show(); });
+                    }, {threshold:0, rootMargin:'0px'});
+                    obs.observe(sentinel);
+                    // Safety net: if JS loads with sentinel already out of view on mobile, force show after 600ms
+                    setTimeout(function(){
+                        if (sentinel.getBoundingClientRect().bottom < 0) show();
+                    }, 600);
+                } else {
+                    window.addEventListener('scroll', onScrollFallback, {passive:true});
+                    onScrollFallback();
+                }
+                // Additional safety: scroll listener always ensures visibility even if observer fails
+                window.addEventListener('scroll', function(){
+                    if (!sentinel) { if (window.scrollY > 200) show(); return; }
+                    // If observer missing or stuck, use scrollY threshold
+                    if (bar.classList.contains('hidden') && window.scrollY > 400) show();
+                }, {passive:true});
             })();
         </script>
     @endif
