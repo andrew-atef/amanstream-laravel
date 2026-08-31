@@ -3,10 +3,10 @@
 namespace App\Services;
 
 use App\Models\Article;
-use App\Models\ArticleSearchAnalytic;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -223,7 +223,7 @@ class GoogleSearchConsoleService
                 }
 
                 $path = parse_url($pageUrl, PHP_URL_PATH) ?: '/';
-                $cleanUrl = rtrim($path, '/');
+                $cleanUrl = rtrim($path, '/') ?: '/';
 
                 $slug = null;
                 if (preg_match('#/(?:articles|blog)/([^/]+)$#', $cleanUrl, $m)) {
@@ -267,28 +267,21 @@ class GoogleSearchConsoleService
     }
 
     /**
-     * Upsert a batch of daily analytics rows using updateOrCreate per unique key.
+     * Upsert a batch of daily analytics rows using a true SQL UPSERT.
      */
     protected function upsertBatch(array $batch): int
     {
-        $count = 0;
-
-        foreach ($batch as $row) {
-            ArticleSearchAnalytic::updateOrCreate(
-                ['page_url' => $row['page_url'], 'date' => $row['date']],
-                [
-                    'article_id' => $row['article_id'],
-                    'clicks' => $row['clicks'],
-                    'impressions' => $row['impressions'],
-                    'ctr' => $row['ctr'],
-                    'position' => $row['position'],
-                ]
-            );
-
-            $count++;
+        if ($batch === []) {
+            return 0;
         }
 
-        return $count;
+        DB::table('article_search_analytics')->upsert(
+            $batch,
+            ['page_url', 'date'],
+            ['article_id', 'clicks', 'impressions', 'ctr', 'position']
+        );
+
+        return count($batch);
     }
 
     /**
