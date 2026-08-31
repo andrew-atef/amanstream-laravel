@@ -41,6 +41,12 @@ return [
         'credentials_path' => env('GOOGLE_INDEXING_CREDENTIALS_PATH'),
     ],
 
+    'google_search_console' => [
+        'enabled' => env('GOOGLE_GSC_ENABLED', true),
+        'credentials_path' => env('GOOGLE_INDEXING_CREDENTIALS_PATH'),
+        'site_url' => env('GOOGLE_GSC_SITE_URL', 'https://www.amanprice.tech/'),
+    ],
+
     'indexnow' => [
         'enabled' => env('INDEXNOW_ENABLED', true),
         'base_uri' => env('INDEXNOW_ENDPOINT', 'https://api.indexnow.org/indexnow'),

@@ -6,7 +6,9 @@ use App\Filament\Resources\ArticleResource\Pages;
 use App\Models\Article;
 use App\Models\Product;
 use App\Services\ArticleMediaService;
+use App\Services\GoogleSearchConsoleService;
 use App\Services\SEOHelper;
+use Carbon\Carbon;
 use Filament\Forms\Components\BaseFileUpload;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\MarkdownEditor;
@@ -26,6 +28,7 @@ use Filament\Tables;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Str;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 
@@ -43,10 +46,117 @@ class ArticleResource extends Resource
 
     protected static ?string $pluralModelLabel = 'المقالات';
 
+    /**
+     * Resolve GSC date range from a timeframe key.
+     */
+    protected static function resolveGscRange(string $period): array
+    {
+        $days = match ($period) {
+            '48h' => 2,
+            '7d' => 7,
+            '30d' => 30,
+            '90d' => 90,
+            '180d' => 180,
+            default => 30,
+        };
+
+        $endDate = Carbon::now()->subDays(1);
+        $startDate = Carbon::now()->subDays($days);
+
+        return [$startDate, $endDate];
+    }
+
     public static function form(Form $form): Form
     {
         return $form
             ->schema([
+                Section::make('📊 أداء المقال في جوجل ومخطط النمو')
+                    ->description(fn (?Article $record): string => $record?->gsc_synced_at
+                        ? 'آخر مزامنة: '.$record->gsc_synced_at->diffForHumans()
+                        : 'لم تتم المزامنة بعد — اضغط زر "تحديث بيانات جوجل GSC" في جدول المقالات.')
+                    ->schema([
+                        Select::make('gsc_period')
+                            ->label('فترة التحليل')
+                            ->options([
+                                '48h' => '⚡ آخر 48 ساعة',
+                                '7d' => '📅 آخر 7 أيام',
+                                '30d' => '📅 آخر 30 يوماً',
+                                '90d' => '📊 آخر 3 شهور',
+                                '180d' => '📈 آخر 6 شهور',
+                            ])
+                            ->default('30d')
+                            ->live()
+                            ->columnSpanFull(),
+                        Placeholder::make('gsc_period_impressions')
+                            ->label('الظهور في جوجل')
+                            ->content(function (Get $get, ?Article $record): string {
+                                if (! $record) {
+                                    return '—';
+                                }
+                                [$start, $end] = self::resolveGscRange((string) $get('gsc_period'));
+                                $m = $record->getGscMetricsForPeriod($start, $end);
+
+                                return number_format($m['impressions']);
+                            }),
+                        Placeholder::make('gsc_period_clicks')
+                            ->label('النقرات')
+                            ->content(function (Get $get, ?Article $record): string {
+                                if (! $record) {
+                                    return '—';
+                                }
+                                [$start, $end] = self::resolveGscRange((string) $get('gsc_period'));
+                                $m = $record->getGscMetricsForPeriod($start, $end);
+
+                                return number_format($m['clicks']);
+                            }),
+                        Placeholder::make('gsc_period_ctr')
+                            ->label('نسبة النقر CTR')
+                            ->content(function (Get $get, ?Article $record): string {
+                                if (! $record) {
+                                    return '—';
+                                }
+                                [$start, $end] = self::resolveGscRange((string) $get('gsc_period'));
+                                $m = $record->getGscMetricsForPeriod($start, $end);
+
+                                return $m['ctr'].'%';
+                            }),
+                        Placeholder::make('gsc_period_position')
+                            ->label('متوسط الترتيب')
+                            ->content(function (Get $get, ?Article $record): string {
+                                if (! $record) {
+                                    return '—';
+                                }
+                                [$start, $end] = self::resolveGscRange((string) $get('gsc_period'));
+                                $m = $record->getGscMetricsForPeriod($start, $end);
+
+                                return $m['position'] > 0 ? '#'.$m['position'] : '—';
+                            }),
+                        Select::make('gsc_chart_period')
+                            ->label('فترة المخطط')
+                            ->options([
+                                '7d' => '7 أيام',
+                                '30d' => '30 يوماً',
+                                '90d' => '3 شهور',
+                            ])
+                            ->default('30d')
+                            ->live()
+                            ->columnSpanFull(),
+                        Placeholder::make('gsc_chart')
+                            ->label('مخطط النقرات والظهور اليومي')
+                            ->content(function (Get $get, ?Article $record): string {
+                                if (! $record) {
+                                    return '';
+                                }
+                                [$start, $end] = self::resolveGscRange((string) $get('gsc_chart_period'));
+                                $chartData = $record->getGscChartData($start, $end);
+
+                                return view('forms.gsc-chart', ['get' => fn (?string $key = null) => $chartData])->render();
+                            })
+                            ->columnSpanFull(),
+                    ])
+                    ->columns(4)
+                    ->collapsible()
+                    ->collapsed(),
                 Section::make('بيانات المقال')
                     ->schema([
                         ToggleButtons::make('type')
@@ -299,15 +409,17 @@ class ArticleResource extends Resource
 
     public static function table(Table $table): Table
     {
-    return $table
-        ->columns([
-            TextColumn::make('id')
-                ->label('#')
-                ->sortable()
-                ->searchable()
-                ->toggleable(),
+        $defaultPeriod = '30d';
 
-            TextColumn::make('title')
+        return $table
+            ->columns([
+                TextColumn::make('id')
+                    ->label('#')
+                    ->sortable()
+                    ->searchable()
+                    ->toggleable(),
+
+                TextColumn::make('title')
                     ->label('العنوان')
                     ->searchable()
                     ->sortable()
@@ -339,6 +451,64 @@ class ArticleResource extends Resource
                     ->boolean()
                     ->sortable(),
 
+                TextColumn::make('gsc_clicks_dynamic')
+                    ->label('النقرات')
+                    ->state(function (Article $record) use ($defaultPeriod): int {
+                        [$start, $end] = self::resolveGscRange($defaultPeriod);
+
+                        return $record->getGscMetricsForPeriod($start, $end)['clicks'];
+                    })
+                    ->numeric(decimalPlaces: 0)
+                    ->sortable()
+                    ->badge()
+                    ->color('success')
+                    ->toggleable(),
+
+                TextColumn::make('gsc_impressions_dynamic')
+                    ->label('الظهور')
+                    ->state(function (Article $record) use ($defaultPeriod): int {
+                        [$start, $end] = self::resolveGscRange($defaultPeriod);
+
+                        return $record->getGscMetricsForPeriod($start, $end)['impressions'];
+                    })
+                    ->numeric(decimalPlaces: 0)
+                    ->sortable()
+                    ->toggleable(),
+
+                TextColumn::make('gsc_ctr_dynamic')
+                    ->label('نسبة النقر CTR %')
+                    ->state(function (Article $record) use ($defaultPeriod): string {
+                        [$start, $end] = self::resolveGscRange($defaultPeriod);
+
+                        return $record->getGscMetricsForPeriod($start, $end)['ctr'].'%';
+                    })
+                    ->sortable()
+                    ->toggleable(),
+
+                TextColumn::make('gsc_position_dynamic')
+                    ->label('متوسط الترتيب')
+                    ->state(function (Article $record) use ($defaultPeriod): string {
+                        [$start, $end] = self::resolveGscRange($defaultPeriod);
+                        $pos = $record->getGscMetricsForPeriod($start, $end)['position'];
+
+                        return $pos > 0 ? '#'.$pos : '—';
+                    })
+                    ->sortable()
+                    ->badge()
+                    ->color(function (Article $record) use ($defaultPeriod): string {
+                        [$start, $end] = self::resolveGscRange($defaultPeriod);
+                        $pos = $record->getGscMetricsForPeriod($start, $end)['position'];
+
+                        return $pos <= 3 ? 'success' : ($pos <= 10 ? 'warning' : 'gray');
+                    })
+                    ->toggleable(),
+
+                TextColumn::make('gsc_synced_at')
+                    ->label('آخر مزامنة GSC')
+                    ->since()
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+
                 TextColumn::make('created_at')
                     ->label('تاريخ الإنشاء')
                     ->dateTime('Y-m-d H:i')
@@ -348,7 +518,8 @@ class ArticleResource extends Resource
                 TextColumn::make('updated_at')
                     ->label('آخر تحديث')
                     ->since()
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->defaultSort('updated_at', 'desc')
             ->filters([
@@ -359,6 +530,71 @@ class ArticleResource extends Resource
                 Tables\Filters\SelectFilter::make('category_id')
                     ->label('التصنيف')
                     ->relationship('category', 'name'),
+                Tables\Filters\SelectFilter::make('gsc_period_filter')
+                    ->label('فترة تحليلات جوجل (GSC Period)')
+                    ->options([
+                        '48h' => '⚡ آخر 48 ساعة',
+                        '7d' => '📅 آخر 7 أيام',
+                        '30d' => '📅 آخر 30 يوماً (افتراضي)',
+                        '90d' => '📊 آخر 3 شهور (90 يوماً)',
+                        '180d' => '📈 آخر 6 شهور',
+                    ])
+                    ->default('30d')
+                    ->query(function (Builder $query, array $data): Builder {
+                        $period = $data['value'] ?? '30d';
+                        [$start, $end] = self::resolveGscRange($period);
+                        $startStr = $start->format('Y-m-d');
+                        $endStr = $end->format('Y-m-d');
+
+                        return $query
+                            ->withCount(['searchAnalytics as gsc_clicks_sum' => fn ($q) => $q->whereBetween('date', [$startStr, $endStr])])
+                            ->withCount(['searchAnalytics as gsc_impressions_sum' => fn ($q) => $q->whereBetween('date', [$startStr, $endStr])])
+                            ->withCount(['searchAnalytics as gsc_position_count' => fn ($q) => $q->whereBetween('date', [$startStr, $endStr])]);
+                    }),
+                Tables\Filters\Filter::make('gsc_improvement_opportunity')
+                    ->label('فرص تحسين العناوين (ظهور عالي / CTR منخفض)')
+                    ->query(function (Builder $query): Builder {
+                        return $query->whereHas('searchAnalytics', function ($q) {
+                            $q->where('date', '>=', Carbon::now()->subDays(30)->format('Y-m-d'))
+                                ->selectRaw('article_id, SUM(impressions) as total_imp, SUM(clicks) as total_clk')
+                                ->groupBy('article_id')
+                                ->havingRaw('SUM(impressions) >= 300 AND (SUM(clicks) / NULLIF(SUM(impressions), 0)) * 100 < 3.0');
+                        });
+                    })
+                    ->toggle(),
+                Tables\Filters\Filter::make('gsc_zero_clicks')
+                    ->label('مقالات بدون نقرات (في آخر 30 يوم)')
+                    ->query(function (Builder $query): Builder {
+                        return $query->whereHas('searchAnalytics', function ($q) {
+                            $q->where('date', '>=', Carbon::now()->subDays(30)->format('Y-m-d'))
+                                ->selectRaw('article_id, SUM(clicks) as total_clk, SUM(impressions) as total_imp')
+                                ->groupBy('article_id')
+                                ->havingRaw('SUM(clicks) = 0 AND SUM(impressions) > 0');
+                        });
+                    })
+                    ->toggle(),
+            ])
+            ->headerActions([
+                Tables\Actions\Action::make('sync_gsc')
+                    ->label('تحديث بيانات جوجل GSC')
+                    ->icon('heroicon-m-arrow-path')
+                    ->color('success')
+                    ->action(function () {
+                        $gsc = app(GoogleSearchConsoleService::class);
+                        $upserted = $gsc->syncHistoricalSearchAnalytics(90);
+
+                        if ($upserted === 0) {
+                            $this->notify('warning', 'لم يتم استلام أي بيانات من Google Search Console. تحقق من الإعدادات.');
+
+                            return;
+                        }
+
+                        $this->notify('success', "تم مزامنة {$upserted} صف يومي من بيانات GSC بنجاح.");
+                    })
+                    ->requiresConfirmation()
+                    ->modalHeading('تحديث بيانات Google Search Console')
+                    ->modalDescription('سيتم جلب بيانات يومية للنقرات والظهور من آخر 90 يوم وتحديث جميع المقالات المنشرة.')
+                    ->modalSubmitActionLabel('ابدأ المزامنة'),
             ])
             ->actions([
                 Tables\Actions\Action::make('view')

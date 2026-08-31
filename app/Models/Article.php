@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Services\ArticleMediaService;
 use App\Services\SEOHelper;
 use App\Services\ShortcodeParser;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
@@ -27,12 +28,22 @@ class Article extends Model
         'meta_title',
         'meta_description',
         'is_published',
+        'gsc_clicks_30d',
+        'gsc_impressions_30d',
+        'gsc_ctr_30d',
+        'gsc_position_30d',
+        'gsc_synced_at',
     ];
 
     protected function casts(): array
     {
         return [
             'is_published' => 'boolean',
+            'gsc_clicks_30d' => 'integer',
+            'gsc_impressions_30d' => 'integer',
+            'gsc_ctr_30d' => 'float',
+            'gsc_position_30d' => 'float',
+            'gsc_synced_at' => 'datetime',
         ];
     }
 
@@ -342,6 +353,68 @@ class Article extends Model
         return $this->belongsToMany(Product::class, 'article_product')
             ->withPivot(['sort_order', 'badge_label', 'quick_verdict', 'specs_json', 'specs_markdown'])
             ->orderBy('article_product.sort_order');
+    }
+
+    /**
+     * Daily Google Search Console performance records for this article.
+     *
+     * @return HasMany<ArticleSearchAnalytic, $this>
+     */
+    public function searchAnalytics(): HasMany
+    {
+        return $this->hasMany(ArticleSearchAnalytic::class, 'article_id');
+    }
+
+    /**
+     * Aggregate GSC metrics for any arbitrary date range.
+     */
+    public function getGscMetricsForPeriod(CarbonInterface $startDate, CarbonInterface $endDate): array
+    {
+        $data = $this->searchAnalytics()
+            ->whereBetween('date', [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')])
+            ->selectRaw('SUM(clicks) as total_clicks, SUM(impressions) as total_impressions, AVG(position) as avg_pos')
+            ->first();
+
+        $clicks = (int) ($data->total_clicks ?? 0);
+        $impressions = (int) ($data->total_impressions ?? 0);
+        $ctr = $impressions > 0 ? round(($clicks / $impressions) * 100, 2) : 0.00;
+        $position = round((float) ($data->avg_pos ?? 0.0), 1);
+
+        return [
+            'clicks' => $clicks,
+            'impressions' => $impressions,
+            'ctr' => $ctr,
+            'position' => $position,
+        ];
+    }
+
+    /**
+     * Get daily chart data for the given period, suitable for Filament LineChart.
+     *
+     * @return array{labels: array<int, string>, clicks: array<int, int>, impressions: array<int, int>}
+     */
+    public function getGscChartData(CarbonInterface $startDate, CarbonInterface $endDate): array
+    {
+        $rows = $this->searchAnalytics()
+            ->whereBetween('date', [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')])
+            ->orderBy('date')
+            ->get(['date', 'clicks', 'impressions']);
+
+        $labels = [];
+        $clicks = [];
+        $impressions = [];
+
+        foreach ($rows as $row) {
+            $labels[] = $row->date->format('M d');
+            $clicks[] = (int) $row->clicks;
+            $impressions[] = (int) $row->impressions;
+        }
+
+        return [
+            'labels' => $labels,
+            'clicks' => $clicks,
+            'impressions' => $impressions,
+        ];
     }
 
     /**
