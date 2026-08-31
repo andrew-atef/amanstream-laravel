@@ -203,12 +203,18 @@ class GoogleSearchConsoleService
                 return ['upserted' => 0, 'error' => 'GSC returned 0 rows — service account may not be added as a user in Google Search Console for this property', 'diagnostics' => $diagnostics];
             }
 
-            $slugMap = Article::query()
+            // Build path→article_id map using actual route paths (no slug guessing)
+            $pathMap = [];
+            Article::query()
                 ->where('is_published', true)
-                ->pluck('id', 'slug')
-                ->all();
+                ->select(['id', 'slug', 'type'])
+                ->chunkById(200, function (Article $article) use (&$pathMap) {
+                    $routeName = $article->type === 'blog' ? 'blog.show' : 'articles.show';
+                    $path = parse_url(route($routeName, $article->slug), PHP_URL_PATH) ?: '/';
+                    $pathMap[rtrim($path, '/')] = $article->id;
+                });
 
-            $diagnostics['published_articles'] = count($slugMap);
+            $diagnostics['published_articles'] = count($pathMap);
 
             $upserted = 0;
             $batchSize = 500;
@@ -224,13 +230,9 @@ class GoogleSearchConsoleService
 
                 $path = parse_url($pageUrl, PHP_URL_PATH) ?: '/';
                 $cleanUrl = rtrim($path, '/') ?: '/';
+                $dateOnly = substr($dateStr, 0, 10);
 
-                $slug = null;
-                if (preg_match('#/(?:articles|blog)/([^/]+)$#', $cleanUrl, $m)) {
-                    $slug = $m[1];
-                }
-
-                $articleId = $slug !== null ? ($slugMap[$slug] ?? null) : null;
+                $articleId = $pathMap[$cleanUrl] ?? null;
 
                 $ctr = round((float) ($row['ctr'] ?? 0) * 100, 2);
                 $position = round((float) ($row['position'] ?? 0), 1);
@@ -238,7 +240,7 @@ class GoogleSearchConsoleService
                 $batch[] = [
                     'article_id' => $articleId,
                     'page_url' => $cleanUrl,
-                    'date' => $dateStr,
+                    'date' => $dateOnly,
                     'clicks' => (int) ($row['clicks'] ?? 0),
                     'impressions' => (int) ($row['impressions'] ?? 0),
                     'ctr' => $ctr,
