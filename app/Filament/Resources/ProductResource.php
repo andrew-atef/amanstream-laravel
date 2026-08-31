@@ -296,6 +296,12 @@ class ProductResource extends Resource
                     ->label('المراجعات')
                     ->sortable()
                     ->toggleable(),
+                TextColumn::make('clicks_count')
+                    ->label('النقرات')
+                    ->state(fn (Product $record): int => $record->realtime_clicks_count)
+                    ->sortable()
+                    ->badge()
+                    ->color('success'),
                 IconColumn::make('in_stock')
                     ->label('المخزون')
                     ->boolean()

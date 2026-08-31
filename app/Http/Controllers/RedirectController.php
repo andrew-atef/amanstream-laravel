@@ -6,6 +6,7 @@ use App\Models\Product;
 use App\Services\SEOHelper;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * First-party cloaked affiliate redirect engine.
@@ -48,6 +49,22 @@ class RedirectController extends Controller
         if ($targetUrl === '') {
             $targetUrl = 'https://www.amazon.eg/dp/'.$asin.'?tag='.$tag
                 .'&linkCode=ll2&ref_=as_li_ss_tl';
+        }
+
+        // ── Zero-SQL In-Memory Atomic Buffer ──────────────────────────────
+        // All click counters live in atomic cache; zero DB writes on this
+        // request. The affiliate:flush-clicks scheduled command batch-flushes
+        // them into SQLite every 30 minutes inside a single transaction.
+        $cleanAsin = strtoupper(trim($asin));
+
+        Cache::increment('pending_clicks_asin_'.$cleanAsin);
+        Cache::increment('pending_clicks_total');
+        Cache::increment('pending_clicks_today_'.date('Y-m-d'));
+
+        $activeAsins = (array) Cache::get('pending_clicked_asins_list', []);
+        if (! in_array($cleanAsin, $activeAsins, true)) {
+            $activeAsins[] = $cleanAsin;
+            Cache::put('pending_clicked_asins_list', $activeAsins, now()->addDays(2));
         }
 
         return redirect()->away($targetUrl, 302, [

@@ -581,10 +581,18 @@ class ArticleResource extends Resource
                     ->color('success')
                     ->action(function () {
                         $gsc = app(GoogleSearchConsoleService::class);
-                        $upserted = $gsc->syncHistoricalSearchAnalytics(90);
+                        $result = $gsc->syncHistoricalSearchAnalytics(90);
+
+                        if ($result['error'] !== null) {
+                            $this->notify('warning', 'خطأ في GSC: '.$result['error']);
+
+                            return;
+                        }
+
+                        $upserted = $result['upserted'];
 
                         if ($upserted === 0) {
-                            $this->notify('warning', 'لم يتم استلام أي بيانات من Google Search Console. تحقق من الإعدادات.');
+                            $this->notify('warning', 'لم يتم استلام أي بيانات من Google Search Console.');
 
                             return;
                         }

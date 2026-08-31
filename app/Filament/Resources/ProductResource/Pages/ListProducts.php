@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\ProductResource\Pages;
 
 use App\Filament\Resources\ProductResource;
+use App\Filament\Widgets\AffiliateClicksWidget;
 use App\Models\Product;
 use Filament\Actions;
 use Filament\Resources\Components\Tab;
@@ -17,6 +18,13 @@ class ListProducts extends ListRecords
     {
         return [
             Actions\CreateAction::make(),
+        ];
+    }
+
+    protected function getHeaderWidgets(): array
+    {
+        return [
+            AffiliateClicksWidget::class,
         ];
     }
 

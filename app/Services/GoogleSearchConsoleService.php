@@ -119,81 +119,96 @@ class GoogleSearchConsoleService
     /**
      * Fetch daily search analytics from GSC and upsert into article_search_analytics.
      *
-     * Queries dimensions ["page", "date"] with dataState "all" so both
-     * finalized and fresh (partial) data is captured. Rows are upserted
-     * per (page_url, date) unique key and linked to published articles by slug.
+     * Queries dimensions ["page", "date"] with dataState "finalized" for
+     * stable, complete data. Rows are upserted per (page_url, date) unique
+     * key and linked to published articles by slug.
      *
-     * Returns the number of rows upserted.
+     * Returns ['upserted' => int, 'error' => ?string, 'diagnostics' => array].
      */
-    public function syncHistoricalSearchAnalytics(int $daysBack = 90): int
+    public function syncHistoricalSearchAnalytics(int $daysBack = 90): array
     {
+        $diagnostics = [];
+
         try {
             if (! filter_var(config('services.google_search_console.enabled', true), FILTER_VALIDATE_BOOLEAN)) {
-                Log::info('GSC: Search Console sync disabled by config.');
-
-                return 0;
+                return ['upserted' => 0, 'error' => 'GSC sync disabled by GOOGLE_GSC_ENABLED=false', 'diagnostics' => $diagnostics];
             }
 
             $credentialsPath = config('services.google_search_console.credentials_path');
 
-            if (blank($credentialsPath) || ! is_file($credentialsPath)) {
-                Log::info('GSC: Service account credentials not configured, skipping.');
-
-                return 0;
+            if (blank($credentialsPath)) {
+                return ['upserted' => 0, 'error' => 'GOOGLE_INDEXING_CREDENTIALS_PATH is not set in .env', 'diagnostics' => $diagnostics];
             }
+
+            if (! is_file($credentialsPath)) {
+                return ['upserted' => 0, 'error' => "Credentials file not found: {$credentialsPath}", 'diagnostics' => $diagnostics];
+            }
+
+            $diagnostics['credentials_path'] = $credentialsPath;
+
+            $credentials = json_decode(file_get_contents($credentialsPath), true);
+
+            if (! is_array($credentials) || blank($credentials['client_email'] ?? null)) {
+                return ['upserted' => 0, 'error' => 'Invalid credentials file — missing client_email', 'diagnostics' => $diagnostics];
+            }
+
+            $diagnostics['service_account'] = $credentials['client_email'];
 
             $accessToken = $this->obtainAccessToken($credentialsPath);
 
             if (blank($accessToken)) {
-                Log::warning('GSC: Could not obtain Google access token for historical sync.');
-
-                return 0;
+                return ['upserted' => 0, 'error' => 'Could not obtain Google access token — check private_key in credentials file', 'diagnostics' => $diagnostics];
             }
 
-            $siteUrl = config('services.google_search_console.site_url', 'https://www.amanprice.tech/');
-            $encodedSiteUrl = rawurlencode(rtrim($siteUrl, '/'));
+            $diagnostics['token_obtained'] = true;
 
-            // GSC API endDate must be at least 1 day before today for fresh data
+            $siteUrl = config('services.google_search_console.site_url', 'https://www.amanprice.tech/');
+            $siteUrl = rtrim($siteUrl, '/');
+            $encodedSiteUrl = rawurlencode($siteUrl);
+
             $endDate = Carbon::now()->subDays(1)->format('Y-m-d');
             $startDate = Carbon::now()->subDays($daysBack)->format('Y-m-d');
+
+            $diagnostics['site_url'] = $siteUrl;
+            $diagnostics['encoded_url'] = $encodedSiteUrl;
+            $diagnostics['date_range'] = "{$startDate} → {$endDate}";
 
             $payload = [
                 'startDate' => $startDate,
                 'endDate' => $endDate,
                 'dimensions' => ['page', 'date'],
-                'dataState' => 'all',
                 'rowLimit' => 25000,
             ];
 
+            $apiUrl = self::GSC_BASE_URI.'/sites/'.$encodedSiteUrl.'/searchAnalytics/query';
+            $diagnostics['api_url'] = $apiUrl;
+
             $response = Http::withToken($accessToken)
                 ->timeout(60)
-                ->post(
-                    self::GSC_BASE_URI.'/sites/'.$encodedSiteUrl.'/searchAnalytics/query',
-                    $payload
-                );
+                ->post($apiUrl, $payload);
+
+            $diagnostics['http_status'] = $response->status();
 
             if (! $response->successful()) {
-                Log::warning('GSC: Historical analytics API request failed.', [
-                    'status' => $response->status(),
-                    'body' => (string) $response->body(),
-                ]);
+                $body = (string) $response->body();
+                $diagnostics['response_body'] = mb_substr($body, 0, 500);
 
-                return 0;
+                return ['upserted' => 0, 'error' => "GSC API returned HTTP {$response->status()}", 'diagnostics' => $diagnostics];
             }
 
             $data = $response->json('rows', []);
+            $diagnostics['rows_returned'] = count($data);
 
             if ($data === []) {
-                Log::info('GSC: No historical rows returned.');
-
-                return 0;
+                return ['upserted' => 0, 'error' => 'GSC returned 0 rows — service account may not be added as a user in Google Search Console for this property', 'diagnostics' => $diagnostics];
             }
 
-            // Build a slug→article map for published articles
             $slugMap = Article::query()
                 ->where('is_published', true)
                 ->pluck('id', 'slug')
                 ->all();
+
+            $diagnostics['published_articles'] = count($slugMap);
 
             $upserted = 0;
             $batchSize = 500;
@@ -210,7 +225,6 @@ class GoogleSearchConsoleService
                 $path = parse_url($pageUrl, PHP_URL_PATH) ?: '/';
                 $cleanUrl = rtrim($path, '/');
 
-                // Extract slug from /articles/{slug} or /blog/{slug}
                 $slug = null;
                 if (preg_match('#/(?:articles|blog)/([^/]+)$#', $cleanUrl, $m)) {
                     $slug = $m[1];
@@ -241,19 +255,14 @@ class GoogleSearchConsoleService
                 $upserted += $this->upsertBatch($batch);
             }
 
-            Log::info("GSC: Historical sync complete — {$upserted} rows upserted.", [
-                'start' => $startDate,
-                'end' => $endDate,
-            ]);
+            $diagnostics['upserted'] = $upserted;
 
-            return $upserted;
+            return ['upserted' => $upserted, 'error' => null, 'diagnostics' => $diagnostics];
 
         } catch (ConnectionException|\Throwable $e) {
-            Log::error('GSC: Historical sync failed.', [
-                'error' => $e->getMessage(),
-            ]);
+            $diagnostics['exception'] = $e->getMessage();
 
-            return 0;
+            return ['upserted' => 0, 'error' => 'Exception: '.$e->getMessage(), 'diagnostics' => $diagnostics];
         }
     }
 

@@ -51,6 +51,7 @@ class Product extends Model
         'price_history_json',
         'rating',
         'review_count',
+        'clicks_count',
         'affiliate_url',
         'image_url',
         'raw_reviews_text',
@@ -83,6 +84,7 @@ class Product extends Model
             'price_history_json' => 'array',
             'rating' => 'decimal:2',
             'review_count' => 'integer',
+            'clicks_count' => 'integer',
             'in_stock' => 'boolean',
             'supports_installment' => 'boolean',
             'is_active' => 'boolean',
@@ -141,6 +143,18 @@ class Product extends Model
         $asin = str_contains($raw, 'noon.com') ? null : (string) ($this->attributes['asin'] ?? '');
 
         return SEOHelper::cleanAffiliateUrl($raw, $asin);
+    }
+
+    /**
+     * Real-time total clicks combining persisted DB count + un-flushed
+     * in-memory cache buffer. The cache buffer is periodically flushed
+     * by the affiliate:flush-clicks artisan command.
+     */
+    public function getRealtimeClicksCountAttribute(): int
+    {
+        $cachedPending = (int) \Illuminate\Support\Facades\Cache::get('pending_clicks_asin_'.strtoupper((string) $this->asin), 0);
+
+        return (int) $this->clicks_count + $cachedPending;
     }
 
     protected static function booted(): void
