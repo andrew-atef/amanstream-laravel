@@ -35,6 +35,20 @@ class SitemapController extends Controller
                 'priority' => '0.3',
             ];
 
+            $urls[] = [
+                'loc' => route('privacy'),
+                'lastmod' => now(),
+                'changefreq' => 'yearly',
+                'priority' => '0.3',
+            ];
+
+            $urls[] = [
+                'loc' => route('terms'),
+                'lastmod' => now(),
+                'changefreq' => 'yearly',
+                'priority' => '0.3',
+            ];
+
             // Editorial blog hub — the index page itself deserves an entry so
             // crawlers discover feed updates even if individual posts rotate.
             $urls[] = [

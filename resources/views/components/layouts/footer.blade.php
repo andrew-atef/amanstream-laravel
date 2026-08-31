@@ -7,6 +7,10 @@
             <span aria-hidden="true">•</span>
             <a href="/about" class="transition hover:text-primary-600">عن أمان برايس</a>
             <span aria-hidden="true">•</span>
+            <a href="/privacy-policy" class="transition hover:text-primary-600">سياسة الخصوصية</a>
+            <span aria-hidden="true">•</span>
+            <a href="/terms" class="transition hover:text-primary-600">الشروط والأحكام</a>
+            <span aria-hidden="true">•</span>
             <a href="/sitemap.xml" class="transition hover:text-primary-600">خريطة الموقع (Sitemap)</a>
             <span aria-hidden="true">•</span>
             <a href="/llms.txt" target="_blank" rel="noopener" class="rounded border border-slate-200 bg-slate-100 px-2 py-0.5 font-mono text-[11px] transition hover:text-primary-600">llms.txt (AI Specs)</a>

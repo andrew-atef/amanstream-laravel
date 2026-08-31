@@ -36,6 +36,14 @@ Route::get('/about', function () {
     return view('about');
 })->name('about');
 
+Route::get('/privacy-policy', function () {
+    return view('privacy-policy');
+})->name('privacy');
+
+Route::get('/terms', function () {
+    return view('terms');
+})->name('terms');
+
 Route::get('/articles/{slug}', [ArticleController::class, 'show'])
     ->name('articles.show');
 
