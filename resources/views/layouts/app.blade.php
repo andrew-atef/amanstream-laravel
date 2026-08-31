@@ -8,7 +8,7 @@
     'robots' => 'index, follow, max-image-size:large, max-snippet:-1, max-video-preview:-1',
 ])
 <!DOCTYPE html>
-<html lang="ar" dir="rtl" class="scroll-smooth">
+<html lang="ar" dir="rtl" class="scroll-smooth overflow-x-hidden">
 <head>
     <!-- Google tag (gtag.js) — async loader + config deferred off the main
          thread (requestIdleCallback) to keep TBT/interaction-low on small hosts. -->
@@ -125,7 +125,7 @@
     @stack('head_meta')
     @stack('schema')
 </head>
-<body class="min-h-screen bg-white text-ink antialiased selection:bg-primary-600 selection:text-white">
+<body class="min-h-screen overflow-x-hidden bg-white text-ink antialiased selection:bg-primary-600 selection:text-white">
 
     <!-- Rich AmanPrice Header -->
     <x-layouts.header :categories="$headerCategories ?? collect()" />
