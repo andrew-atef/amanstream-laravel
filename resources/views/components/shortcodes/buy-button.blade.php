@@ -14,7 +14,7 @@
         href="{{ $goUrl }}"
         target="_blank"
         rel="nofollow sponsored noopener"
-        class="inline-flex {{ $compact ? 'h-9 px-4 text-xs' : 'h-11 px-6 text-sm' }} items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-primary-600 font-bold text-white no-underline shadow-md shadow-primary-600/25 transition-all hover:bg-primary-700 hover:shadow-lg hover:no-underline active:scale-95"
+        class="inline-flex {{ $compact ? 'h-9 px-4 text-xs' : 'h-11 px-6 text-sm' }} items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-primary-600 font-bold !text-white !no-underline shadow-md shadow-primary-600/25 transition-all hover:bg-primary-700 hover:shadow-lg hover:!no-underline active:scale-95"
     >
         <span class="flex shrink-0 items-center justify-center rounded bg-white px-1.5 py-0.5">
             <img src="/icons/amazon.svg" alt="Amazon" width="24" height="24" loading="lazy" class="h-4 w-auto object-contain">

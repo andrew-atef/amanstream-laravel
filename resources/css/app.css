@@ -66,9 +66,19 @@
     margin-bottom: 0.25rem;
 }
 
-.article-content a:not([href*="amazon"]) {
+.article-content a:not([href*="amazon"]):not([class*="bg-primary"]) {
     color: var(--color-primary-700);
     text-decoration-line: underline;
+}
+
+.article-content a[class*="bg-primary"] {
+    color: white !important;
+    text-decoration: none !important;
+}
+
+.article-content a[class*="bg-primary"] img {
+    margin: 0 !important;
+    border-radius: 0.25rem !important;
 }
 
 .article-content img {
