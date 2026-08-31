@@ -584,7 +584,11 @@ class ArticleResource extends Resource
                         $result = $gsc->syncHistoricalSearchAnalytics(90);
 
                         if ($result['error'] !== null) {
-                            $this->notify('warning', 'خطأ في GSC: '.$result['error']);
+                            \Filament\Notifications\Notification::make()
+                                ->warning()
+                                ->title('خطأ في GSC')
+                                ->body($result['error'])
+                                ->send();
 
                             return;
                         }
@@ -592,12 +596,18 @@ class ArticleResource extends Resource
                         $upserted = $result['upserted'];
 
                         if ($upserted === 0) {
-                            $this->notify('warning', 'لم يتم استلام أي بيانات من Google Search Console.');
+                            \Filament\Notifications\Notification::make()
+                                ->warning()
+                                ->title('لم يتم استلام أي بيانات من Google Search Console.')
+                                ->send();
 
                             return;
                         }
 
-                        $this->notify('success', "تم مزامنة {$upserted} صف يومي من بيانات GSC بنجاح.");
+                        \Filament\Notifications\Notification::make()
+                            ->success()
+                            ->title("تم مزامنة {$upserted} صف يومي من بيانات GSC بنجاح.")
+                            ->send();
                     })
                     ->requiresConfirmation()
                     ->modalHeading('تحديث بيانات Google Search Console')
